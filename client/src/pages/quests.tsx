@@ -1,27 +1,28 @@
 import { useGameState } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, Coins, Target } from "lucide-react";
+import { useState } from "react";
 
 const TEST_QUESTS = [
   {
     id: "q1",
-    title: "Model an Apple",
-    description: "Use the subdivision surface modifier to make a cute low-poly apple.",
+    title: "Смоделируй яблоко",
+    description: "Используй модификатор Subdivision Surface, чтобы сделать милое лоу-поли яблоко.",
     xpReward: 50,
     goldReward: 20,
   },
   {
     id: "q2",
-    title: "Learn Extrude",
-    description: "Press 'E' to extrude a face on the default cube.",
+    title: "Изучи Extrude",
+    description: "Нажми 'E', чтобы выдавить грань на стандартном кубе.",
     xpReward: 100,
     goldReward: 50,
   },
   {
     id: "q3",
-    title: "Add a Material",
-    description: "Make your cube look like a shiny piece of plastic.",
+    title: "Добавь материал",
+    description: "Сделай свой куб похожим на блестящий кусок пластика.",
     xpReward: 75,
     goldReward: 30,
   }
@@ -29,6 +30,13 @@ const TEST_QUESTS = [
 
 export default function QuestsPage() {
   const { completedQuests, completeQuest } = useGameState();
+  const [showRewardMessage, setShowRewardMessage] = useState(false);
+
+  const handleComplete = (quest: typeof TEST_QUESTS[0]) => {
+    completeQuest(quest.id, quest.xpReward, quest.goldReward);
+    setShowRewardMessage(true);
+    setTimeout(() => setShowRewardMessage(false), 3000);
+  };
 
   const container = {
     hidden: { opacity: 0 },
@@ -57,10 +65,23 @@ export default function QuestsPage() {
             <Target className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-display font-bold text-slate-800">Daily Quests</h1>
-            <p className="text-slate-500 text-sm font-medium">Complete to level up!</p>
+            <h1 className="text-2xl font-display font-bold text-slate-800">Ежедневные задания</h1>
+            <p className="text-slate-500 text-sm font-medium">Выполняй, чтобы повысить уровень!</p>
           </div>
         </div>
+
+        <AnimatePresence>
+          {showRewardMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mb-4 p-3 bg-green-100 text-green-700 rounded-2xl text-center font-bold text-sm border border-green-200"
+            >
+              +XP и голда начислены
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-4">
           {TEST_QUESTS.map((quest) => {
@@ -98,7 +119,7 @@ export default function QuestsPage() {
                   </div>
                   
                   <button
-                    onClick={() => !isCompleted && completeQuest(quest.id, quest.xpReward, quest.goldReward)}
+                    onClick={() => !isCompleted && handleComplete(quest)}
                     disabled={isCompleted}
                     className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
                       isCompleted 
@@ -106,7 +127,7 @@ export default function QuestsPage() {
                         : "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30 hover:shadow-lg"
                     }`}
                   >
-                    {isCompleted ? "Done" : "Complete"}
+                    {isCompleted ? "Готово" : "Выполнить"}
                   </button>
                 </div>
               </motion.div>

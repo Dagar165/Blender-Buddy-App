@@ -6,10 +6,10 @@ export function BottomNav() {
   const [location] = useLocation();
 
   const tabs = [
-    { name: "Pet", path: "/", icon: Ghost },
-    { name: "Quests", path: "/quests", icon: Scroll },
-    { name: "Shop", path: "/shop", icon: ShoppingBag },
-    { name: "Profile", path: "/profile", icon: UserRound },
+    { name: "Питомец", path: "/", icon: Ghost },
+    { name: "Задания", path: "/quests", icon: Scroll },
+    { name: "Магазин", path: "/shop", icon: ShoppingBag },
+    { name: "Профиль", path: "/profile", icon: UserRound },
   ];
 
   return (

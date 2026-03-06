@@ -5,10 +5,10 @@ import { Store, Coins, Crown, Zap, Mouse, Keyboard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const SHOP_ITEMS = [
-  { id: "item1", name: "Magic Hat", cost: 50, icon: Crown, color: "text-purple-500", bg: "bg-purple-100" },
-  { id: "item2", name: "Speed Potion", cost: 100, icon: Zap, color: "text-blue-500", bg: "bg-blue-100" },
-  { id: "item3", name: "Golden Keyboard", cost: 150, icon: Keyboard, color: "text-yellow-500", bg: "bg-yellow-100" },
-  { id: "item4", name: "Pro Mouse", cost: 200, icon: Mouse, color: "text-rose-500", bg: "bg-rose-100" },
+  { id: "item1", name: "Волшебная шляпа", cost: 50, icon: Crown, color: "text-purple-500", bg: "bg-purple-100" },
+  { id: "item2", name: "Зелье скорости", cost: 100, icon: Zap, color: "text-blue-500", bg: "bg-blue-100" },
+  { id: "item3", name: "Золотая клавиатура", cost: 150, icon: Keyboard, color: "text-yellow-500", bg: "bg-yellow-100" },
+  { id: "item4", name: "Про-мышь", cost: 200, icon: Mouse, color: "text-rose-500", bg: "bg-rose-100" },
 ];
 
 export default function ShopPage() {
@@ -19,13 +19,13 @@ export default function ShopPage() {
     const success = buyItem(id, cost, name);
     if (success) {
       toast({
-        title: "Item Purchased! 🎉",
-        description: `${name} has been added to your inventory.`,
+        title: "Товар куплен! 🎉",
+        description: `${name} добавлен в твой инвентарь.`,
       });
     } else {
       toast({
-        title: "Not enough gold!",
-        description: "Complete more quests to earn gold.",
+        title: "Недостаточно голды!",
+        description: "Выполняй больше заданий, чтобы заработать голду.",
         variant: "destructive",
       });
     }
@@ -45,8 +45,8 @@ export default function ShopPage() {
             <Store className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-display font-bold text-slate-800">Pet Shop</h1>
-            <p className="text-slate-500 text-sm font-medium">Buy cool gear for your mascot!</p>
+            <h1 className="text-2xl font-display font-bold text-slate-800">Магазин питомцев</h1>
+            <p className="text-slate-500 text-sm font-medium">Купи крутое снаряжение для маскота!</p>
           </div>
         </div>
 
@@ -82,7 +82,7 @@ export default function ShopPage() {
                   }`}
                 >
                   {isOwned ? (
-                    "Owned"
+                    "Куплено"
                   ) : (
                     <>
                       {item.cost} <Coins className="w-4 h-4" />

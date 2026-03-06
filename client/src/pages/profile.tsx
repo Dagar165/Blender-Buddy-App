@@ -60,20 +60,20 @@ export default function ProfilePage() {
                 </div>
               )}
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-md text-xs">Level {level}</span>
-                <span className="text-slate-500 text-sm font-medium">{xp} Total XP</span>
+                <span className="text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-md text-xs">Уровень {level}</span>
+                <span className="text-slate-500 text-sm font-medium">{xp} Всего XP</span>
               </div>
             </div>
           </div>
         </div>
 
         <h3 className="font-display font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
-          <Package className="text-secondary" /> My Inventory
+          <Package className="text-secondary" /> Мой Инвентарь
         </h3>
         
         {inventory.length === 0 ? (
           <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-8 text-center mb-8">
-            <p className="text-slate-500 font-medium">Your inventory is empty.<br/>Visit the shop to buy cool gear!</p>
+            <p className="text-slate-500 font-medium">Твой инвентарь пуст.<br/>Посети магазин, чтобы купить крутое снаряжение!</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 mb-8">
@@ -90,13 +90,13 @@ export default function ProfilePage() {
 
         <button 
           onClick={() => {
-            if (window.confirm("Are you sure you want to reset all your progress?")) {
+            if (window.confirm("Ты уверен, что хочешь сбросить весь свой прогресс?")) {
               resetGame();
             }
           }}
           className="w-full py-4 flex items-center justify-center gap-2 text-red-500 font-bold bg-red-50 hover:bg-red-100 rounded-2xl transition-colors"
         >
-          <RotateCcw className="w-5 h-5" /> Reset Game Progress
+          <RotateCcw className="w-5 h-5" /> Сбросить прогресс
         </button>
       </div>
     </motion.div>

@@ -27,7 +27,7 @@ export function Mascot() {
       ) : (
         <div className="relative z-10 w-full h-full bg-gradient-to-tr from-primary to-blue-300 rounded-3xl flex flex-col items-center justify-center text-white shadow-xl shadow-primary/30 border-4 border-white transform rotate-3">
           <Ghost className="w-20 h-20 mb-2 drop-shadow-md" strokeWidth={1.5} />
-          <span className="font-display font-bold text-xl drop-shadow-md">Mascot</span>
+          <span className="font-display font-bold text-xl drop-shadow-md">Маскот</span>
         </div>
       )}
       

@@ -22,16 +22,16 @@ export default function PetPage() {
           className="text-center mb-8"
         >
           <h1 className="text-3xl font-display font-bold text-primary drop-shadow-sm mb-1">
-            Hi, {username}!
+            Привет, {username}!
           </h1>
-          <p className="text-slate-500 font-medium">Ready to learn Blender 3D?</p>
+          <p className="text-slate-500 font-medium">Готов изучать Blender 3D?</p>
         </motion.div>
 
         <Mascot />
 
         <div className="w-full max-w-sm mt-12 bg-white p-6 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100">
           <div className="flex justify-between items-end mb-3">
-            <h3 className="font-display font-bold text-slate-700 text-lg">Next Level</h3>
+            <h3 className="font-display font-bold text-slate-700 text-lg">Следующий уровень</h3>
             <span className="text-sm font-bold text-primary">{xp} XP</span>
           </div>
           
@@ -48,8 +48,8 @@ export default function PetPage() {
           </div>
           
           <div className="flex justify-between mt-2 text-xs font-bold text-slate-400">
-            <span>Level {level}</span>
-            <span>Level {level + 1}</span>
+            <span>Уровень {level}</span>
+            <span>Уровень {level + 1}</span>
           </div>
         </div>
       </div>
