@@ -51,12 +51,22 @@ export default function PetPage() {
           transition={{ duration: 0.35, ease: "easeOut" }}
           className="flex items-center justify-center"
         >
-          <img
-            src={ghostLevel1}
-            alt="Маскот первого уровня"
-            className="w-full max-w-[260px] md:max-w-[300px] h-auto select-none drop-shadow-[0_16px_32px_rgba(59,130,246,0.18)]"
-            draggable={false}
-          />
+          <motion.div
+            animate={{ y: [0, -10, 0] }}
+            transition={{
+              duration: 3.2,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+            className="flex items-center justify-center"
+          >
+            <img
+              src={ghostLevel1}
+              alt="Маскот первого уровня"
+              className="w-full max-w-[312px] md:max-w-[360px] h-auto select-none drop-shadow-[0_16px_32px_rgba(59,130,246,0.18)]"
+              draggable={false}
+            />
+          </motion.div>
         </motion.div>
 
         <div className="w-full max-w-sm mt-12 bg-white p-6 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100">
