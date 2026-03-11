@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
+import { useGameState } from "@/hooks/use-game-state";
 
 // Components & Pages
 import { BottomNav } from "@/components/bottom-nav";
@@ -27,7 +28,11 @@ function Router() {
   );
 }
 
-function App() {
+function AppContent() {
+  const bootstrapTelegramCloud = useGameState(
+    (state) => state.bootstrapTelegramCloud
+  );
+
   useEffect(() => {
     try {
       // @ts-ignore
@@ -40,20 +45,28 @@ function App() {
     } catch (e) {
       console.warn("Telegram WebApp initialization failed", e);
     }
-  }, []);
 
+    void bootstrapTelegramCloud();
+  }, [bootstrapTelegramCloud]);
+
+  return (
+    <WouterRouter base="/Blender-Buddy-App">
+      <div className="fixed inset-0 w-full h-full bg-background overflow-hidden">
+        <div className="w-full h-full bg-background relative overflow-x-hidden overflow-y-auto flex flex-col">
+          <Router />
+          <BottomNav />
+          <Toaster />
+        </div>
+      </div>
+    </WouterRouter>
+  );
+}
+
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base="/Blender-Buddy-App">
-          <div className="fixed inset-0 w-full h-full bg-background overflow-hidden">
-            <div className="w-full h-full bg-background relative overflow-x-hidden overflow-y-auto flex flex-col">
-              <Router />
-              <BottomNav />
-              <Toaster />
-            </div>
-          </div>
-        </WouterRouter>
+        <AppContent />
       </TooltipProvider>
     </QueryClientProvider>
   );
