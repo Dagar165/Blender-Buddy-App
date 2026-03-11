@@ -3,62 +3,11 @@ import { useGameState } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, Coins, Target } from "lucide-react";
-
-type QuestItem = {
-  id: string;
-  title: string;
-  description: string;
-  xpReward: number;
-  goldReward: number;
-};
-
-type QuestTab = "daily" | "weekly";
-
-const DAILY_QUESTS: QuestItem[] = [
-  {
-    id: "daily-apple",
-    title: "Смоделируй яблоко",
-    description:
-      "Используй Subdivision Surface, чтобы сделать аккуратное лоу-поли яблоко.",
-    xpReward: 50,
-    goldReward: 20,
-  },
-  {
-    id: "daily-extrude",
-    title: "Потренируй Extrude",
-    description:
-      "Сделай простую форму из куба через Extrude и пару дополнительных граней.",
-    xpReward: 70,
-    goldReward: 30,
-  },
-  {
-    id: "daily-material",
-    title: "Добавь материал",
-    description:
-      "Назначь объекту материал и настрой базовый цвет, roughness и metallic.",
-    xpReward: 60,
-    goldReward: 25,
-  },
-];
-
-const WEEKLY_QUESTS: QuestItem[] = [
-  {
-    id: "weekly-prop",
-    title: "Собери мини-проп",
-    description:
-      "Сделай один законченный объект: кружку, ящик, лампу или любой другой простой prop.",
-    xpReward: 180,
-    goldReward: 90,
-  },
-  {
-    id: "weekly-scene",
-    title: "Оформи мини-сцену",
-    description:
-      "Собери небольшую сцену из нескольких объектов, добавь свет и базовую композицию.",
-    xpReward: 220,
-    goldReward: 120,
-  },
-];
+import {
+  QUESTS_CONFIG,
+  type QuestDefinition,
+  type QuestTab,
+} from "@/config/quests-config";
 
 const container = {
   hidden: { opacity: 0 },
@@ -78,9 +27,9 @@ function QuestCard({
   isCompleted,
   onComplete,
 }: {
-  quest: QuestItem;
+  quest: QuestDefinition;
   isCompleted: boolean;
-  onComplete: (quest: QuestItem) => void;
+  onComplete: (quest: QuestDefinition) => void;
 }) {
   return (
     <motion.div
@@ -128,8 +77,13 @@ function QuestCard({
   );
 }
 
-function getCompletedCount(quests: QuestItem[], completedIds: string[]) {
+function getCompletedCount(quests: QuestDefinition[], completedIds: string[]) {
   return quests.filter((quest) => completedIds.includes(quest.id)).length;
+}
+
+function getRewardMessage(tab: QuestTab, quest: QuestDefinition) {
+  const label = QUESTS_CONFIG.tabs[tab].sectionTitle;
+  return `${label} выполнен: +${quest.xpReward} XP и +${quest.goldReward} gold`;
 }
 
 export default function QuestsPage() {
@@ -144,6 +98,13 @@ export default function QuestsPage() {
   const [activeTab, setActiveTab] = useState<QuestTab>("daily");
   const [showRewardMessage, setShowRewardMessage] = useState<string | null>(null);
   const rewardTimeoutRef = useRef<number | null>(null);
+
+  const dailyQuests = QUESTS_CONFIG.pools.daily;
+  const weeklyQuests = QUESTS_CONFIG.pools.weekly;
+
+  const dailyTabConfig = QUESTS_CONFIG.tabs.daily;
+  const weeklyTabConfig = QUESTS_CONFIG.tabs.weekly;
+  const activeTabConfig = QUESTS_CONFIG.tabs[activeTab];
 
   useEffect(() => {
     refreshQuestCycles();
@@ -169,7 +130,7 @@ export default function QuestsPage() {
     }, 3000);
   };
 
-  const handleCompleteDaily = (quest: QuestItem) => {
+  const handleCompleteDaily = (quest: QuestDefinition) => {
     const wasCompleted = completeDailyQuest(
       quest.id,
       quest.xpReward,
@@ -177,11 +138,11 @@ export default function QuestsPage() {
     );
 
     if (wasCompleted) {
-      showReward(`Daily выполнен: +${quest.xpReward} XP и +${quest.goldReward} gold`);
+      showReward(getRewardMessage("daily", quest));
     }
   };
 
-  const handleCompleteWeekly = (quest: QuestItem) => {
+  const handleCompleteWeekly = (quest: QuestDefinition) => {
     const wasCompleted = completeWeeklyQuest(
       quest.id,
       quest.xpReward,
@@ -189,18 +150,18 @@ export default function QuestsPage() {
     );
 
     if (wasCompleted) {
-      showReward(`Weekly выполнен: +${quest.xpReward} XP и +${quest.goldReward} gold`);
+      showReward(getRewardMessage("weekly", quest));
     }
   };
 
   const dailyCompletedIds = dailyProgress.completedIds;
   const weeklyCompletedIds = weeklyProgress.completedIds;
 
-  const dailyCompletedCount = getCompletedCount(DAILY_QUESTS, dailyCompletedIds);
-  const weeklyCompletedCount = getCompletedCount(WEEKLY_QUESTS, weeklyCompletedIds);
+  const dailyCompletedCount = getCompletedCount(dailyQuests, dailyCompletedIds);
+  const weeklyCompletedCount = getCompletedCount(weeklyQuests, weeklyCompletedIds);
 
   const isDailyTab = activeTab === "daily";
-  const visibleQuests = isDailyTab ? DAILY_QUESTS : WEEKLY_QUESTS;
+  const visibleQuests = isDailyTab ? dailyQuests : weeklyQuests;
   const visibleCompletedIds = isDailyTab ? dailyCompletedIds : weeklyCompletedIds;
   const visibleOnComplete = isDailyTab ? handleCompleteDaily : handleCompleteWeekly;
 
@@ -220,10 +181,10 @@ export default function QuestsPage() {
 
           <div>
             <h1 className="text-2xl font-display font-bold text-slate-800">
-              Задания
+              {QUESTS_CONFIG.page.title}
             </h1>
             <p className="text-slate-500 text-sm font-medium">
-              Daily и weekly цели без сброса прогресса профиля
+              {QUESTS_CONFIG.page.subtitle}
             </p>
           </div>
         </div>
@@ -252,7 +213,9 @@ export default function QuestsPage() {
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-display text-lg font-bold">Daily</span>
+                <span className="font-display text-lg font-bold">
+                  {dailyTabConfig.tabLabel}
+                </span>
                 <span
                   className={`min-w-10 rounded-xl px-2 py-1 text-center text-sm font-bold ${
                     isDailyTab
@@ -260,7 +223,7 @@ export default function QuestsPage() {
                       : "bg-white text-slate-700 border border-slate-200"
                   }`}
                 >
-                  {dailyCompletedCount}/{DAILY_QUESTS.length}
+                  {dailyCompletedCount}/{dailyQuests.length}
                 </span>
               </div>
               <p
@@ -268,7 +231,7 @@ export default function QuestsPage() {
                   isDailyTab ? "text-white/80" : "text-slate-400"
                 }`}
               >
-                Каждый день
+                {dailyTabConfig.tabHint}
               </p>
             </button>
 
@@ -281,7 +244,9 @@ export default function QuestsPage() {
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-display text-lg font-bold">Weekly</span>
+                <span className="font-display text-lg font-bold">
+                  {weeklyTabConfig.tabLabel}
+                </span>
                 <span
                   className={`min-w-10 rounded-xl px-2 py-1 text-center text-sm font-bold ${
                     !isDailyTab
@@ -289,7 +254,7 @@ export default function QuestsPage() {
                       : "bg-white text-slate-700 border border-slate-200"
                   }`}
                 >
-                  {weeklyCompletedCount}/{WEEKLY_QUESTS.length}
+                  {weeklyCompletedCount}/{weeklyQuests.length}
                 </span>
               </div>
               <p
@@ -297,7 +262,7 @@ export default function QuestsPage() {
                   !isDailyTab ? "text-white/80" : "text-slate-400"
                 }`}
               >
-                Каждую неделю
+                {weeklyTabConfig.tabHint}
               </p>
             </button>
           </div>
@@ -306,17 +271,17 @@ export default function QuestsPage() {
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-xl font-display font-bold text-slate-800">
-              {isDailyTab ? "Daily" : "Weekly"}
+              {activeTabConfig.sectionTitle}
             </h2>
             <p className="text-slate-500 text-sm">
-              {isDailyTab ? "Обновляются каждый день" : "Обновляются каждую неделю"}
+              {activeTabConfig.sectionSubtitle}
             </p>
           </div>
 
           <div className="text-sm font-bold text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
             {isDailyTab
-              ? `${dailyCompletedCount}/${DAILY_QUESTS.length}`
-              : `${weeklyCompletedCount}/${WEEKLY_QUESTS.length}`}
+              ? `${dailyCompletedCount}/${dailyQuests.length}`
+              : `${weeklyCompletedCount}/${weeklyQuests.length}`}
           </div>
         </div>
 
