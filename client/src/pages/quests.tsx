@@ -83,8 +83,10 @@ function getCompletedCount(quests: QuestDefinition[], completedIds: string[]) {
 }
 
 function getRewardMessage(tab: QuestTab, quest: QuestDefinition) {
-  const label = QUESTS_CONFIG.tabs[tab].sectionTitle;
-  return `${label} выполнен: +${quest.xpReward} XP и +${quest.goldReward} gold`;
+  const label =
+    tab === "daily" ? "Ежедневное задание" : "Еженедельное задание";
+
+  return `${label} выполнено: +${quest.xpReward} XP и +${quest.goldReward} монет`;
 }
 
 export default function QuestsPage() {
