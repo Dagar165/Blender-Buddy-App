@@ -25,6 +25,11 @@ type LevelData = {
   xpProgress: number;
 };
 
+type RecurringQuestProgress = {
+  cycleKey: string;
+  completedIds: string[];
+};
+
 export interface GameState extends LevelData {
   username: string;
   xp: number;
@@ -32,12 +37,31 @@ export interface GameState extends LevelData {
   inventory: string[];
   completedQuests: string[];
 
+  dailyProgress: RecurringQuestProgress;
+  weeklyProgress: RecurringQuestProgress;
+
   setUsername: (name: string) => void;
   addXpAndGold: (xp: number, gold: number) => void;
+
   completeQuest: (questId: string, xp: number, gold: number) => void;
+  completeDailyQuest: (questId: string, xp: number, gold: number) => boolean;
+  completeWeeklyQuest: (questId: string, xp: number, gold: number) => boolean;
+
+  refreshQuestCycles: () => void;
   buyItem: (itemId: string, cost: number, itemName: string) => boolean;
   resetGame: () => void;
 }
+
+type PersistedGameState = Pick<
+  GameState,
+  | "username"
+  | "xp"
+  | "gold"
+  | "inventory"
+  | "completedQuests"
+  | "dailyProgress"
+  | "weeklyProgress"
+>;
 
 const getLevelData = (totalXp: number): LevelData => {
   let level = 1;
@@ -112,6 +136,69 @@ const triggerRewardConfetti = () => {
   frame();
 };
 
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+const formatLocalDate = (date: Date) => {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+};
+
+const getDailyCycleKey = (date = new Date()) => {
+  return `daily-${formatLocalDate(date)}`;
+};
+
+const getStartOfWeek = (date = new Date()) => {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+
+  const day = result.getDay(); // 0 = Sunday, 1 = Monday, ...
+  const diffFromMonday = day === 0 ? 6 : day - 1;
+
+  result.setDate(result.getDate() - diffFromMonday);
+  return result;
+};
+
+const getWeeklyCycleKey = (date = new Date()) => {
+  return `weekly-${formatLocalDate(getStartOfWeek(date))}`;
+};
+
+const createDailyProgress = (): RecurringQuestProgress => ({
+  cycleKey: getDailyCycleKey(),
+  completedIds: [],
+});
+
+const createWeeklyProgress = (): RecurringQuestProgress => ({
+  cycleKey: getWeeklyCycleKey(),
+  completedIds: [],
+});
+
+const getRecurringProgressPatch = (
+  state: Pick<GameState, "dailyProgress" | "weeklyProgress">
+): Partial<Pick<GameState, "dailyProgress" | "weeklyProgress">> | null => {
+  const nextDailyKey = getDailyCycleKey();
+  const nextWeeklyKey = getWeeklyCycleKey();
+
+  let hasChanges = false;
+  const patch: Partial<Pick<GameState, "dailyProgress" | "weeklyProgress">> = {};
+
+  if (state.dailyProgress.cycleKey !== nextDailyKey) {
+    patch.dailyProgress = {
+      cycleKey: nextDailyKey,
+      completedIds: [],
+    };
+    hasChanges = true;
+  }
+
+  if (state.weeklyProgress.cycleKey !== nextWeeklyKey) {
+    patch.weeklyProgress = {
+      cycleKey: nextWeeklyKey,
+      completedIds: [],
+    };
+    hasChanges = true;
+  }
+
+  return hasChanges ? patch : null;
+};
+
 export const useGameState = create<GameState>()(
   persist(
     (set, get) => ({
@@ -120,6 +207,9 @@ export const useGameState = create<GameState>()(
       gold: 0,
       inventory: [],
       completedQuests: [],
+
+      dailyProgress: createDailyProgress(),
+      weeklyProgress: createWeeklyProgress(),
 
       ...getLevelData(0),
 
@@ -154,6 +244,73 @@ export const useGameState = create<GameState>()(
         });
       },
 
+      completeDailyQuest: (questId, xpReward, goldReward) => {
+        const state = get();
+        const recurringPatch = getRecurringProgressPatch(state);
+
+        const activeDailyProgress =
+          recurringPatch?.dailyProgress ?? state.dailyProgress;
+
+        if (activeDailyProgress.completedIds.includes(questId)) {
+          return false;
+        }
+
+        const nextXp = state.xp + xpReward;
+
+        triggerRewardConfetti();
+
+        set({
+          ...(recurringPatch ?? {}),
+          xp: nextXp,
+          gold: state.gold + goldReward,
+          dailyProgress: {
+            ...activeDailyProgress,
+            completedIds: [...activeDailyProgress.completedIds, questId],
+          },
+          ...getLevelData(nextXp),
+        });
+
+        return true;
+      },
+
+      completeWeeklyQuest: (questId, xpReward, goldReward) => {
+        const state = get();
+        const recurringPatch = getRecurringProgressPatch(state);
+
+        const activeWeeklyProgress =
+          recurringPatch?.weeklyProgress ?? state.weeklyProgress;
+
+        if (activeWeeklyProgress.completedIds.includes(questId)) {
+          return false;
+        }
+
+        const nextXp = state.xp + xpReward;
+
+        triggerRewardConfetti();
+
+        set({
+          ...(recurringPatch ?? {}),
+          xp: nextXp,
+          gold: state.gold + goldReward,
+          weeklyProgress: {
+            ...activeWeeklyProgress,
+            completedIds: [...activeWeeklyProgress.completedIds, questId],
+          },
+          ...getLevelData(nextXp),
+        });
+
+        return true;
+      },
+
+      refreshQuestCycles: () => {
+        const state = get();
+        const recurringPatch = getRecurringProgressPatch(state);
+
+        if (!recurringPatch) return;
+
+        set(recurringPatch);
+      },
+
       buyItem: (itemId, cost, itemName) => {
         const state = get();
 
@@ -177,26 +334,37 @@ export const useGameState = create<GameState>()(
           gold: 0,
           inventory: [],
           completedQuests: [],
+          dailyProgress: createDailyProgress(),
+          weeklyProgress: createWeeklyProgress(),
           ...getLevelData(0),
         }),
     }),
     {
       name: "3dbuddy-storage",
-      partialize: (state) => ({
+      partialize: (state): PersistedGameState => ({
         username: state.username,
         xp: state.xp,
         gold: state.gold,
         inventory: state.inventory,
         completedQuests: state.completedQuests,
+        dailyProgress: state.dailyProgress,
+        weeklyProgress: state.weeklyProgress,
       }),
       merge: (persistedState, currentState) => {
-        const typedState = (persistedState as Partial<GameState>) || {};
+        const typedState = (persistedState as Partial<PersistedGameState>) || {};
         const xp = typedState.xp ?? currentState.xp;
 
-        return {
+        const mergedState: GameState = {
           ...currentState,
           ...typedState,
           ...getLevelData(xp),
+        };
+
+        const recurringPatch = getRecurringProgressPatch(mergedState);
+
+        return {
+          ...mergedState,
+          ...(recurringPatch ?? {}),
         };
       },
     }
