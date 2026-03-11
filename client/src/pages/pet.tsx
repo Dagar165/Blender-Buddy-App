@@ -7,15 +7,15 @@ export default function PetPage() {
   const { username, xp, level, xpProgress } = useGameState();
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col h-full bg-gradient-to-b from-blue-50 via-white to-blue-50/30"
     >
       <TopBar />
-      
+
       <div className="flex-1 flex flex-col items-center justify-center px-6 -mt-10">
-        <motion.div 
+        <motion.div
           initial={{ scale: 0.9 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", bounce: 0.5 }}
@@ -34,19 +34,18 @@ export default function PetPage() {
             <h3 className="font-display font-bold text-slate-700 text-lg">Следующий уровень</h3>
             <span className="text-sm font-bold text-primary">{xp} XP</span>
           </div>
-          
+
           <div className="relative h-6 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-            <motion.div 
+            <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${xpProgress}%` }}
               transition={{ duration: 1, ease: "easeOut" }}
               className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-blue-400 rounded-full"
             >
-              {/* Shine effect on progress bar */}
               <div className="absolute top-0 right-0 bottom-0 w-20 bg-gradient-to-r from-transparent to-white/30" />
             </motion.div>
           </div>
-          
+
           <div className="flex justify-between mt-2 text-xs font-bold text-slate-400">
             <span>Уровень {level}</span>
             <span>Уровень {level + 1}</span>
