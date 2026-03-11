@@ -3,8 +3,13 @@ import { Mascot } from "@/components/mascot";
 import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
 
+const XP_PER_LEVEL = 100;
+
 export default function PetPage() {
-  const { username, xp, level, xpProgress } = useGameState();
+  const { username, xp } = useGameState();
+
+  const level = Math.floor(xp / XP_PER_LEVEL) + 1;
+  const xpProgress = ((xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
 
   return (
     <motion.div
@@ -31,7 +36,9 @@ export default function PetPage() {
 
         <div className="w-full max-w-sm mt-12 bg-white p-6 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100">
           <div className="flex justify-between items-end mb-3">
-            <h3 className="font-display font-bold text-slate-700 text-lg">Следующий уровень</h3>
+            <h3 className="font-display font-bold text-slate-700 text-lg">
+              Следующий уровень
+            </h3>
             <span className="text-sm font-bold text-primary">{xp} XP</span>
           </div>
 
@@ -39,7 +46,7 @@ export default function PetPage() {
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${xpProgress}%` }}
-              transition={{ duration: 1, ease: "easeOut" }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
               className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-blue-400 rounded-full"
             >
               <div className="absolute top-0 right-0 bottom-0 w-20 bg-gradient-to-r from-transparent to-white/30" />
