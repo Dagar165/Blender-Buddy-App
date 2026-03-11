@@ -38,21 +38,21 @@ export type QuestsConfig = {
 export const QUESTS_CONFIG: QuestsConfig = {
   page: {
     title: "Задания",
-    subtitle: "Daily и weekly цели без сброса прогресса профиля",
+    subtitle: "Ежедневные и еженедельные цели для стабильного прогресса",
   },
 
   tabs: {
     daily: {
-      tabLabel: "Daily",
-      tabHint: "Каждый день",
-      sectionTitle: "Daily",
-      sectionSubtitle: "Обновляются каждый день",
+      tabLabel: "День",
+      tabHint: "Обновляется каждый день",
+      sectionTitle: "Ежедневные задания",
+      sectionSubtitle: "Короткие задачи на сегодня",
     },
     weekly: {
-      tabLabel: "Weekly",
-      tabHint: "Каждую неделю",
-      sectionTitle: "Weekly",
-      sectionSubtitle: "Обновляются каждую неделю",
+      tabLabel: "Неделя",
+      tabHint: "Обновляется каждую неделю",
+      sectionTitle: "Еженедельные задания",
+      sectionSubtitle: "Более крупные цели на несколько сессий",
     },
   },
 
