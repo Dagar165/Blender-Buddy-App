@@ -46,10 +46,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base="/Blender-Buddy-App">
-          <div className="w-full min-h-screen bg-background overflow-x-hidden">
-            <Router />
-            <BottomNav />
-            <Toaster />
+          <div className="fixed inset-0 w-full h-full bg-background overflow-hidden">
+            <div className="w-full h-full bg-background relative overflow-x-hidden overflow-y-auto flex flex-col">
+              <Router />
+              <BottomNav />
+              <Toaster />
+            </div>
           </div>
         </WouterRouter>
       </TooltipProvider>
