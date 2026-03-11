@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,6 +8,7 @@ import {
   type QuestDefinition,
   type QuestTab,
 } from "@/lib/quests-config";
+import { getActiveQuestsForTab } from "@/lib/quests-rotation";
 
 const container = {
   hidden: { opacity: 0 },
@@ -99,13 +100,6 @@ export default function QuestsPage() {
   const [showRewardMessage, setShowRewardMessage] = useState<string | null>(null);
   const rewardTimeoutRef = useRef<number | null>(null);
 
-  const dailyQuests = QUESTS_CONFIG.pools.daily;
-  const weeklyQuests = QUESTS_CONFIG.pools.weekly;
-
-  const dailyTabConfig = QUESTS_CONFIG.tabs.daily;
-  const weeklyTabConfig = QUESTS_CONFIG.tabs.weekly;
-  const activeTabConfig = QUESTS_CONFIG.tabs[activeTab];
-
   useEffect(() => {
     refreshQuestCycles();
   }, [refreshQuestCycles]);
@@ -117,6 +111,20 @@ export default function QuestsPage() {
       }
     };
   }, []);
+
+  const dailyQuests = useMemo(
+    () => getActiveQuestsForTab("daily", dailyProgress.cycleKey),
+    [dailyProgress.cycleKey]
+  );
+
+  const weeklyQuests = useMemo(
+    () => getActiveQuestsForTab("weekly", weeklyProgress.cycleKey),
+    [weeklyProgress.cycleKey]
+  );
+
+  const dailyTabConfig = QUESTS_CONFIG.tabs.daily;
+  const weeklyTabConfig = QUESTS_CONFIG.tabs.weekly;
+  const activeTabConfig = QUESTS_CONFIG.tabs[activeTab];
 
   const showReward = (message: string) => {
     setShowRewardMessage(message);
