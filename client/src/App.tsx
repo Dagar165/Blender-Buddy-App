@@ -15,7 +15,6 @@ import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
-  <WouterRouter base="/Blender-Buddy-App">
     <div className="relative w-full h-full pb-[80px]">
       <Switch>
         <Route path="/" component={PetPage} />
@@ -25,11 +24,10 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
     </div>
-  </WouterRouter>
-);
+  );
+}
 
 function App() {
-  // Initialize Telegram WebApp if available
   useEffect(() => {
     try {
       // @ts-ignore
@@ -47,18 +45,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {/* Mobile App Container Wrapper */}
-        <div className="fixed inset-0 w-full h-full bg-slate-900 flex justify-center overflow-hidden">
-          <div className="w-full max-w-md h-full bg-background relative overflow-hidden shadow-2xl flex flex-col">
-            
-            <main className="flex-1 w-full h-full overflow-hidden">
-              <Router />
-            </main>
-            
+        <WouterRouter base="/Blender-Buddy-App">
+          <div className="w-full min-h-screen bg-background overflow-x-hidden">
+            <Router />
             <BottomNav />
+            <Toaster />
           </div>
-        </div>
-        <Toaster />
+        </WouterRouter>
       </TooltipProvider>
     </QueryClientProvider>
   );
