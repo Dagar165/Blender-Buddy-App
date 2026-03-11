@@ -7,7 +7,7 @@ import {
   QUESTS_CONFIG,
   type QuestDefinition,
   type QuestTab,
-} from "@/config/quests-config";
+} from "@/lib/quests-config";
 
 const container = {
   hidden: { opacity: 0 },
