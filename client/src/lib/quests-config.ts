@@ -15,15 +15,27 @@ type QuestTabContent = {
   sectionSubtitle: string;
 };
 
-type QuestsConfig = {
-  page: {
-    title: string;
-    subtitle: string;
-  };
+type QuestPageContent = {
+  title: string;
+  subtitle: string;
+};
+
+type QuestLimits = Record<QuestTab, number>;
+
+export type QuestsConfig = {
+  page: QuestPageContent;
   tabs: Record<QuestTab, QuestTabContent>;
+  limits: QuestLimits;
   pools: Record<QuestTab, QuestDefinition[]>;
 };
 
+/**
+ * Важно:
+ * - title / description / xpReward / goldReward можно менять свободно
+ * - id у уже выпущенных заданий лучше не менять без необходимости
+ *   иначе для системы это будет уже новый квест
+ * - limits — это сколько активных заданий хотим показывать после подключения ротации
+ */
 export const QUESTS_CONFIG: QuestsConfig = {
   page: {
     title: "Задания",
@@ -43,6 +55,11 @@ export const QUESTS_CONFIG: QuestsConfig = {
       sectionTitle: "Weekly",
       sectionSubtitle: "Обновляются каждую неделю",
     },
+  },
+
+  limits: {
+    daily: 3,
+    weekly: 2,
   },
 
   pools: {
