@@ -12,6 +12,8 @@ type QuestItem = {
   goldReward: number;
 };
 
+type QuestTab = "daily" | "weekly";
+
 const DAILY_QUESTS: QuestItem[] = [
   {
     id: "daily-apple",
@@ -139,6 +141,7 @@ export default function QuestsPage() {
     refreshQuestCycles,
   } = useGameState();
 
+  const [activeTab, setActiveTab] = useState<QuestTab>("daily");
   const [showRewardMessage, setShowRewardMessage] = useState<string | null>(null);
   const rewardTimeoutRef = useRef<number | null>(null);
 
@@ -196,6 +199,11 @@ export default function QuestsPage() {
   const dailyCompletedCount = getCompletedCount(DAILY_QUESTS, dailyCompletedIds);
   const weeklyCompletedCount = getCompletedCount(WEEKLY_QUESTS, weeklyCompletedIds);
 
+  const isDailyTab = activeTab === "daily";
+  const visibleQuests = isDailyTab ? DAILY_QUESTS : WEEKLY_QUESTS;
+  const visibleCompletedIds = isDailyTab ? dailyCompletedIds : weeklyCompletedIds;
+  const visibleOnComplete = isDailyTab ? handleCompleteDaily : handleCompleteWeekly;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -233,81 +241,108 @@ export default function QuestsPage() {
           )}
         </AnimatePresence>
 
-        <div className="space-y-8">
-          <section>
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-display font-bold text-slate-800">
-                  Daily
-                </h2>
-                <p className="text-slate-500 text-sm">
-                  Обновляются каждый день
-                </p>
-              </div>
-
-              <div className="text-sm font-bold text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
-                {dailyCompletedCount}/{DAILY_QUESTS.length}
-              </div>
-            </div>
-
-            <motion.div
-              variants={container}
-              initial="hidden"
-              animate="show"
-              className="space-y-4"
+        <div className="mb-5 rounded-3xl bg-white p-2 shadow-sm border border-slate-100">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setActiveTab("daily")}
+              className={`rounded-2xl px-4 py-3 text-left transition-all ${
+                isDailyTab
+                  ? "bg-primary text-white shadow-md"
+                  : "bg-slate-50 text-slate-600"
+              }`}
             >
-              {DAILY_QUESTS.map((quest) => {
-                const isCompleted = dailyCompletedIds.includes(quest.id);
-
-                return (
-                  <QuestCard
-                    key={quest.id}
-                    quest={quest}
-                    isCompleted={isCompleted}
-                    onComplete={handleCompleteDaily}
-                  />
-                );
-              })}
-            </motion.div>
-          </section>
-
-          <section>
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-display font-bold text-slate-800">
-                  Weekly
-                </h2>
-                <p className="text-slate-500 text-sm">
-                  Обновляются каждую неделю
-                </p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-display text-lg font-bold">Daily</span>
+                <span
+                  className={`min-w-10 rounded-xl px-2 py-1 text-center text-sm font-bold ${
+                    isDailyTab
+                      ? "bg-white/20 text-white"
+                      : "bg-white text-slate-700 border border-slate-200"
+                  }`}
+                >
+                  {dailyCompletedCount}/{DAILY_QUESTS.length}
+                </span>
               </div>
+              <p
+                className={`mt-1 text-xs ${
+                  isDailyTab ? "text-white/80" : "text-slate-400"
+                }`}
+              >
+                Каждый день
+              </p>
+            </button>
 
-              <div className="text-sm font-bold text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
-                {weeklyCompletedCount}/{WEEKLY_QUESTS.length}
-              </div>
-            </div>
-
-            <motion.div
-              variants={container}
-              initial="hidden"
-              animate="show"
-              className="space-y-4"
+            <button
+              onClick={() => setActiveTab("weekly")}
+              className={`rounded-2xl px-4 py-3 text-left transition-all ${
+                !isDailyTab
+                  ? "bg-secondary text-white shadow-md"
+                  : "bg-slate-50 text-slate-600"
+              }`}
             >
-              {WEEKLY_QUESTS.map((quest) => {
-                const isCompleted = weeklyCompletedIds.includes(quest.id);
-
-                return (
-                  <QuestCard
-                    key={quest.id}
-                    quest={quest}
-                    isCompleted={isCompleted}
-                    onComplete={handleCompleteWeekly}
-                  />
-                );
-              })}
-            </motion.div>
-          </section>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-display text-lg font-bold">Weekly</span>
+                <span
+                  className={`min-w-10 rounded-xl px-2 py-1 text-center text-sm font-bold ${
+                    !isDailyTab
+                      ? "bg-white/20 text-white"
+                      : "bg-white text-slate-700 border border-slate-200"
+                  }`}
+                >
+                  {weeklyCompletedCount}/{WEEKLY_QUESTS.length}
+                </span>
+              </div>
+              <p
+                className={`mt-1 text-xs ${
+                  !isDailyTab ? "text-white/80" : "text-slate-400"
+                }`}
+              >
+                Каждую неделю
+              </p>
+            </button>
+          </div>
         </div>
+
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-display font-bold text-slate-800">
+              {isDailyTab ? "Daily" : "Weekly"}
+            </h2>
+            <p className="text-slate-500 text-sm">
+              {isDailyTab ? "Обновляются каждый день" : "Обновляются каждую неделю"}
+            </p>
+          </div>
+
+          <div className="text-sm font-bold text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
+            {isDailyTab
+              ? `${dailyCompletedCount}/${DAILY_QUESTS.length}`
+              : `${weeklyCompletedCount}/${WEEKLY_QUESTS.length}`}
+          </div>
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            variants={container}
+            initial="hidden"
+            animate="show"
+            exit={{ opacity: 0, y: 10 }}
+            className="space-y-4"
+          >
+            {visibleQuests.map((quest) => {
+              const isCompleted = visibleCompletedIds.includes(quest.id);
+
+              return (
+                <QuestCard
+                  key={quest.id}
+                  quest={quest}
+                  isCompleted={isCompleted}
+                  onComplete={visibleOnComplete}
+                />
+              );
+            })}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </motion.div>
   );
