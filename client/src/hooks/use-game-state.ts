@@ -2,15 +2,35 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import confetti from "canvas-confetti";
 
-export interface GameState {
+export const LEVEL_THRESHOLDS = [
+  0,    // level 1
+  40,   // level 2
+  100,  // level 3
+  185,  // level 4
+  300,  // level 5
+  450,  // level 6
+  640,  // level 7
+  875,  // level 8
+  1160, // level 9
+  1500, // level 10
+];
+
+type LevelData = {
+  level: number;
+  currentLevelStartXp: number;
+  nextLevelXp: number;
+  progressInLevel: number;
+  requiredForNextLevel: number;
+  xpToNextLevel: number;
+  xpProgress: number;
+};
+
+export interface GameState extends LevelData {
   username: string;
   xp: number;
   gold: number;
   inventory: string[];
   completedQuests: string[];
-
-  level: number;
-  xpProgress: number; // 0-100
 
   setUsername: (name: string) => void;
   addXpAndGold: (xp: number, gold: number) => void;
@@ -19,12 +39,49 @@ export interface GameState {
   resetGame: () => void;
 }
 
-const XP_PER_LEVEL = 100;
+const getLevelData = (totalXp: number): LevelData => {
+  let level = 1;
 
-const getLevelData = (xp: number) => ({
-  level: Math.floor(xp / XP_PER_LEVEL) + 1,
-  xpProgress: ((xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100,
-});
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (totalXp >= LEVEL_THRESHOLDS[i]) {
+      level = i + 1;
+      break;
+    }
+  }
+
+  const currentLevelStartXp = LEVEL_THRESHOLDS[level - 1];
+  const nextLevelXp = LEVEL_THRESHOLDS[level] ?? currentLevelStartXp;
+
+  if (level >= LEVEL_THRESHOLDS.length) {
+    return {
+      level,
+      currentLevelStartXp,
+      nextLevelXp: currentLevelStartXp,
+      progressInLevel: totalXp - currentLevelStartXp,
+      requiredForNextLevel: 0,
+      xpToNextLevel: 0,
+      xpProgress: 100,
+    };
+  }
+
+  const progressInLevel = totalXp - currentLevelStartXp;
+  const requiredForNextLevel = nextLevelXp - currentLevelStartXp;
+  const xpToNextLevel = nextLevelXp - totalXp;
+  const xpProgress =
+    requiredForNextLevel > 0
+      ? Math.min(100, (progressInLevel / requiredForNextLevel) * 100)
+      : 100;
+
+  return {
+    level,
+    currentLevelStartXp,
+    nextLevelXp,
+    progressInLevel,
+    requiredForNextLevel,
+    xpToNextLevel,
+    xpProgress,
+  };
+};
 
 const triggerRewardConfetti = () => {
   const duration = 2000;
@@ -100,7 +157,7 @@ export const useGameState = create<GameState>()(
       buyItem: (itemId, cost, itemName) => {
         const state = get();
 
-        if (state.gold >= cost && !state.inventory.includes(itemId)) {
+        if (state.gold >= cost && !state.inventory.includes(itemName)) {
           triggerRewardConfetti();
 
           set({
