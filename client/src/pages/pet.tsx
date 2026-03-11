@@ -3,13 +3,26 @@ import { Mascot } from "@/components/mascot";
 import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
 
-const XP_PER_LEVEL = 100;
-
 export default function PetPage() {
-  const { username, xp } = useGameState();
+  const {
+    username,
+    xp,
+    level,
+    progressInLevel,
+    requiredForNextLevel,
+    xpToNextLevel,
+    xpProgress,
+  } = useGameState();
 
-  const level = Math.floor(xp / XP_PER_LEVEL) + 1;
-  const xpProgress = ((xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
+  const progressLabel =
+    requiredForNextLevel > 0
+      ? `${progressInLevel} / ${requiredForNextLevel} XP`
+      : "MAX";
+
+  const subLabel =
+    requiredForNextLevel > 0
+      ? `До следующего уровня: ${xpToNextLevel} XP`
+      : "Максимальный уровень достигнут";
 
   return (
     <motion.div
@@ -35,11 +48,21 @@ export default function PetPage() {
         <Mascot />
 
         <div className="w-full max-w-sm mt-12 bg-white p-6 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100">
-          <div className="flex justify-between items-end mb-3">
+          <div className="flex justify-between items-end mb-2 gap-4">
             <h3 className="font-display font-bold text-slate-700 text-lg">
               Следующий уровень
             </h3>
-            <span className="text-sm font-bold text-primary">{xp} XP</span>
+            <span className="text-sm font-bold text-primary whitespace-nowrap">
+              {progressLabel}
+            </span>
+          </div>
+
+          <div className="mb-1 text-xs text-slate-400 font-medium">
+            Всего XP: {xp}
+          </div>
+
+          <div className="mb-3 text-xs text-slate-400 font-medium">
+            {subLabel}
           </div>
 
           <div className="relative h-6 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
@@ -55,7 +78,7 @@ export default function PetPage() {
 
           <div className="flex justify-between mt-2 text-xs font-bold text-slate-400">
             <span>Уровень {level}</span>
-            <span>Уровень {level + 1}</span>
+            <span>Уровень {requiredForNextLevel > 0 ? level + 1 : level}</span>
           </div>
         </div>
       </div>
