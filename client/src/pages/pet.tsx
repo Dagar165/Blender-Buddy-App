@@ -1,7 +1,7 @@
 import { useGameState } from "@/hooks/use-game-state";
-import { Mascot } from "@/components/mascot";
 import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
+import ghostLevel1 from "@/assets/mascot/ghost-level-1.png";
 
 export default function PetPage() {
   const {
@@ -45,7 +45,19 @@ export default function PetPage() {
           <p className="text-slate-500 font-medium">Готов изучать Blender 3D?</p>
         </motion.div>
 
-        <Mascot />
+        <motion.div
+          initial={{ scale: 0.92, y: 8, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="flex items-center justify-center"
+        >
+          <img
+            src={ghostLevel1}
+            alt="Маскот первого уровня"
+            className="w-full max-w-[260px] md:max-w-[300px] h-auto select-none drop-shadow-[0_16px_32px_rgba(59,130,246,0.18)]"
+            draggable={false}
+          />
+        </motion.div>
 
         <div className="w-full max-w-sm mt-12 bg-white p-6 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100">
           <div className="flex justify-between items-end mb-2 gap-4">
