@@ -16,7 +16,7 @@ export default {
 
     const url = new URL(request.url);
 
-    if (url.pathname === "/health") {
+    if (url.pathname === "/" || url.pathname === "/health") {
       return Response.json(
         { ok: true, service: "jkids-quest-check", time: new Date().toISOString() },
         { headers: CORS_HEADERS },
