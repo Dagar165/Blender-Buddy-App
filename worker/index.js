@@ -73,6 +73,37 @@ export default {
       );
     }
 
+    // Temporary diagnostic: reveals which chats have messaged this bot, so we
+    // can confirm the correct CURATOR_CHAT_ID. Returns no token. Remove later.
+    if (request.method === "GET" && url.pathname === "/debug/updates") {
+      if (!env.TELEGRAM_BOT_TOKEN) {
+        return json({ ok: false, error: "no_token" }, request, 503);
+      }
+      const res = await fetch(
+        `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getUpdates`,
+      );
+      const data = await res.json().catch(() => null);
+      if (!data?.ok) {
+        return json(
+          { ok: false, telegram: data?.description || `http_${res.status}` },
+          request,
+          502,
+        );
+      }
+      const chats = (data.result || []).map((u) => {
+        const msg = u.message || u.edited_message || {};
+        const chat = msg.chat || {};
+        return {
+          chat_id: chat.id,
+          type: chat.type,
+          name: chat.first_name || chat.title || null,
+          username: chat.username || null,
+          text: msg.text || null,
+        };
+      });
+      return json({ ok: true, configured_chat_id: env.CURATOR_CHAT_ID, chats }, request);
+    }
+
     if (request.method === "POST" && url.pathname === "/claim") {
       if (!env.TELEGRAM_BOT_TOKEN || !env.CURATOR_CHAT_ID) {
         return json(
