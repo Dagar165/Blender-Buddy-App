@@ -9,6 +9,7 @@ import {
   type QuestTab,
 } from "@/lib/quests-config";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
+import { submitQuestClaim } from "@/lib/quest-claim";
 
 const container = {
   hidden: { opacity: 0 },
@@ -91,6 +92,9 @@ function getRewardMessage(tab: QuestTab, quest: QuestDefinition) {
 
 export default function QuestsPage() {
   const {
+    username,
+    telegramUsername,
+    telegramUserId,
     dailyProgress,
     weeklyProgress,
     completeDailyQuest,
@@ -140,6 +144,19 @@ export default function QuestsPage() {
     }, 3000);
   };
 
+  const notifyCurator = (tab: QuestTab, quest: QuestDefinition) => {
+    void submitQuestClaim({
+      questId: quest.id,
+      questTitle: quest.title,
+      questType: tab,
+      xpReward: quest.xpReward,
+      goldReward: quest.goldReward,
+      username,
+      telegramUsername,
+      telegramUserId,
+    });
+  };
+
   const handleCompleteDaily = (quest: QuestDefinition) => {
     const wasCompleted = completeDailyQuest(
       quest.id,
@@ -149,6 +166,7 @@ export default function QuestsPage() {
 
     if (wasCompleted) {
       showReward(getRewardMessage("daily", quest));
+      notifyCurator("daily", quest);
     }
   };
 
@@ -161,6 +179,7 @@ export default function QuestsPage() {
 
     if (wasCompleted) {
       showReward(getRewardMessage("weekly", quest));
+      notifyCurator("weekly", quest);
     }
   };
 

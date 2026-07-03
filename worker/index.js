@@ -1,28 +1,106 @@
 // JKids quest verification worker (Cloudflare Worker).
-// Session 1 scope: health check only — proves the deploy pipeline works.
-// Quest claim endpoints arrive in the next session.
+//
+// Endpoints:
+//   GET  /            -> health JSON
+//   GET  /health      -> health JSON
+//   POST /claim       -> student claims a quest; notifies the curator in Telegram
+//
+// Secrets (set in the Cloudflare dashboard, never in code):
+//   TELEGRAM_BOT_TOKEN  - the bot token from BotFather
+//   CURATOR_CHAT_ID     - the curator's Telegram chat id (where claims are sent)
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "https://dagar165.github.io",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+const ALLOWED_ORIGINS = [
+  "https://dagar165.github.io",
+  "https://blender-buddy-app.pages.dev",
+];
+
+function corsHeaders(request) {
+  const origin = request.headers.get("Origin") || "";
+  const allowed = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
+
+function json(data, request, status = 200) {
+  return Response.json(data, { status, headers: corsHeaders(request) });
+}
+
+async function sendTelegramMessage(env, text) {
+  const res = await fetch(
+    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: env.CURATOR_CHAT_ID, text }),
+    },
+  );
+  return res;
+}
+
+function formatClaim(body) {
+  const questType = body.questType === "weekly" ? "еженедельное" : "ежедневное";
+  const student = body.telegramUsername
+    ? `${body.username || "Ученик"} (@${body.telegramUsername})`
+    : body.username || "Ученик";
+  const idLine = body.telegramUserId ? `\nID: ${body.telegramUserId}` : "";
+  const reward = `+${body.xpReward ?? "?"} XP, +${body.goldReward ?? "?"} монет`;
+
+  return (
+    `🔔 Новая заявка на проверку\n\n` +
+    `Ученик: ${student}${idLine}\n` +
+    `Задание (${questType}): ${body.questTitle || body.questId}\n` +
+    `Награда: ${reward}`
+  );
+}
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: CORS_HEADERS });
+      return new Response(null, { headers: corsHeaders(request) });
     }
 
     const url = new URL(request.url);
 
-    if (url.pathname === "/" || url.pathname === "/health") {
-      return Response.json(
+    if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
+      return json(
         { ok: true, service: "jkids-quest-check", time: new Date().toISOString() },
-        { headers: CORS_HEADERS },
+        request,
       );
     }
 
-    return new Response("Not found", { status: 404, headers: CORS_HEADERS });
+    if (request.method === "POST" && url.pathname === "/claim") {
+      if (!env.TELEGRAM_BOT_TOKEN || !env.CURATOR_CHAT_ID) {
+        return json(
+          { ok: false, error: "server_not_configured" },
+          request,
+          503,
+        );
+      }
+
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ ok: false, error: "bad_json" }, request, 400);
+      }
+
+      if (!body || !body.questId) {
+        return json({ ok: false, error: "missing_questId" }, request, 400);
+      }
+
+      const tgRes = await sendTelegramMessage(env, formatClaim(body));
+      if (!tgRes.ok) {
+        return json({ ok: false, error: "telegram_failed" }, request, 502);
+      }
+
+      return json({ ok: true }, request);
+    }
+
+    return new Response("Not found", { status: 404, headers: corsHeaders(request) });
   },
 };
