@@ -94,8 +94,17 @@ export default {
       }
 
       const tgRes = await sendTelegramMessage(env, formatClaim(body));
-      if (!tgRes.ok) {
-        return json({ ok: false, error: "telegram_failed" }, request, 502);
+      const tgData = await tgRes.json().catch(() => null);
+      if (!tgRes.ok || !tgData?.ok) {
+        return json(
+          {
+            ok: false,
+            error: "telegram_failed",
+            telegram: tgData?.description || `http_${tgRes.status}`,
+          },
+          request,
+          502,
+        );
       }
 
       return json({ ok: true }, request);
