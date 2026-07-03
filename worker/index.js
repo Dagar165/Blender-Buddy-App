@@ -79,13 +79,21 @@ export default {
       if (!env.TELEGRAM_BOT_TOKEN) {
         return json({ ok: false, error: "no_token" }, request, 503);
       }
+      const meRes = await fetch(
+        `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`,
+      );
+      const meData = await meRes.json().catch(() => null);
+      const bot = meData?.ok
+        ? { username: meData.result.username, name: meData.result.first_name }
+        : { error: meData?.description || `http_${meRes.status}` };
+
       const res = await fetch(
         `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getUpdates`,
       );
       const data = await res.json().catch(() => null);
       if (!data?.ok) {
         return json(
-          { ok: false, telegram: data?.description || `http_${res.status}` },
+          { ok: false, bot, telegram: data?.description || `http_${res.status}` },
           request,
           502,
         );
@@ -101,7 +109,7 @@ export default {
           text: msg.text || null,
         };
       });
-      return json({ ok: true, configured_chat_id: env.CURATOR_CHAT_ID, chats }, request);
+      return json({ ok: true, bot, configured_chat_id: env.CURATOR_CHAT_ID, chats }, request);
     }
 
     if (request.method === "POST" && url.pathname === "/claim") {
