@@ -1,3 +1,7 @@
 name = "jkids-quest-check"
 main = "index.js"
 compatibility_date = "2026-07-03"
+
+kv_namespaces = [
+  { binding = "CLAIMS", id = "81975275ee4c433ea7b153a1f01b2440" }
+]

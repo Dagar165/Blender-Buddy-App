@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
 import { useGameState } from "@/hooks/use-game-state";
+import { fetchClaimStatuses } from "@/lib/quest-claim";
 
 // Components & Pages
 import { BottomNav } from "@/components/bottom-nav";
@@ -44,7 +45,19 @@ function AppContent() {
       console.warn("Telegram WebApp initialization failed", e);
     }
 
-    void bootstrapTelegramCloud();
+    void bootstrapTelegramCloud().then(async () => {
+      // Apply any curator decisions made while the app was closed, so rewards
+      // land even before the quests tab is opened.
+      const { pendingClaims, applyClaimResolutions } = useGameState.getState();
+      if (pendingClaims.length === 0) return;
+
+      const statuses = await fetchClaimStatuses(
+        pendingClaims.map((claim) => claim.claimId)
+      );
+      if (statuses) {
+        applyClaimResolutions(statuses);
+      }
+    });
   }, [bootstrapTelegramCloud]);
 
   return (

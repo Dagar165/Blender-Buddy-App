@@ -1,15 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, Coins, Target } from "lucide-react";
+import { CheckCircle, Clock, Coins, Target } from "lucide-react";
 import {
   QUESTS_CONFIG,
   type QuestDefinition,
   type QuestTab,
 } from "@/lib/quests-config";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
-import { submitQuestClaim } from "@/lib/quest-claim";
+import { fetchClaimStatuses, submitQuestClaim } from "@/lib/quest-claim";
+
+const CLAIM_POLL_INTERVAL_MS = 20_000;
+
+type QuestCardStatus = "available" | "sending" | "pending" | "completed";
+
+type Notice = {
+  text: string;
+  tone: "success" | "info" | "error";
+};
 
 const container = {
   hidden: { opacity: 0 },
@@ -24,22 +33,34 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
+const QUEST_BUTTON_LABELS: Record<QuestCardStatus, string> = {
+  available: "Выполнить",
+  sending: "Отправка…",
+  pending: "На проверке",
+  completed: "Готово",
+};
+
 function QuestCard({
   quest,
-  isCompleted,
+  status,
   onComplete,
 }: {
   quest: QuestDefinition;
-  isCompleted: boolean;
+  status: QuestCardStatus;
   onComplete: (quest: QuestDefinition) => void;
 }) {
+  const isCompleted = status === "completed";
+  const isPending = status === "pending" || status === "sending";
+
   return (
     <motion.div
       variants={item}
       className={`p-5 rounded-3xl border-2 transition-all ${
         isCompleted
           ? "bg-white border-green-100 opacity-60"
-          : "bg-white border-transparent shadow-lg shadow-slate-200/50 hover:border-primary/20"
+          : isPending
+            ? "bg-white border-amber-100"
+            : "bg-white border-transparent shadow-lg shadow-slate-200/50 hover:border-primary/20"
       }`}
     >
       <div className="flex justify-between items-start mb-2 gap-3">
@@ -47,6 +68,7 @@ function QuestCard({
           {quest.title}
         </h3>
         {isCompleted && <CheckCircle className="text-green-500 w-6 h-6 shrink-0" />}
+        {isPending && <Clock className="text-amber-500 w-6 h-6 shrink-0" />}
       </div>
 
       <p className="text-slate-500 text-sm leading-relaxed mb-4">
@@ -64,15 +86,17 @@ function QuestCard({
         </div>
 
         <button
-          onClick={() => !isCompleted && onComplete(quest)}
-          disabled={isCompleted}
+          onClick={() => status === "available" && onComplete(quest)}
+          disabled={status !== "available"}
           className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
             isCompleted
               ? "bg-slate-100 text-slate-400"
-              : "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30 hover:shadow-lg"
+              : isPending
+                ? "bg-amber-50 text-amber-600"
+                : "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30 hover:shadow-lg"
           }`}
         >
-          {isCompleted ? "Готово" : "Выполнить"}
+          {QUEST_BUTTON_LABELS[status]}
         </button>
       </div>
     </motion.div>
@@ -83,13 +107,6 @@ function getCompletedCount(quests: QuestDefinition[], completedIds: string[]) {
   return quests.filter((quest) => completedIds.includes(quest.id)).length;
 }
 
-function getRewardMessage(tab: QuestTab, quest: QuestDefinition) {
-  const label =
-    tab === "daily" ? "Ежедневное задание" : "Еженедельное задание";
-
-  return `${label} выполнено: +${quest.xpReward} XP и +${quest.goldReward} монет`;
-}
-
 export default function QuestsPage() {
   const {
     username,
@@ -97,13 +114,15 @@ export default function QuestsPage() {
     telegramUserId,
     dailyProgress,
     weeklyProgress,
-    completeDailyQuest,
-    completeWeeklyQuest,
+    pendingClaims,
+    addPendingClaim,
+    applyClaimResolutions,
     refreshQuestCycles,
   } = useGameState();
 
   const [activeTab, setActiveTab] = useState<QuestTab>("daily");
-  const [showRewardMessage, setShowRewardMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [sendingQuestIds, setSendingQuestIds] = useState<string[]>([]);
   const rewardTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -132,55 +151,114 @@ export default function QuestsPage() {
   const weeklyTabConfig = QUESTS_CONFIG.tabs.weekly;
   const activeTabConfig = QUESTS_CONFIG.tabs[activeTab];
 
-  const showReward = (message: string) => {
-    setShowRewardMessage(message);
+  const showNotice = useCallback((text: string, tone: Notice["tone"]) => {
+    setNotice({ text, tone });
 
     if (rewardTimeoutRef.current) {
       window.clearTimeout(rewardTimeoutRef.current);
     }
 
     rewardTimeoutRef.current = window.setTimeout(() => {
-      setShowRewardMessage(null);
-    }, 3000);
-  };
+      setNotice(null);
+    }, 4000);
+  }, []);
 
-  const notifyCurator = (tab: QuestTab, quest: QuestDefinition) => {
-    void submitQuestClaim({
+  // Poll the worker for curator decisions on pending claims and apply them.
+  const syncPendingClaims = useCallback(async () => {
+    const currentPending = useGameState.getState().pendingClaims;
+    if (currentPending.length === 0) return;
+
+    const statuses = await fetchClaimStatuses(
+      currentPending.map((claim) => claim.claimId)
+    );
+    if (!statuses) return;
+
+    const { approved, rejected } = applyClaimResolutions(statuses);
+
+    if (approved.length > 0) {
+      const xp = approved.reduce((sum, claim) => sum + claim.xpReward, 0);
+      const gold = approved.reduce((sum, claim) => sum + claim.goldReward, 0);
+      showNotice(
+        approved.length === 1
+          ? `Куратор подтвердил «${approved[0].questTitle}»: +${xp} XP и +${gold} монет 🎉`
+          : `Куратор подтвердил задания (${approved.length}): +${xp} XP и +${gold} монет 🎉`,
+        "success"
+      );
+    } else if (rejected.length > 0) {
+      showNotice(
+        `Задание «${rejected[0].questTitle}» не засчитано — попробуй ещё раз и отправь заново`,
+        "info"
+      );
+    }
+  }, [applyClaimResolutions, showNotice]);
+
+  useEffect(() => {
+    void syncPendingClaims();
+
+    const interval = window.setInterval(() => {
+      void syncPendingClaims();
+    }, CLAIM_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [syncPendingClaims]);
+
+  const handleComplete = (tab: QuestTab) => async (quest: QuestDefinition) => {
+    if (!telegramUserId) {
+      showNotice(
+        "Открой приложение через Telegram, чтобы задания засчитывались",
+        "error"
+      );
+      return;
+    }
+
+    const cycleKey =
+      tab === "daily" ? dailyProgress.cycleKey : weeklyProgress.cycleKey;
+
+    setSendingQuestIds((ids) => [...ids, quest.id]);
+
+    const result = await submitQuestClaim({
       questId: quest.id,
       questTitle: quest.title,
       questType: tab,
+      cycleKey,
       xpReward: quest.xpReward,
       goldReward: quest.goldReward,
       username,
       telegramUsername,
       telegramUserId,
     });
-  };
 
-  const handleCompleteDaily = (quest: QuestDefinition) => {
-    const wasCompleted = completeDailyQuest(
-      quest.id,
-      quest.xpReward,
-      quest.goldReward
-    );
+    setSendingQuestIds((ids) => ids.filter((id) => id !== quest.id));
 
-    if (wasCompleted) {
-      showReward(getRewardMessage("daily", quest));
-      notifyCurator("daily", quest);
+    if (!result.ok) {
+      showNotice(
+        "Не получилось отправить заявку — проверь интернет и попробуй ещё раз",
+        "error"
+      );
+      return;
     }
-  };
 
-  const handleCompleteWeekly = (quest: QuestDefinition) => {
-    const wasCompleted = completeWeeklyQuest(
-      quest.id,
-      quest.xpReward,
-      quest.goldReward
-    );
+    addPendingClaim({
+      claimId: result.claimId,
+      questId: quest.id,
+      questTitle: quest.title,
+      questType: tab,
+      cycleKey,
+      xpReward: quest.xpReward,
+      goldReward: quest.goldReward,
+      createdAt: new Date().toISOString(),
+    });
 
-    if (wasCompleted) {
-      showReward(getRewardMessage("weekly", quest));
-      notifyCurator("weekly", quest);
+    if (result.status === "approved") {
+      // A rare race: the curator approved before we re-asked. Apply now.
+      void syncPendingClaims();
+      return;
     }
+
+    showNotice(
+      "Заявка отправлена куратору! Награда придёт после проверки ✅",
+      "success"
+    );
   };
 
   const dailyCompletedIds = dailyProgress.completedIds;
@@ -192,7 +270,24 @@ export default function QuestsPage() {
   const isDailyTab = activeTab === "daily";
   const visibleQuests = isDailyTab ? dailyQuests : weeklyQuests;
   const visibleCompletedIds = isDailyTab ? dailyCompletedIds : weeklyCompletedIds;
-  const visibleOnComplete = isDailyTab ? handleCompleteDaily : handleCompleteWeekly;
+  const visibleCycleKey = isDailyTab
+    ? dailyProgress.cycleKey
+    : weeklyProgress.cycleKey;
+  const visibleOnComplete = handleComplete(activeTab);
+
+  const getQuestStatus = (quest: QuestDefinition): QuestCardStatus => {
+    if (visibleCompletedIds.includes(quest.id)) return "completed";
+    if (sendingQuestIds.includes(quest.id)) return "sending";
+
+    const isPending = pendingClaims.some(
+      (claim) =>
+        claim.questId === quest.id &&
+        claim.questType === activeTab &&
+        claim.cycleKey === visibleCycleKey
+    );
+
+    return isPending ? "pending" : "available";
+  };
 
   return (
     <motion.div
@@ -219,14 +314,20 @@ export default function QuestsPage() {
         </div>
 
         <AnimatePresence>
-          {showRewardMessage && (
+          {notice && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="mb-4 p-3 bg-green-100 text-green-700 rounded-2xl text-center font-bold text-sm border border-green-200"
+              className={`mb-4 p-3 rounded-2xl text-center font-bold text-sm border ${
+                notice.tone === "success"
+                  ? "bg-green-100 text-green-700 border-green-200"
+                  : notice.tone === "info"
+                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                    : "bg-red-100 text-red-700 border-red-200"
+              }`}
             >
-              {showRewardMessage}
+              {notice.text}
             </motion.div>
           )}
         </AnimatePresence>
@@ -323,18 +424,14 @@ export default function QuestsPage() {
             exit={{ opacity: 0, y: 10 }}
             className="space-y-4"
           >
-            {visibleQuests.map((quest) => {
-              const isCompleted = visibleCompletedIds.includes(quest.id);
-
-              return (
-                <QuestCard
-                  key={quest.id}
-                  quest={quest}
-                  isCompleted={isCompleted}
-                  onComplete={visibleOnComplete}
-                />
-              );
-            })}
+            {visibleQuests.map((quest) => (
+              <QuestCard
+                key={quest.id}
+                quest={quest}
+                status={getQuestStatus(quest)}
+                onComplete={visibleOnComplete}
+              />
+            ))}
           </motion.div>
         </AnimatePresence>
       </div>

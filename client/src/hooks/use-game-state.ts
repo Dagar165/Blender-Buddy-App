@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import confetti from "canvas-confetti";
+import type { ClaimStatus } from "@/lib/quest-claim";
 
 export const LEVEL_THRESHOLDS = [
   0,    // level 1
@@ -28,6 +29,18 @@ type LevelData = {
 type RecurringQuestProgress = {
   cycleKey: string;
   completedIds: string[];
+};
+
+// A quest the student says is done, waiting for the curator's verdict.
+export type PendingClaim = {
+  claimId: string;
+  questId: string;
+  questTitle: string;
+  questType: "daily" | "weekly";
+  cycleKey: string;
+  xpReward: number;
+  goldReward: number;
+  createdAt: string;
 };
 
 type TelegramUserData = {
@@ -90,13 +103,16 @@ export interface GameState extends LevelData {
 
   dailyProgress: RecurringQuestProgress;
   weeklyProgress: RecurringQuestProgress;
+  pendingClaims: PendingClaim[];
 
   setUsername: (name: string) => void;
   addXpAndGold: (xp: number, gold: number) => void;
 
-  completeQuest: (questId: string, xp: number, gold: number) => void;
-  completeDailyQuest: (questId: string, xp: number, gold: number) => boolean;
-  completeWeeklyQuest: (questId: string, xp: number, gold: number) => boolean;
+  addPendingClaim: (claim: PendingClaim) => void;
+  applyClaimResolutions: (statuses: Record<string, ClaimStatus>) => {
+    approved: PendingClaim[];
+    rejected: PendingClaim[];
+  };
 
   refreshQuestCycles: () => void;
   buyItem: (itemId: string, cost: number, itemName: string) => boolean;
@@ -119,6 +135,7 @@ type PersistedGameState = Pick<
   | "completedQuests"
   | "dailyProgress"
   | "weeklyProgress"
+  | "pendingClaims"
 >;
 
 const CLOUD_PROFILE_KEY = "bb_profile_v1";
@@ -476,6 +493,7 @@ export const useGameState = create<GameState>()(
 
       dailyProgress: createDailyProgress(),
       weeklyProgress: createWeeklyProgress(),
+      pendingClaims: [],
 
       ...getLevelData(0),
 
@@ -504,83 +522,95 @@ export const useGameState = create<GameState>()(
         queueCloudSave(get);
       },
 
-      completeQuest: (questId, xpReward, goldReward) => {
+      addPendingClaim: (claim) => {
         const state = get();
 
-        if (state.completedQuests.includes(questId)) return;
-
-        const nextXp = state.xp + xpReward;
-
-        triggerRewardConfetti();
-
-        set({
-          xp: nextXp,
-          gold: state.gold + goldReward,
-          completedQuests: [...state.completedQuests, questId],
-          ...getLevelData(nextXp),
-        });
-
-        queueCloudSave(get);
-      },
-
-      completeDailyQuest: (questId, xpReward, goldReward) => {
-        const state = get();
-        const recurringPatch = getRecurringProgressPatch(state);
-
-        const activeDailyProgress =
-          recurringPatch?.dailyProgress ?? state.dailyProgress;
-
-        if (activeDailyProgress.completedIds.includes(questId)) {
-          return false;
+        if (state.pendingClaims.some((c) => c.claimId === claim.claimId)) {
+          return;
         }
 
-        const nextXp = state.xp + xpReward;
-
-        triggerRewardConfetti();
-
-        set({
-          ...(recurringPatch ?? {}),
-          xp: nextXp,
-          gold: state.gold + goldReward,
-          dailyProgress: {
-            ...activeDailyProgress,
-            completedIds: [...activeDailyProgress.completedIds, questId],
-          },
-          ...getLevelData(nextXp),
-        });
-
-        queueCloudSave(get);
-        return true;
+        set({ pendingClaims: [...state.pendingClaims, claim] });
       },
 
-      completeWeeklyQuest: (questId, xpReward, goldReward) => {
+      applyClaimResolutions: (statuses) => {
         const state = get();
-        const recurringPatch = getRecurringProgressPatch(state);
 
-        const activeWeeklyProgress =
+        const approved: PendingClaim[] = [];
+        const rejected: PendingClaim[] = [];
+        const remaining: PendingClaim[] = [];
+
+        for (const claim of state.pendingClaims) {
+          const status = statuses[claim.claimId];
+
+          if (status === "approved") {
+            approved.push(claim);
+          } else if (status === "rejected" || status === "unknown") {
+            // "unknown" means the record expired server-side — release the
+            // quest so the student can claim it again.
+            rejected.push(claim);
+          } else {
+            remaining.push(claim);
+          }
+        }
+
+        if (approved.length === 0 && rejected.length === 0) {
+          return { approved, rejected };
+        }
+
+        const recurringPatch = getRecurringProgressPatch(state);
+        let dailyProgress = recurringPatch?.dailyProgress ?? state.dailyProgress;
+        let weeklyProgress =
           recurringPatch?.weeklyProgress ?? state.weeklyProgress;
 
-        if (activeWeeklyProgress.completedIds.includes(questId)) {
-          return false;
+        let xpGain = 0;
+        let goldGain = 0;
+
+        for (const claim of approved) {
+          xpGain += claim.xpReward;
+          goldGain += claim.goldReward;
+
+          // Mark the quest completed only if its cycle is still current;
+          // late approvals from a past day/week just pay out the reward.
+          if (
+            claim.questType === "daily" &&
+            claim.cycleKey === dailyProgress.cycleKey &&
+            !dailyProgress.completedIds.includes(claim.questId)
+          ) {
+            dailyProgress = {
+              ...dailyProgress,
+              completedIds: [...dailyProgress.completedIds, claim.questId],
+            };
+          }
+
+          if (
+            claim.questType === "weekly" &&
+            claim.cycleKey === weeklyProgress.cycleKey &&
+            !weeklyProgress.completedIds.includes(claim.questId)
+          ) {
+            weeklyProgress = {
+              ...weeklyProgress,
+              completedIds: [...weeklyProgress.completedIds, claim.questId],
+            };
+          }
         }
 
-        const nextXp = state.xp + xpReward;
+        if (approved.length > 0) {
+          triggerRewardConfetti();
+        }
 
-        triggerRewardConfetti();
+        const nextXp = state.xp + xpGain;
 
         set({
-          ...(recurringPatch ?? {}),
           xp: nextXp,
-          gold: state.gold + goldReward,
-          weeklyProgress: {
-            ...activeWeeklyProgress,
-            completedIds: [...activeWeeklyProgress.completedIds, questId],
-          },
+          gold: state.gold + goldGain,
+          dailyProgress,
+          weeklyProgress,
+          pendingClaims: remaining,
           ...getLevelData(nextXp),
         });
 
         queueCloudSave(get);
-        return true;
+        return { approved, rejected };
       },
 
       refreshQuestCycles: () => {
@@ -625,6 +655,7 @@ export const useGameState = create<GameState>()(
           completedQuests: [],
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
+          pendingClaims: [],
           ...getLevelData(0),
         }));
 
@@ -720,6 +751,7 @@ export const useGameState = create<GameState>()(
         completedQuests: state.completedQuests,
         dailyProgress: state.dailyProgress,
         weeklyProgress: state.weeklyProgress,
+        pendingClaims: state.pendingClaims,
       }),
       merge: (persistedState, currentState) => {
         const typedState = (persistedState as Partial<PersistedGameState>) || {};
