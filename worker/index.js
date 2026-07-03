@@ -44,15 +44,20 @@ async function sendTelegramMessage(env, text) {
 
 function formatClaim(body) {
   const questType = body.questType === "weekly" ? "еженедельное" : "ежедневное";
-  const student = body.telegramUsername
-    ? `${body.username || "Ученик"} (@${body.telegramUsername})`
-    : body.username || "Ученик";
-  const idLine = body.telegramUserId ? `\nID: ${body.telegramUserId}` : "";
+  const handle = body.telegramUsername ? ` (@${body.telegramUsername})` : "";
+  const student = `${body.username || "Ученик"}${handle}`;
   const reward = `+${body.xpReward ?? "?"} XP, +${body.goldReward ?? "?"} монет`;
+
+  // The immutable Telegram numeric id is the real anchor for the tally; the
+  // display name and @handle are just human-readable labels the child can change.
+  const identityLine = body.telegramUserId
+    ? `ID: ${body.telegramUserId}`
+    : "⚠️ Открыто вне Telegram — личность не подтверждена, не засчитывать";
 
   return (
     `🔔 Новая заявка на проверку\n\n` +
-    `Ученик: ${student}${idLine}\n` +
+    `Ученик: ${student}\n` +
+    `${identityLine}\n` +
     `Задание (${questType}): ${body.questTitle || body.questId}\n` +
     `Награда: ${reward}`
   );
