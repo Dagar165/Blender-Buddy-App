@@ -18,3 +18,9 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
+          secrets: |
+            TELEGRAM_BOT_TOKEN
+            CURATOR_CHAT_ID
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CURATOR_CHAT_ID: ${{ secrets.CURATOR_CHAT_ID }}
