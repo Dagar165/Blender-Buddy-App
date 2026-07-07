@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
+import {
+  useGameState,
+  getStreakInfo,
+  wasYesterdaySavedByFreeze,
+} from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, Clock, Coins, Flame, Target } from "lucide-react";
+import {
+  CheckCircle,
+  Clock,
+  Coins,
+  Flame,
+  FlaskConical,
+  Snowflake,
+  Target,
+} from "lucide-react";
 import { pluralizeDaysRu } from "@/lib/utils";
 import {
   QUESTS_CONFIG,
@@ -117,12 +129,19 @@ export default function QuestsPage() {
     weeklyProgress,
     pendingClaims,
     streakDays,
+    frozenDays,
+    streakFreezes,
+    doublePotions,
+    potionActive,
     addPendingClaim,
     applyClaimResolutions,
+    activateDoublePotion,
+    autoApplyStreakFreeze,
     refreshQuestCycles,
   } = useGameState();
 
-  const streak = getStreakInfo(streakDays, pendingClaims);
+  const streak = getStreakInfo(streakDays, pendingClaims, frozenDays);
+  const savedByFreeze = wasYesterdaySavedByFreeze(frozenDays);
 
   const [activeTab, setActiveTab] = useState<QuestTab>("daily");
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -131,7 +150,8 @@ export default function QuestsPage() {
 
   useEffect(() => {
     refreshQuestCycles();
-  }, [refreshQuestCycles]);
+    autoApplyStreakFreeze();
+  }, [refreshQuestCycles, autoApplyStreakFreeze]);
 
   useEffect(() => {
     return () => {
@@ -177,16 +197,23 @@ export default function QuestsPage() {
     );
     if (!statuses) return;
 
-    const { approved, rejected, xpGranted, goldGranted, bonusPercent } =
-      applyClaimResolutions(statuses);
+    const {
+      approved,
+      rejected,
+      xpGranted,
+      goldGranted,
+      bonusPercent,
+      potionUsedOn,
+    } = applyClaimResolutions(statuses);
 
     if (approved.length > 0) {
       const bonusNote =
         bonusPercent > 0 ? ` (с бонусом серии +${bonusPercent}%)` : "";
+      const potionNote = potionUsedOn ? " Зелье ×2 сработало! 🧪" : "";
       showNotice(
         approved.length === 1
-          ? `Куратор подтвердил «${approved[0].questTitle}»: +${xpGranted} XP и +${goldGranted} монет${bonusNote} 🎉`
-          : `Куратор подтвердил задания (${approved.length}): +${xpGranted} XP и +${goldGranted} монет${bonusNote} 🎉`,
+          ? `Куратор подтвердил «${approved[0].questTitle}»: +${xpGranted} XP и +${goldGranted} монет${bonusNote} 🎉${potionNote}`
+          : `Куратор подтвердил задания (${approved.length}): +${xpGranted} XP и +${goldGranted} монет${bonusNote} 🎉${potionNote}`,
         "success"
       );
     } else if (rejected.length > 0) {
@@ -337,7 +364,7 @@ export default function QuestsPage() {
             }`}
             fill="currentColor"
           />
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-slate-800">
               {streak.current === 0
                 ? "Серия дней не начата"
@@ -349,13 +376,59 @@ export default function QuestsPage() {
               {streak.current === 0
                 ? "Выполни ежедневное задание сегодня, чтобы зажечь огонёк"
                 : streak.atRisk
-                  ? "Выполни ежедневное задание сегодня, иначе серия сгорит!"
-                  : streak.bonusPercent > 0
-                    ? `Бонус серии: +${streak.bonusPercent}% к наградам`
-                    : "Продолжи завтра — получишь +5% к наградам"}
+                  ? streakFreezes > 0
+                    ? "Сделай задание сегодня — или серию прикроет заморозка ❄️"
+                    : "Выполни ежедневное задание сегодня, иначе серия сгорит!"
+                  : savedByFreeze
+                    ? "Вчера серию спасла заморозка ❄️ Продолжай сегодня!"
+                    : streak.bonusPercent > 0
+                      ? `Бонус серии: +${streak.bonusPercent}% к наградам`
+                      : "Продолжи завтра — получишь +5% к наградам"}
             </p>
           </div>
+
+          {streakFreezes > 0 && (
+            <div className="shrink-0 flex items-center gap-1 bg-cyan-50 border border-cyan-200 text-cyan-600 px-2.5 py-1.5 rounded-xl">
+              <Snowflake className="w-4 h-4" />
+              <span className="text-xs font-bold">{streakFreezes}</span>
+            </div>
+          )}
         </div>
+
+        {(potionActive || doublePotions > 0) && (
+          <div
+            className={`mb-4 flex items-center gap-3 rounded-2xl border p-3 ${
+              potionActive
+                ? "bg-fuchsia-50 border-fuchsia-200"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <FlaskConical
+              className={`w-8 h-8 shrink-0 drop-shadow-sm ${
+                potionActive ? "text-fuchsia-500" : "text-slate-300"
+              }`}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-800">
+                {potionActive ? "Зелье ×2 действует! 🧪" : "У тебя есть зелье ×2"}
+              </p>
+              <p className="text-xs text-slate-500">
+                {potionActive
+                  ? "Следующее одобренное задание принесёт двойную награду"
+                  : `В запасе: ${doublePotions} шт. Выпей перед заданием подороже!`}
+              </p>
+            </div>
+
+            {!potionActive && (
+              <button
+                onClick={() => activateDoublePotion()}
+                className="shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-200"
+              >
+                Выпить
+              </button>
+            )}
+          </div>
+        )}
 
         <AnimatePresence>
           {notice && (

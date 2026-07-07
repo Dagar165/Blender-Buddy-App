@@ -2,8 +2,8 @@ import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
 import { Coins, Flame } from "lucide-react";
 
 export function TopBar() {
-  const { level, gold, streakDays, pendingClaims } = useGameState();
-  const streak = getStreakInfo(streakDays, pendingClaims);
+  const { level, gold, streakDays, frozenDays, pendingClaims } = useGameState();
+  const streak = getStreakInfo(streakDays, pendingClaims, frozenDays);
 
   const flameColor = streak.todayCounted
     ? "text-orange-500"

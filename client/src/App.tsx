@@ -90,6 +90,10 @@ function AppContent() {
     }
 
     void bootstrapTelegramCloud().then(async () => {
+      // A missed day may need patching by a streak freeze right at launch,
+      // before the student even opens the quests tab.
+      useGameState.getState().autoApplyStreakFreeze();
+
       // Apply any curator decisions made while the app was closed, so rewards
       // land even before the quests tab is opened.
       const { pendingClaims, applyClaimResolutions } = useGameState.getState();

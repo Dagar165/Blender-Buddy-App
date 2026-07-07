@@ -2,6 +2,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import confetti from "canvas-confetti";
 import type { ClaimStatus } from "@/lib/quest-claim";
+import {
+  DOUBLE_POTION_COST,
+  DOUBLE_POTION_MAX,
+  STREAK_FREEZE_COST,
+  STREAK_FREEZE_MAX,
+} from "@/lib/shop-config";
 
 export const LEVEL_THRESHOLDS = [
   0,     // level 1
@@ -109,6 +115,9 @@ type CloudProgressData = {
   xp: number;
   gold: number;
   inventory: string[];
+  streakFreezes?: number;
+  doublePotions?: number;
+  potionActive?: boolean;
 };
 
 type CloudRecurringData = {
@@ -122,6 +131,7 @@ type CloudCompletedData = {
 
 type CloudStreakData = {
   streakDays: string[];
+  frozenDays?: string[];
 };
 
 type CloudStatsData = {
@@ -153,6 +163,13 @@ export interface GameState extends LevelData {
 
   // Local dates (YYYY-MM-DD) whose daily quests were approved by the curator.
   streakDays: string[];
+  // Days covered by a spent streak freeze — they patch one-day gaps in the chain.
+  frozenDays: string[];
+  streakFreezes: number;
+
+  doublePotions: number;
+  // A drunk potion waiting for the next approved claim to double.
+  potionActive: boolean;
 
   stats: GameStats;
   seenAchievements: string[];
@@ -171,7 +188,13 @@ export interface GameState extends LevelData {
     xpGranted: number;
     goldGranted: number;
     bonusPercent: number;
+    potionUsedOn: string | null;
   };
+
+  buyStreakFreeze: () => boolean;
+  buyDoublePotion: () => boolean;
+  activateDoublePotion: () => boolean;
+  autoApplyStreakFreeze: () => void;
 
   markAchievementsSeen: (ids: string[]) => void;
 
@@ -195,6 +218,10 @@ type PersistedGameState = Pick<
   | "inventory"
   | "completedQuests"
   | "streakDays"
+  | "frozenDays"
+  | "streakFreezes"
+  | "doublePotions"
+  | "potionActive"
   | "stats"
   | "seenAchievements"
   | "dailyProgress"
@@ -341,6 +368,40 @@ const mergeStreakDays = (base: string[], extra: string[]) => {
   return Array.from(new Set([...base, ...extra])).sort().slice(-STREAK_DAYS_KEPT);
 };
 
+// A freeze can only patch YESTERDAY: it must reconnect a real chain (there was
+// a streak the day before), and only when no pending claim already covers it —
+// a claim awaiting review is not a missed day.
+const findFreezeGapDay = (
+  confirmedDays: Set<string>,
+  pendingDays: Set<string>
+) => {
+  const yesterday = previousDayString(formatLocalDate(new Date()));
+
+  if (confirmedDays.has(yesterday) || pendingDays.has(yesterday)) return null;
+  if (chainLengthEndingAt(confirmedDays, previousDayString(yesterday)) === 0) {
+    return null;
+  }
+
+  return yesterday;
+};
+
+const getPendingDailyDays = (pendingClaims: PendingClaim[]) => {
+  const days = new Set<string>();
+
+  for (const claim of pendingClaims) {
+    if (claim.questType !== "daily") continue;
+    const day = dateFromDailyCycleKey(claim.cycleKey);
+    if (day) days.add(day);
+  }
+
+  return days;
+};
+
+// True the day after a freeze saved the streak — the UI can tell the student.
+export const wasYesterdaySavedByFreeze = (frozenDays: string[]) => {
+  return frozenDays.includes(previousDayString(formatLocalDate(new Date())));
+};
+
 export type StreakInfo = {
   current: number;
   todayCounted: boolean;
@@ -352,9 +413,10 @@ export type StreakInfo = {
 // curator rejects them, the claim disappears and the day is uncovered again.
 export const getStreakInfo = (
   streakDays: string[],
-  pendingClaims: PendingClaim[]
+  pendingClaims: PendingClaim[],
+  frozenDays: string[] = []
 ): StreakInfo => {
-  const covered = new Set(streakDays);
+  const covered = new Set([...streakDays, ...frozenDays]);
 
   for (const claim of pendingClaims) {
     if (claim.questType !== "daily") continue;
@@ -537,6 +599,10 @@ const buildCloudPayloads = (state: Pick<
   | "weeklyProgress"
   | "completedQuests"
   | "streakDays"
+  | "frozenDays"
+  | "streakFreezes"
+  | "doublePotions"
+  | "potionActive"
   | "stats"
   | "seenAchievements"
 >) => {
@@ -549,6 +615,9 @@ const buildCloudPayloads = (state: Pick<
     xp: state.xp,
     gold: state.gold,
     inventory: state.inventory,
+    streakFreezes: state.streakFreezes,
+    doublePotions: state.doublePotions,
+    potionActive: state.potionActive,
   };
 
   const recurringPayload: CloudRecurringData = {
@@ -562,6 +631,7 @@ const buildCloudPayloads = (state: Pick<
 
   const streakPayload: CloudStreakData = {
     streakDays: state.streakDays,
+    frozenDays: state.frozenDays,
   };
 
   const statsPayload: CloudStatsData = {
@@ -591,6 +661,10 @@ const writeCloudState = async (
     | "weeklyProgress"
     | "completedQuests"
     | "streakDays"
+    | "frozenDays"
+    | "streakFreezes"
+    | "doublePotions"
+    | "potionActive"
     | "stats"
     | "seenAchievements"
   >
@@ -653,6 +727,10 @@ export const useGameState = create<GameState>()(
       inventory: [],
       completedQuests: [],
       streakDays: [],
+      frozenDays: [],
+      streakFreezes: 0,
+      doublePotions: 0,
+      potionActive: false,
       stats: createDefaultStats(),
       seenAchievements: [],
 
@@ -719,7 +797,14 @@ export const useGameState = create<GameState>()(
         }
 
         if (approved.length === 0 && rejected.length === 0) {
-          return { approved, rejected, xpGranted: 0, goldGranted: 0, bonusPercent: 0 };
+          return {
+            approved,
+            rejected,
+            xpGranted: 0,
+            goldGranted: 0,
+            bonusPercent: 0,
+            potionUsedOn: null,
+          };
         }
 
         const recurringPatch = getRecurringProgressPatch(state);
@@ -739,12 +824,30 @@ export const useGameState = create<GameState>()(
 
         const streakDays = mergeStreakDays([...creditedDays], []);
 
+        // Spend a streak freeze if it can reconnect the chain across yesterday.
+        let streakFreezes = state.streakFreezes;
+        let frozenDays = state.frozenDays;
+        const chainSet = new Set([...creditedDays, ...frozenDays]);
+
+        if (streakFreezes > 0) {
+          const gapDay = findFreezeGapDay(
+            chainSet,
+            getPendingDailyDays(remaining)
+          );
+
+          if (gapDay) {
+            streakFreezes -= 1;
+            frozenDays = mergeStreakDays(frozenDays, [gapDay]);
+            chainSet.add(gapDay);
+          }
+        }
+
         const today = formatLocalDate(new Date());
-        const chainToday = chainLengthEndingAt(creditedDays, today);
+        const chainToday = chainLengthEndingAt(chainSet, today);
         const confirmedStreak =
           chainToday > 0
             ? chainToday
-            : chainLengthEndingAt(creditedDays, previousDayString(today));
+            : chainLengthEndingAt(chainSet, previousDayString(today));
         const bonusPercent = getStreakBonusPercent(confirmedStreak);
         const rewardMultiplier = 1 + bonusPercent / 100;
 
@@ -754,12 +857,26 @@ export const useGameState = create<GameState>()(
           bestStreak: Math.max(state.stats.bestStreak, confirmedStreak),
         };
 
+        // An active ×2 potion doubles the most valuable approved claim.
+        let potionActive = state.potionActive;
+        let potionClaim: PendingClaim | null = null;
+
+        if (potionActive && approved.length > 0) {
+          potionClaim = approved.reduce((best, claim) =>
+            claim.xpReward + claim.goldReward > best.xpReward + best.goldReward
+              ? claim
+              : best
+          );
+          potionActive = false;
+        }
+
         let xpGain = 0;
         let goldGain = 0;
 
         for (const claim of approved) {
-          xpGain += Math.round(claim.xpReward * rewardMultiplier);
-          goldGain += Math.round(claim.goldReward * rewardMultiplier);
+          const potionMultiplier = claim === potionClaim ? 2 : 1;
+          xpGain += Math.round(claim.xpReward * rewardMultiplier * potionMultiplier);
+          goldGain += Math.round(claim.goldReward * rewardMultiplier * potionMultiplier);
 
           // Mark the quest completed only if its cycle is still current;
           // late approvals from a past day/week just pay out the reward.
@@ -796,6 +913,9 @@ export const useGameState = create<GameState>()(
           xp: nextXp,
           gold: state.gold + goldGain,
           streakDays,
+          frozenDays,
+          streakFreezes,
+          potionActive,
           stats,
           dailyProgress,
           weeklyProgress,
@@ -810,7 +930,84 @@ export const useGameState = create<GameState>()(
           xpGranted: xpGain,
           goldGranted: goldGain,
           bonusPercent,
+          potionUsedOn: potionClaim?.questTitle ?? null,
         };
+      },
+
+      buyStreakFreeze: () => {
+        const state = get();
+
+        if (state.streakFreezes >= STREAK_FREEZE_MAX) return false;
+        if (state.gold < STREAK_FREEZE_COST) return false;
+
+        triggerRewardConfetti();
+
+        set({
+          gold: state.gold - STREAK_FREEZE_COST,
+          streakFreezes: state.streakFreezes + 1,
+          stats: {
+            ...state.stats,
+            goldSpent: state.stats.goldSpent + STREAK_FREEZE_COST,
+          },
+        });
+
+        queueCloudSave(get);
+        return true;
+      },
+
+      buyDoublePotion: () => {
+        const state = get();
+
+        if (state.doublePotions >= DOUBLE_POTION_MAX) return false;
+        if (state.gold < DOUBLE_POTION_COST) return false;
+
+        triggerRewardConfetti();
+
+        set({
+          gold: state.gold - DOUBLE_POTION_COST,
+          doublePotions: state.doublePotions + 1,
+          stats: {
+            ...state.stats,
+            goldSpent: state.stats.goldSpent + DOUBLE_POTION_COST,
+          },
+        });
+
+        queueCloudSave(get);
+        return true;
+      },
+
+      activateDoublePotion: () => {
+        const state = get();
+
+        if (state.potionActive || state.doublePotions === 0) return false;
+
+        set({
+          doublePotions: state.doublePotions - 1,
+          potionActive: true,
+        });
+
+        queueCloudSave(get);
+        return true;
+      },
+
+      autoApplyStreakFreeze: () => {
+        const state = get();
+
+        if (state.streakFreezes === 0) return;
+
+        const gapDay = findFreezeGapDay(
+          new Set([...state.streakDays, ...state.frozenDays]),
+          getPendingDailyDays(state.pendingClaims)
+        );
+
+        if (!gapDay) return;
+
+        set({
+          streakFreezes: state.streakFreezes - 1,
+          frozenDays: mergeStreakDays(state.frozenDays, [gapDay]),
+        });
+
+        queueCloudSave(get);
       },
 
       markAchievementsSeen: (ids) => {
@@ -868,6 +1065,10 @@ export const useGameState = create<GameState>()(
           inventory: [],
           completedQuests: [],
           streakDays: [],
+          frozenDays: [],
+          streakFreezes: 0,
+          doublePotions: 0,
+          potionActive: false,
           stats: createDefaultStats(),
           seenAchievements: [],
           dailyProgress: createDailyProgress(),
@@ -912,6 +1113,19 @@ export const useGameState = create<GameState>()(
             ? mergeStreakDays(state.streakDays, cloudStreakDays)
             : state.streakDays;
 
+          const cloudFrozenDays = cloudState?.streak?.frozenDays;
+          const nextFrozenDays = Array.isArray(cloudFrozenDays)
+            ? mergeStreakDays(state.frozenDays, cloudFrozenDays)
+            : state.frozenDays;
+
+          // Consumables follow the balance: the cloud copy wins, like gold.
+          const nextStreakFreezes =
+            cloudState?.progress?.streakFreezes ?? state.streakFreezes;
+          const nextDoublePotions =
+            cloudState?.progress?.doublePotions ?? state.doublePotions;
+          const nextPotionActive =
+            cloudState?.progress?.potionActive ?? state.potionActive;
+
           // Lifetime counters only grow, so take the max of each across devices.
           const cloudStats = cloudState?.statsData?.stats;
           const nextStats: GameStats = {
@@ -923,7 +1137,7 @@ export const useGameState = create<GameState>()(
             bestStreak: Math.max(state.stats.bestStreak, cloudStats?.bestStreak ?? 0),
           };
 
-          const coveredNow = new Set(nextStreakDays);
+          const coveredNow = new Set([...nextStreakDays, ...nextFrozenDays]);
           const todayStr = formatLocalDate(new Date());
           const chainNow =
             chainLengthEndingAt(coveredNow, todayStr) ||
@@ -948,6 +1162,10 @@ export const useGameState = create<GameState>()(
             inventory: nextInventory,
             completedQuests: nextCompletedQuests,
             streakDays: nextStreakDays,
+            frozenDays: nextFrozenDays,
+            streakFreezes: nextStreakFreezes,
+            doublePotions: nextDoublePotions,
+            potionActive: nextPotionActive,
             stats: nextStats,
             seenAchievements: nextSeenAchievements,
             dailyProgress: nextDailyProgress,
@@ -1001,6 +1219,10 @@ export const useGameState = create<GameState>()(
         inventory: state.inventory,
         completedQuests: state.completedQuests,
         streakDays: state.streakDays,
+        frozenDays: state.frozenDays,
+        streakFreezes: state.streakFreezes,
+        doublePotions: state.doublePotions,
+        potionActive: state.potionActive,
         stats: state.stats,
         seenAchievements: state.seenAchievements,
         dailyProgress: state.dailyProgress,
