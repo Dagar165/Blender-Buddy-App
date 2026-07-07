@@ -255,13 +255,14 @@ const getLevelData = (totalXp: number): LevelData => {
   };
 };
 
+// Short celebratory burst — long confetti rain hides the whole screen.
 const triggerRewardConfetti = () => {
-  const duration = 2000;
+  const duration = 900;
   const end = Date.now() + duration;
 
   const frame = () => {
     confetti({
-      particleCount: 5,
+      particleCount: 3,
       angle: 60,
       spread: 55,
       origin: { x: 0 },
@@ -269,7 +270,7 @@ const triggerRewardConfetti = () => {
     });
 
     confetti({
-      particleCount: 5,
+      particleCount: 3,
       angle: 120,
       spread: 55,
       origin: { x: 1 },

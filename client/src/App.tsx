@@ -1,16 +1,16 @@
 import { Router as WouterRouter, Switch, Route } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect } from "react";
-import confetti from "canvas-confetti";
+import { useEffect, useState } from "react";
 import { useGameState, type GameState } from "@/hooks/use-game-state";
 import { fetchClaimStatuses } from "@/lib/quest-claim";
-import { toast } from "@/hooks/use-toast";
 import {
   ACHIEVEMENTS_CONFIG,
   buildAchievementSnapshot,
   evaluateAchievements,
+  type AchievementDefinition,
 } from "@/lib/achievements-config";
+import { AchievementUnlock } from "@/components/achievement-unlock";
 
 // Components & Pages
 import { BottomNav } from "@/components/bottom-nav";
@@ -34,8 +34,8 @@ function Router() {
   );
 }
 
-// Celebrates achievements the student unlocked but hasn't been shown yet.
-function checkNewAchievements(state: GameState) {
+// Finds achievements the student unlocked but hasn't been shown yet.
+function takeNewAchievements(state: GameState): AchievementDefinition[] {
   const unlockedIds = evaluateAchievements(buildAchievementSnapshot(state))
     .filter((entry) => entry.unlocked)
     .map((entry) => entry.definition.id);
@@ -44,41 +44,35 @@ function checkNewAchievements(state: GameState) {
     (id) => !state.seenAchievements.includes(id)
   );
 
-  if (unseen.length === 0) return;
+  if (unseen.length === 0) return [];
 
   state.markAchievementsSeen(unseen);
 
-  const first = ACHIEVEMENTS_CONFIG.find((def) => def.id === unseen[0]);
-
-  toast({
-    title:
-      unseen.length === 1 && first
-        ? `Новое достижение! ${first.emoji}`
-        : `Новые достижения: ${unseen.length} 🏅`,
-    description:
-      unseen.length === 1 && first
-        ? `«${first.title}» — ${first.description}`
-        : "Загляни в профиль — там появились новые медали!",
-  });
-
-  confetti({
-    particleCount: 90,
-    spread: 75,
-    origin: { y: 0.3 },
-    colors: ["#3B82F6", "#F97316", "#FACC15", "#A855F7"],
-  });
+  return unseen
+    .map((id) => ACHIEVEMENTS_CONFIG.find((def) => def.id === id))
+    .filter((def): def is AchievementDefinition => Boolean(def));
 }
 
 function AppContent() {
   const bootstrapTelegramCloud = useGameState(
     (state) => state.bootstrapTelegramCloud
   );
+  const [achievementQueue, setAchievementQueue] = useState<
+    AchievementDefinition[]
+  >([]);
 
   useEffect(() => {
-    checkNewAchievements(useGameState.getState());
+    const enqueue = (state: GameState) => {
+      const fresh = takeNewAchievements(state);
+      if (fresh.length > 0) {
+        setAchievementQueue((queue) => [...queue, ...fresh]);
+      }
+    };
+
+    enqueue(useGameState.getState());
 
     return useGameState.subscribe((state) => {
-      checkNewAchievements(state);
+      enqueue(state);
     });
   }, []);
 
@@ -117,6 +111,11 @@ function AppContent() {
           <Router />
           <BottomNav />
           <Toaster />
+          <AchievementUnlock
+            achievement={achievementQueue[0] ?? null}
+            remainingCount={Math.max(0, achievementQueue.length - 1)}
+            onClaim={() => setAchievementQueue((queue) => queue.slice(1))}
+          />
         </div>
       </div>
     </WouterRouter>
