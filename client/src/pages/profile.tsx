@@ -1,13 +1,30 @@
 import { useGameState } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
-import { User, Trophy, Package, RotateCcw, PenSquare } from "lucide-react";
+import { User, Trophy, Package, RotateCcw, PenSquare, Medal } from "lucide-react";
 import { useState } from "react";
+import {
+  buildAchievementSnapshot,
+  evaluateAchievements,
+} from "@/lib/achievements-config";
 
 export default function ProfilePage() {
-  const { username, level, xp, gold, inventory, setUsername, resetGame } = useGameState();
+  const { username, level, xp, gold, inventory, stats, setUsername, resetGame } =
+    useGameState();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(username);
+  const [selectedAchievementId, setSelectedAchievementId] = useState<
+    string | null
+  >(null);
+
+  const achievements = evaluateAchievements(
+    buildAchievementSnapshot({ stats, level, inventory })
+  );
+  const unlockedCount = achievements.filter((entry) => entry.unlocked).length;
+  const selectedAchievement =
+    achievements.find(
+      (entry) => entry.definition.id === selectedAchievementId
+    ) ?? null;
 
   const handleSaveName = () => {
     if (editName.trim()) {
@@ -65,6 +82,99 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <h3 className="font-display font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+          <Medal className="text-secondary" /> Достижения
+          <span className="ml-auto text-sm font-bold text-slate-500 bg-white px-3 py-1 rounded-xl border border-slate-200">
+            {unlockedCount}/{achievements.length}
+          </span>
+        </h3>
+
+        {selectedAchievement && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            key={selectedAchievement.definition.id}
+            className={`mb-3 p-4 rounded-2xl border flex items-center gap-3 ${
+              selectedAchievement.unlocked
+                ? "bg-amber-50 border-amber-200"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <span
+              className={`text-3xl ${
+                selectedAchievement.unlocked ? "" : "grayscale opacity-50"
+              }`}
+            >
+              {selectedAchievement.definition.emoji}
+            </span>
+            <div>
+              <p className="font-bold text-slate-800 text-sm">
+                {selectedAchievement.definition.title}
+              </p>
+              <p className="text-xs text-slate-500">
+                {selectedAchievement.definition.description}
+              </p>
+              <p
+                className={`text-xs font-bold mt-1 ${
+                  selectedAchievement.unlocked
+                    ? "text-amber-600"
+                    : "text-slate-500"
+                }`}
+              >
+                {selectedAchievement.unlocked
+                  ? "Получено! 🎉"
+                  : `Прогресс: ${selectedAchievement.value}/${selectedAchievement.target}`}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          {achievements.map((entry) => {
+            const isSelected =
+              entry.definition.id === selectedAchievementId;
+
+            return (
+              <button
+                key={entry.definition.id}
+                onClick={() =>
+                  setSelectedAchievementId(
+                    isSelected ? null : entry.definition.id
+                  )
+                }
+                className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all active:scale-95 ${
+                  entry.unlocked
+                    ? "bg-white border-amber-200 shadow-sm shadow-amber-100"
+                    : "bg-slate-50 border-slate-200"
+                } ${isSelected ? "ring-2 ring-primary/40" : ""}`}
+              >
+                <span
+                  className={`text-3xl ${
+                    entry.unlocked ? "" : "grayscale opacity-40"
+                  }`}
+                >
+                  {entry.definition.emoji}
+                </span>
+                <span
+                  className={`text-[11px] font-bold leading-tight text-center ${
+                    entry.unlocked ? "text-slate-700" : "text-slate-400"
+                  }`}
+                >
+                  {entry.definition.title}
+                </span>
+                {!entry.unlocked && (
+                  <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary/60 rounded-full"
+                      style={{ width: `${entry.percent}%` }}
+                    />
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <h3 className="font-display font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">

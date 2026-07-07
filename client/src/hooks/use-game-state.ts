@@ -57,6 +57,19 @@ type RecurringQuestProgress = {
   completedIds: string[];
 };
 
+// Lifetime counters achievements are computed from.
+export type GameStats = {
+  approvedQuestsTotal: number;
+  goldSpent: number;
+  bestStreak: number;
+};
+
+const createDefaultStats = (): GameStats => ({
+  approvedQuestsTotal: 0,
+  goldSpent: 0,
+  bestStreak: 0,
+});
+
 // A quest the student says is done, waiting for the curator's verdict.
 export type PendingClaim = {
   claimId: string;
@@ -111,12 +124,18 @@ type CloudStreakData = {
   streakDays: string[];
 };
 
+type CloudStatsData = {
+  stats: GameStats;
+  seenAchievements: string[];
+};
+
 type LoadedCloudState = {
   profile?: Partial<CloudProfileData>;
   progress?: Partial<CloudProgressData>;
   recurring?: Partial<CloudRecurringData>;
   completed?: Partial<CloudCompletedData>;
   streak?: Partial<CloudStreakData>;
+  statsData?: Partial<CloudStatsData>;
 };
 
 export interface GameState extends LevelData {
@@ -135,6 +154,9 @@ export interface GameState extends LevelData {
   // Local dates (YYYY-MM-DD) whose daily quests were approved by the curator.
   streakDays: string[];
 
+  stats: GameStats;
+  seenAchievements: string[];
+
   dailyProgress: RecurringQuestProgress;
   weeklyProgress: RecurringQuestProgress;
   pendingClaims: PendingClaim[];
@@ -150,6 +172,8 @@ export interface GameState extends LevelData {
     goldGranted: number;
     bonusPercent: number;
   };
+
+  markAchievementsSeen: (ids: string[]) => void;
 
   refreshQuestCycles: () => void;
   buyItem: (itemId: string, cost: number, itemName: string) => boolean;
@@ -171,6 +195,8 @@ type PersistedGameState = Pick<
   | "inventory"
   | "completedQuests"
   | "streakDays"
+  | "stats"
+  | "seenAchievements"
   | "dailyProgress"
   | "weeklyProgress"
   | "pendingClaims"
@@ -181,6 +207,7 @@ const CLOUD_PROGRESS_KEY = "bb_progress_v1";
 const CLOUD_RECURRING_KEY = "bb_recurring_v1";
 const CLOUD_COMPLETED_KEY = "bb_completed_v1";
 const CLOUD_STREAK_KEY = "bb_streak_v1";
+const CLOUD_STATS_KEY = "bb_stats_v1";
 
 let cloudSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -460,6 +487,7 @@ const readCloudState = async (): Promise<LoadedCloudState | null> => {
         CLOUD_RECURRING_KEY,
         CLOUD_COMPLETED_KEY,
         CLOUD_STREAK_KEY,
+        CLOUD_STATS_KEY,
       ],
       (error, values) => {
         if (error) {
@@ -473,8 +501,11 @@ const readCloudState = async (): Promise<LoadedCloudState | null> => {
         const recurring = safeParseJson<CloudRecurringData>(values?.[CLOUD_RECURRING_KEY]);
         const completed = safeParseJson<CloudCompletedData>(values?.[CLOUD_COMPLETED_KEY]);
         const streak = safeParseJson<CloudStreakData>(values?.[CLOUD_STREAK_KEY]);
+        const statsData = safeParseJson<CloudStatsData>(values?.[CLOUD_STATS_KEY]);
 
-        const hasAnyData = Boolean(profile || progress || recurring || completed || streak);
+        const hasAnyData = Boolean(
+          profile || progress || recurring || completed || streak || statsData
+        );
 
         if (!hasAnyData) {
           resolve(null);
@@ -487,6 +518,7 @@ const readCloudState = async (): Promise<LoadedCloudState | null> => {
           recurring: recurring ?? undefined,
           completed: completed ?? undefined,
           streak: streak ?? undefined,
+          statsData: statsData ?? undefined,
         });
       }
     );
@@ -504,6 +536,8 @@ const buildCloudPayloads = (state: Pick<
   | "weeklyProgress"
   | "completedQuests"
   | "streakDays"
+  | "stats"
+  | "seenAchievements"
 >) => {
   const profilePayload: CloudProfileData = {
     username: state.username,
@@ -529,12 +563,18 @@ const buildCloudPayloads = (state: Pick<
     streakDays: state.streakDays,
   };
 
+  const statsPayload: CloudStatsData = {
+    stats: state.stats,
+    seenAchievements: state.seenAchievements,
+  };
+
   return {
     profilePayload,
     progressPayload,
     recurringPayload,
     completedPayload,
     streakPayload,
+    statsPayload,
   };
 };
 
@@ -550,6 +590,8 @@ const writeCloudState = async (
     | "weeklyProgress"
     | "completedQuests"
     | "streakDays"
+    | "stats"
+    | "seenAchievements"
   >
 ): Promise<boolean> => {
   if (!getTelegramCloudStorage()) {
@@ -562,6 +604,7 @@ const writeCloudState = async (
     recurringPayload,
     completedPayload,
     streakPayload,
+    statsPayload,
   } = buildCloudPayloads(state);
 
   const results = await Promise.all([
@@ -570,6 +613,7 @@ const writeCloudState = async (
     cloudSetItem(CLOUD_RECURRING_KEY, JSON.stringify(recurringPayload)),
     cloudSetItem(CLOUD_COMPLETED_KEY, JSON.stringify(completedPayload)),
     cloudSetItem(CLOUD_STREAK_KEY, JSON.stringify(streakPayload)),
+    cloudSetItem(CLOUD_STATS_KEY, JSON.stringify(statsPayload)),
   ]);
 
   return results.every(Boolean);
@@ -608,6 +652,8 @@ export const useGameState = create<GameState>()(
       inventory: [],
       completedQuests: [],
       streakDays: [],
+      stats: createDefaultStats(),
+      seenAchievements: [],
 
       dailyProgress: createDailyProgress(),
       weeklyProgress: createWeeklyProgress(),
@@ -701,6 +747,12 @@ export const useGameState = create<GameState>()(
         const bonusPercent = getStreakBonusPercent(confirmedStreak);
         const rewardMultiplier = 1 + bonusPercent / 100;
 
+        const stats: GameStats = {
+          ...state.stats,
+          approvedQuestsTotal: state.stats.approvedQuestsTotal + approved.length,
+          bestStreak: Math.max(state.stats.bestStreak, confirmedStreak),
+        };
+
         let xpGain = 0;
         let goldGain = 0;
 
@@ -743,6 +795,7 @@ export const useGameState = create<GameState>()(
           xp: nextXp,
           gold: state.gold + goldGain,
           streakDays,
+          stats,
           dailyProgress,
           weeklyProgress,
           pendingClaims: remaining,
@@ -757,6 +810,16 @@ export const useGameState = create<GameState>()(
           goldGranted: goldGain,
           bonusPercent,
         };
+      },
+
+      markAchievementsSeen: (ids) => {
+        const state = get();
+        const unseen = ids.filter((id) => !state.seenAchievements.includes(id));
+
+        if (unseen.length === 0) return;
+
+        set({ seenAchievements: [...state.seenAchievements, ...unseen] });
+        queueCloudSave(get);
       },
 
       refreshQuestCycles: () => {
@@ -778,6 +841,10 @@ export const useGameState = create<GameState>()(
           set({
             gold: state.gold - cost,
             inventory: [...state.inventory, itemName],
+            stats: {
+              ...state.stats,
+              goldSpent: state.stats.goldSpent + cost,
+            },
           });
 
           queueCloudSave(get);
@@ -800,6 +867,8 @@ export const useGameState = create<GameState>()(
           inventory: [],
           completedQuests: [],
           streakDays: [],
+          stats: createDefaultStats(),
+          seenAchievements: [],
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
           pendingClaims: [],
@@ -842,6 +911,29 @@ export const useGameState = create<GameState>()(
             ? mergeStreakDays(state.streakDays, cloudStreakDays)
             : state.streakDays;
 
+          // Lifetime counters only grow, so take the max of each across devices.
+          const cloudStats = cloudState?.statsData?.stats;
+          const nextStats: GameStats = {
+            approvedQuestsTotal: Math.max(
+              state.stats.approvedQuestsTotal,
+              cloudStats?.approvedQuestsTotal ?? 0
+            ),
+            goldSpent: Math.max(state.stats.goldSpent, cloudStats?.goldSpent ?? 0),
+            bestStreak: Math.max(state.stats.bestStreak, cloudStats?.bestStreak ?? 0),
+          };
+
+          const coveredNow = new Set(nextStreakDays);
+          const todayStr = formatLocalDate(new Date());
+          const chainNow =
+            chainLengthEndingAt(coveredNow, todayStr) ||
+            chainLengthEndingAt(coveredNow, previousDayString(todayStr));
+          nextStats.bestStreak = Math.max(nextStats.bestStreak, chainNow);
+
+          const cloudSeen = cloudState?.statsData?.seenAchievements;
+          const nextSeenAchievements = Array.isArray(cloudSeen)
+            ? Array.from(new Set([...state.seenAchievements, ...cloudSeen]))
+            : state.seenAchievements;
+
           const mergedState: GameState = {
             ...state,
             username: nextUsername,
@@ -855,6 +947,8 @@ export const useGameState = create<GameState>()(
             inventory: nextInventory,
             completedQuests: nextCompletedQuests,
             streakDays: nextStreakDays,
+            stats: nextStats,
+            seenAchievements: nextSeenAchievements,
             dailyProgress: nextDailyProgress,
             weeklyProgress: nextWeeklyProgress,
             ...getLevelData(nextXp),
@@ -875,7 +969,8 @@ export const useGameState = create<GameState>()(
             !cloudState.progress ||
             !cloudState.recurring ||
             !cloudState.completed ||
-            !cloudState.streak);
+            !cloudState.streak ||
+            !cloudState.statsData);
 
         if (shouldSeedCloud) {
           queueCloudSave(get);
@@ -905,6 +1000,8 @@ export const useGameState = create<GameState>()(
         inventory: state.inventory,
         completedQuests: state.completedQuests,
         streakDays: state.streakDays,
+        stats: state.stats,
+        seenAchievements: state.seenAchievements,
         dailyProgress: state.dailyProgress,
         weeklyProgress: state.weeklyProgress,
         pendingClaims: state.pendingClaims,

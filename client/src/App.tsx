@@ -2,8 +2,15 @@ import { Router as WouterRouter, Switch, Route } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
-import { useGameState } from "@/hooks/use-game-state";
+import confetti from "canvas-confetti";
+import { useGameState, type GameState } from "@/hooks/use-game-state";
 import { fetchClaimStatuses } from "@/lib/quest-claim";
+import { toast } from "@/hooks/use-toast";
+import {
+  ACHIEVEMENTS_CONFIG,
+  buildAchievementSnapshot,
+  evaluateAchievements,
+} from "@/lib/achievements-config";
 
 // Components & Pages
 import { BottomNav } from "@/components/bottom-nav";
@@ -27,10 +34,53 @@ function Router() {
   );
 }
 
+// Celebrates achievements the student unlocked but hasn't been shown yet.
+function checkNewAchievements(state: GameState) {
+  const unlockedIds = evaluateAchievements(buildAchievementSnapshot(state))
+    .filter((entry) => entry.unlocked)
+    .map((entry) => entry.definition.id);
+
+  const unseen = unlockedIds.filter(
+    (id) => !state.seenAchievements.includes(id)
+  );
+
+  if (unseen.length === 0) return;
+
+  state.markAchievementsSeen(unseen);
+
+  const first = ACHIEVEMENTS_CONFIG.find((def) => def.id === unseen[0]);
+
+  toast({
+    title:
+      unseen.length === 1 && first
+        ? `Новое достижение! ${first.emoji}`
+        : `Новые достижения: ${unseen.length} 🏅`,
+    description:
+      unseen.length === 1 && first
+        ? `«${first.title}» — ${first.description}`
+        : "Загляни в профиль — там появились новые медали!",
+  });
+
+  confetti({
+    particleCount: 90,
+    spread: 75,
+    origin: { y: 0.3 },
+    colors: ["#3B82F6", "#F97316", "#FACC15", "#A855F7"],
+  });
+}
+
 function AppContent() {
   const bootstrapTelegramCloud = useGameState(
     (state) => state.bootstrapTelegramCloud
   );
+
+  useEffect(() => {
+    checkNewAchievements(useGameState.getState());
+
+    return useGameState.subscribe((state) => {
+      checkNewAchievements(state);
+    });
+  }, []);
 
   useEffect(() => {
     try {
