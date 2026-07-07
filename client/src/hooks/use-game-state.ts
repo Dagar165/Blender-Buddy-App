@@ -4,17 +4,43 @@ import confetti from "canvas-confetti";
 import type { ClaimStatus } from "@/lib/quest-claim";
 
 export const LEVEL_THRESHOLDS = [
-  0,    // level 1
-  40,   // level 2
-  100,  // level 3
-  185,  // level 4
-  300,  // level 5
-  450,  // level 6
-  640,  // level 7
-  875,  // level 8
-  1160, // level 9
-  1500, // level 10
+  0,     // level 1
+  40,    // level 2
+  100,   // level 3
+  185,   // level 4
+  300,   // level 5
+  450,   // level 6
+  640,   // level 7
+  875,   // level 8
+  1160,  // level 9
+  1500,  // level 10
+  1900,  // level 11
+  2350,  // level 12
+  2850,  // level 13
+  3400,  // level 14
+  4000,  // level 15
+  4650,  // level 16
+  5350,  // level 17
+  6100,  // level 18
+  6900,  // level 19
+  7750,  // level 20
+  8650,  // level 21
+  9600,  // level 22
+  10600, // level 23
+  11650, // level 24
+  12750, // level 25
+  13900, // level 26
+  15100, // level 27
+  16350, // level 28
+  17650, // level 29
+  19000, // level 30
 ];
+
+// Streak: a day counts once a daily quest SUBMITTED that day is approved.
+// Crediting by submission date keeps curator review lag from burning streaks.
+export const STREAK_BONUS_PER_DAY = 5;
+export const STREAK_BONUS_CAP = 50;
+const STREAK_DAYS_KEPT = 120;
 
 type LevelData = {
   level: number;
@@ -81,11 +107,16 @@ type CloudCompletedData = {
   completedQuests: string[];
 };
 
+type CloudStreakData = {
+  streakDays: string[];
+};
+
 type LoadedCloudState = {
   profile?: Partial<CloudProfileData>;
   progress?: Partial<CloudProgressData>;
   recurring?: Partial<CloudRecurringData>;
   completed?: Partial<CloudCompletedData>;
+  streak?: Partial<CloudStreakData>;
 };
 
 export interface GameState extends LevelData {
@@ -101,6 +132,9 @@ export interface GameState extends LevelData {
   inventory: string[];
   completedQuests: string[];
 
+  // Local dates (YYYY-MM-DD) whose daily quests were approved by the curator.
+  streakDays: string[];
+
   dailyProgress: RecurringQuestProgress;
   weeklyProgress: RecurringQuestProgress;
   pendingClaims: PendingClaim[];
@@ -112,6 +146,9 @@ export interface GameState extends LevelData {
   applyClaimResolutions: (statuses: Record<string, ClaimStatus>) => {
     approved: PendingClaim[];
     rejected: PendingClaim[];
+    xpGranted: number;
+    goldGranted: number;
+    bonusPercent: number;
   };
 
   refreshQuestCycles: () => void;
@@ -133,6 +170,7 @@ type PersistedGameState = Pick<
   | "gold"
   | "inventory"
   | "completedQuests"
+  | "streakDays"
   | "dailyProgress"
   | "weeklyProgress"
   | "pendingClaims"
@@ -142,6 +180,7 @@ const CLOUD_PROFILE_KEY = "bb_profile_v1";
 const CLOUD_PROGRESS_KEY = "bb_progress_v1";
 const CLOUD_RECURRING_KEY = "bb_recurring_v1";
 const CLOUD_COMPLETED_KEY = "bb_completed_v1";
+const CLOUD_STREAK_KEY = "bb_streak_v1";
 
 let cloudSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -241,6 +280,72 @@ const getStartOfWeek = (date = new Date()) => {
 
 const getWeeklyCycleKey = (date = new Date()) => {
   return `weekly-${formatLocalDate(getStartOfWeek(date))}`;
+};
+
+const previousDayString = (day: string) => {
+  const [year, month, date] = day.split("-").map(Number);
+  const parsed = new Date(year, (month || 1) - 1, date || 1);
+  parsed.setDate(parsed.getDate() - 1);
+  return formatLocalDate(parsed);
+};
+
+const dateFromDailyCycleKey = (cycleKey: string) => {
+  return cycleKey.startsWith("daily-") ? cycleKey.slice("daily-".length) : null;
+};
+
+const chainLengthEndingAt = (coveredDays: Set<string>, day: string) => {
+  let length = 0;
+  let cursor = day;
+
+  while (coveredDays.has(cursor)) {
+    length += 1;
+    cursor = previousDayString(cursor);
+  }
+
+  return length;
+};
+
+const getStreakBonusPercent = (streak: number) => {
+  return Math.min(STREAK_BONUS_CAP, Math.max(0, (streak - 1) * STREAK_BONUS_PER_DAY));
+};
+
+const mergeStreakDays = (base: string[], extra: string[]) => {
+  return Array.from(new Set([...base, ...extra])).sort().slice(-STREAK_DAYS_KEPT);
+};
+
+export type StreakInfo = {
+  current: number;
+  todayCounted: boolean;
+  atRisk: boolean;
+  bonusPercent: number;
+};
+
+// Pending (not yet reviewed) daily claims light the flame right away; if the
+// curator rejects them, the claim disappears and the day is uncovered again.
+export const getStreakInfo = (
+  streakDays: string[],
+  pendingClaims: PendingClaim[]
+): StreakInfo => {
+  const covered = new Set(streakDays);
+
+  for (const claim of pendingClaims) {
+    if (claim.questType !== "daily") continue;
+    const day = dateFromDailyCycleKey(claim.cycleKey);
+    if (day) covered.add(day);
+  }
+
+  const today = formatLocalDate(new Date());
+  const todayCounted = covered.has(today);
+  const current = todayCounted
+    ? chainLengthEndingAt(covered, today)
+    : chainLengthEndingAt(covered, previousDayString(today));
+
+  return {
+    current,
+    todayCounted,
+    atRisk: !todayCounted && current > 0,
+    bonusPercent: getStreakBonusPercent(current),
+  };
 };
 
 const createDailyProgress = (): RecurringQuestProgress => ({
@@ -354,6 +459,7 @@ const readCloudState = async (): Promise<LoadedCloudState | null> => {
         CLOUD_PROGRESS_KEY,
         CLOUD_RECURRING_KEY,
         CLOUD_COMPLETED_KEY,
+        CLOUD_STREAK_KEY,
       ],
       (error, values) => {
         if (error) {
@@ -366,8 +472,9 @@ const readCloudState = async (): Promise<LoadedCloudState | null> => {
         const progress = safeParseJson<CloudProgressData>(values?.[CLOUD_PROGRESS_KEY]);
         const recurring = safeParseJson<CloudRecurringData>(values?.[CLOUD_RECURRING_KEY]);
         const completed = safeParseJson<CloudCompletedData>(values?.[CLOUD_COMPLETED_KEY]);
+        const streak = safeParseJson<CloudStreakData>(values?.[CLOUD_STREAK_KEY]);
 
-        const hasAnyData = Boolean(profile || progress || recurring || completed);
+        const hasAnyData = Boolean(profile || progress || recurring || completed || streak);
 
         if (!hasAnyData) {
           resolve(null);
@@ -379,6 +486,7 @@ const readCloudState = async (): Promise<LoadedCloudState | null> => {
           progress: progress ?? undefined,
           recurring: recurring ?? undefined,
           completed: completed ?? undefined,
+          streak: streak ?? undefined,
         });
       }
     );
@@ -395,6 +503,7 @@ const buildCloudPayloads = (state: Pick<
   | "dailyProgress"
   | "weeklyProgress"
   | "completedQuests"
+  | "streakDays"
 >) => {
   const profilePayload: CloudProfileData = {
     username: state.username,
@@ -416,11 +525,16 @@ const buildCloudPayloads = (state: Pick<
     completedQuests: state.completedQuests,
   };
 
+  const streakPayload: CloudStreakData = {
+    streakDays: state.streakDays,
+  };
+
   return {
     profilePayload,
     progressPayload,
     recurringPayload,
     completedPayload,
+    streakPayload,
   };
 };
 
@@ -435,6 +549,7 @@ const writeCloudState = async (
     | "dailyProgress"
     | "weeklyProgress"
     | "completedQuests"
+    | "streakDays"
   >
 ): Promise<boolean> => {
   if (!getTelegramCloudStorage()) {
@@ -446,6 +561,7 @@ const writeCloudState = async (
     progressPayload,
     recurringPayload,
     completedPayload,
+    streakPayload,
   } = buildCloudPayloads(state);
 
   const results = await Promise.all([
@@ -453,6 +569,7 @@ const writeCloudState = async (
     cloudSetItem(CLOUD_PROGRESS_KEY, JSON.stringify(progressPayload)),
     cloudSetItem(CLOUD_RECURRING_KEY, JSON.stringify(recurringPayload)),
     cloudSetItem(CLOUD_COMPLETED_KEY, JSON.stringify(completedPayload)),
+    cloudSetItem(CLOUD_STREAK_KEY, JSON.stringify(streakPayload)),
   ]);
 
   return results.every(Boolean);
@@ -490,6 +607,7 @@ export const useGameState = create<GameState>()(
       gold: 0,
       inventory: [],
       completedQuests: [],
+      streakDays: [],
 
       dailyProgress: createDailyProgress(),
       weeklyProgress: createWeeklyProgress(),
@@ -554,7 +672,7 @@ export const useGameState = create<GameState>()(
         }
 
         if (approved.length === 0 && rejected.length === 0) {
-          return { approved, rejected };
+          return { approved, rejected, xpGranted: 0, goldGranted: 0, bonusPercent: 0 };
         }
 
         const recurringPatch = getRecurringProgressPatch(state);
@@ -562,12 +680,33 @@ export const useGameState = create<GameState>()(
         let weeklyProgress =
           recurringPatch?.weeklyProgress ?? state.weeklyProgress;
 
+        // Credit approved daily claims to the streak by their SUBMISSION date,
+        // then pay rewards with the bonus of the resulting confirmed streak.
+        const creditedDays = new Set(state.streakDays);
+
+        for (const claim of approved) {
+          if (claim.questType !== "daily") continue;
+          const day = dateFromDailyCycleKey(claim.cycleKey);
+          if (day) creditedDays.add(day);
+        }
+
+        const streakDays = mergeStreakDays([...creditedDays], []);
+
+        const today = formatLocalDate(new Date());
+        const chainToday = chainLengthEndingAt(creditedDays, today);
+        const confirmedStreak =
+          chainToday > 0
+            ? chainToday
+            : chainLengthEndingAt(creditedDays, previousDayString(today));
+        const bonusPercent = getStreakBonusPercent(confirmedStreak);
+        const rewardMultiplier = 1 + bonusPercent / 100;
+
         let xpGain = 0;
         let goldGain = 0;
 
         for (const claim of approved) {
-          xpGain += claim.xpReward;
-          goldGain += claim.goldReward;
+          xpGain += Math.round(claim.xpReward * rewardMultiplier);
+          goldGain += Math.round(claim.goldReward * rewardMultiplier);
 
           // Mark the quest completed only if its cycle is still current;
           // late approvals from a past day/week just pay out the reward.
@@ -603,6 +742,7 @@ export const useGameState = create<GameState>()(
         set({
           xp: nextXp,
           gold: state.gold + goldGain,
+          streakDays,
           dailyProgress,
           weeklyProgress,
           pendingClaims: remaining,
@@ -610,7 +750,13 @@ export const useGameState = create<GameState>()(
         });
 
         queueCloudSave(get);
-        return { approved, rejected };
+        return {
+          approved,
+          rejected,
+          xpGranted: xpGain,
+          goldGranted: goldGain,
+          bonusPercent,
+        };
       },
 
       refreshQuestCycles: () => {
@@ -653,6 +799,7 @@ export const useGameState = create<GameState>()(
           gold: 0,
           inventory: [],
           completedQuests: [],
+          streakDays: [],
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
           pendingClaims: [],
@@ -689,6 +836,12 @@ export const useGameState = create<GameState>()(
           const nextWeeklyProgress =
             cloudState?.recurring?.weeklyProgress ?? state.weeklyProgress;
 
+          // Streak days only ever accumulate, so a cross-device union is safe.
+          const cloudStreakDays = cloudState?.streak?.streakDays;
+          const nextStreakDays = Array.isArray(cloudStreakDays)
+            ? mergeStreakDays(state.streakDays, cloudStreakDays)
+            : state.streakDays;
+
           const mergedState: GameState = {
             ...state,
             username: nextUsername,
@@ -701,6 +854,7 @@ export const useGameState = create<GameState>()(
             gold: nextGold,
             inventory: nextInventory,
             completedQuests: nextCompletedQuests,
+            streakDays: nextStreakDays,
             dailyProgress: nextDailyProgress,
             weeklyProgress: nextWeeklyProgress,
             ...getLevelData(nextXp),
@@ -720,7 +874,8 @@ export const useGameState = create<GameState>()(
             !cloudState.profile ||
             !cloudState.progress ||
             !cloudState.recurring ||
-            !cloudState.completed);
+            !cloudState.completed ||
+            !cloudState.streak);
 
         if (shouldSeedCloud) {
           queueCloudSave(get);
@@ -749,6 +904,7 @@ export const useGameState = create<GameState>()(
         gold: state.gold,
         inventory: state.inventory,
         completedQuests: state.completedQuests,
+        streakDays: state.streakDays,
         dailyProgress: state.dailyProgress,
         weeklyProgress: state.weeklyProgress,
         pendingClaims: state.pendingClaims,

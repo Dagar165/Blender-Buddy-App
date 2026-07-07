@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useGameState } from "@/hooks/use-game-state";
+import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, Clock, Coins, Target } from "lucide-react";
+import { CheckCircle, Clock, Coins, Flame, Target } from "lucide-react";
+import { pluralizeDaysRu } from "@/lib/utils";
 import {
   QUESTS_CONFIG,
   type QuestDefinition,
@@ -115,10 +116,13 @@ export default function QuestsPage() {
     dailyProgress,
     weeklyProgress,
     pendingClaims,
+    streakDays,
     addPendingClaim,
     applyClaimResolutions,
     refreshQuestCycles,
   } = useGameState();
+
+  const streak = getStreakInfo(streakDays, pendingClaims);
 
   const [activeTab, setActiveTab] = useState<QuestTab>("daily");
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -173,15 +177,16 @@ export default function QuestsPage() {
     );
     if (!statuses) return;
 
-    const { approved, rejected } = applyClaimResolutions(statuses);
+    const { approved, rejected, xpGranted, goldGranted, bonusPercent } =
+      applyClaimResolutions(statuses);
 
     if (approved.length > 0) {
-      const xp = approved.reduce((sum, claim) => sum + claim.xpReward, 0);
-      const gold = approved.reduce((sum, claim) => sum + claim.goldReward, 0);
+      const bonusNote =
+        bonusPercent > 0 ? ` (с бонусом серии +${bonusPercent}%)` : "";
       showNotice(
         approved.length === 1
-          ? `Куратор подтвердил «${approved[0].questTitle}»: +${xp} XP и +${gold} монет 🎉`
-          : `Куратор подтвердил задания (${approved.length}): +${xp} XP и +${gold} монет 🎉`,
+          ? `Куратор подтвердил «${approved[0].questTitle}»: +${xpGranted} XP и +${goldGranted} монет${bonusNote} 🎉`
+          : `Куратор подтвердил задания (${approved.length}): +${xpGranted} XP и +${goldGranted} монет${bonusNote} 🎉`,
         "success"
       );
     } else if (rejected.length > 0) {
@@ -309,6 +314,45 @@ export default function QuestsPage() {
             </h1>
             <p className="text-slate-500 text-sm font-medium">
               {QUESTS_CONFIG.page.subtitle}
+            </p>
+          </div>
+        </div>
+
+        <div
+          className={`mb-4 flex items-center gap-3 rounded-2xl border p-3 ${
+            streak.todayCounted
+              ? "bg-orange-50 border-orange-200"
+              : streak.atRisk
+                ? "bg-amber-50 border-amber-200"
+                : "bg-white border-slate-200"
+          }`}
+        >
+          <Flame
+            className={`w-8 h-8 shrink-0 drop-shadow-sm ${
+              streak.todayCounted
+                ? "text-orange-500"
+                : streak.atRisk
+                  ? "text-amber-400"
+                  : "text-slate-300"
+            }`}
+            fill="currentColor"
+          />
+          <div>
+            <p className="text-sm font-bold text-slate-800">
+              {streak.current === 0
+                ? "Серия дней не начата"
+                : `Серия: ${streak.current} ${pluralizeDaysRu(streak.current)}${
+                    streak.todayCounted ? " 🔥" : ""
+                  }`}
+            </p>
+            <p className="text-xs text-slate-500">
+              {streak.current === 0
+                ? "Выполни ежедневное задание сегодня, чтобы зажечь огонёк"
+                : streak.atRisk
+                  ? "Выполни ежедневное задание сегодня, иначе серия сгорит!"
+                  : streak.bonusPercent > 0
+                    ? `Бонус серии: +${streak.bonusPercent}% к наградам`
+                    : "Продолжи завтра — получишь +5% к наградам"}
             </p>
           </div>
         </div>

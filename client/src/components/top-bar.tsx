@@ -1,8 +1,15 @@
-import { useGameState } from "@/hooks/use-game-state";
-import { Coins, Star } from "lucide-react";
+import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
+import { Coins, Flame } from "lucide-react";
 
 export function TopBar() {
-  const { level, gold } = useGameState();
+  const { level, gold, streakDays, pendingClaims } = useGameState();
+  const streak = getStreakInfo(streakDays, pendingClaims);
+
+  const flameColor = streak.todayCounted
+    ? "text-orange-500"
+    : streak.atRisk
+      ? "text-amber-400"
+      : "text-slate-300";
 
   return (
     <div className="flex justify-between items-center px-6 py-4 pt-6 bg-transparent">
@@ -11,6 +18,20 @@ export function TopBar() {
           {level}
         </div>
         <span className="font-bold text-slate-700 text-sm">Уровень</span>
+      </div>
+
+      <div className="flex items-center gap-1 bg-white/80 backdrop-blur px-3 py-2 rounded-2xl shadow-sm border border-slate-100">
+        <Flame
+          className={`w-6 h-6 drop-shadow-sm ${flameColor}`}
+          fill="currentColor"
+        />
+        <span
+          className={`font-bold ${
+            streak.current > 0 ? "text-slate-700" : "text-slate-400"
+          }`}
+        >
+          {streak.current}
+        </span>
       </div>
 
       <div className="flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-2xl shadow-sm border border-slate-100">
