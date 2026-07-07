@@ -11,6 +11,8 @@ import {
   type AchievementDefinition,
 } from "@/lib/achievements-config";
 import { AchievementUnlock } from "@/components/achievement-unlock";
+import { PetEvolution, type PetEvolutionEvent } from "@/components/pet-evolution";
+import { getPetStage } from "@/lib/pet-config";
 
 // Components & Pages
 import { BottomNav } from "@/components/bottom-nav";
@@ -57,9 +59,21 @@ function AppContent() {
   const bootstrapTelegramCloud = useGameState(
     (state) => state.bootstrapTelegramCloud
   );
+  const level = useGameState((state) => state.level);
+  const celebratedStageLevel = useGameState(
+    (state) => state.celebratedStageLevel
+  );
+  const markEvolutionSeen = useGameState((state) => state.markEvolutionSeen);
   const [achievementQueue, setAchievementQueue] = useState<
     AchievementDefinition[]
   >([]);
+
+  // The pet evolved past the last celebrated stage — play the transformation.
+  const currentStage = getPetStage(level);
+  const evolution: PetEvolutionEvent | null =
+    currentStage.fromLevel > celebratedStageLevel
+      ? { from: getPetStage(celebratedStageLevel), to: currentStage }
+      : null;
 
   useEffect(() => {
     const enqueue = (state: GameState) => {
@@ -115,8 +129,13 @@ function AppContent() {
           <Router />
           <BottomNav />
           <Toaster />
+          <PetEvolution
+            evolution={evolution}
+            onClaim={() => markEvolutionSeen(currentStage.fromLevel)}
+          />
+          {/* Медали ждут своей очереди, пока играет эволюция */}
           <AchievementUnlock
-            achievement={achievementQueue[0] ?? null}
+            achievement={evolution ? null : achievementQueue[0] ?? null}
             remainingCount={Math.max(0, achievementQueue.length - 1)}
             onClaim={() => setAchievementQueue((queue) => queue.slice(1))}
           />

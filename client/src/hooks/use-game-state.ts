@@ -137,6 +137,7 @@ type CloudStreakData = {
 type CloudStatsData = {
   stats: GameStats;
   seenAchievements: string[];
+  celebratedStageLevel?: number;
 };
 
 type LoadedCloudState = {
@@ -173,6 +174,8 @@ export interface GameState extends LevelData {
 
   stats: GameStats;
   seenAchievements: string[];
+  // fromLevel of the last pet-evolution stage celebrated with the modal.
+  celebratedStageLevel: number;
 
   dailyProgress: RecurringQuestProgress;
   weeklyProgress: RecurringQuestProgress;
@@ -197,6 +200,7 @@ export interface GameState extends LevelData {
   autoApplyStreakFreeze: () => void;
 
   markAchievementsSeen: (ids: string[]) => void;
+  markEvolutionSeen: (stageLevel: number) => void;
 
   refreshQuestCycles: () => void;
   buyItem: (itemId: string, cost: number, itemName: string) => boolean;
@@ -224,6 +228,7 @@ type PersistedGameState = Pick<
   | "potionActive"
   | "stats"
   | "seenAchievements"
+  | "celebratedStageLevel"
   | "dailyProgress"
   | "weeklyProgress"
   | "pendingClaims"
@@ -605,6 +610,7 @@ const buildCloudPayloads = (state: Pick<
   | "potionActive"
   | "stats"
   | "seenAchievements"
+  | "celebratedStageLevel"
 >) => {
   const profilePayload: CloudProfileData = {
     username: state.username,
@@ -637,6 +643,7 @@ const buildCloudPayloads = (state: Pick<
   const statsPayload: CloudStatsData = {
     stats: state.stats,
     seenAchievements: state.seenAchievements,
+    celebratedStageLevel: state.celebratedStageLevel,
   };
 
   return {
@@ -667,6 +674,7 @@ const writeCloudState = async (
     | "potionActive"
     | "stats"
     | "seenAchievements"
+    | "celebratedStageLevel"
   >
 ): Promise<boolean> => {
   if (!getTelegramCloudStorage()) {
@@ -733,6 +741,7 @@ export const useGameState = create<GameState>()(
       potionActive: false,
       stats: createDefaultStats(),
       seenAchievements: [],
+      celebratedStageLevel: 1,
 
       dailyProgress: createDailyProgress(),
       weeklyProgress: createWeeklyProgress(),
@@ -1020,6 +1029,15 @@ export const useGameState = create<GameState>()(
         queueCloudSave(get);
       },
 
+      markEvolutionSeen: (stageLevel) => {
+        const state = get();
+
+        if (stageLevel <= state.celebratedStageLevel) return;
+
+        set({ celebratedStageLevel: stageLevel });
+        queueCloudSave(get);
+      },
+
       refreshQuestCycles: () => {
         const state = get();
         const recurringPatch = getRecurringProgressPatch(state);
@@ -1071,6 +1089,7 @@ export const useGameState = create<GameState>()(
           potionActive: false,
           stats: createDefaultStats(),
           seenAchievements: [],
+          celebratedStageLevel: 1,
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
           pendingClaims: [],
@@ -1149,6 +1168,12 @@ export const useGameState = create<GameState>()(
             ? Array.from(new Set([...state.seenAchievements, ...cloudSeen]))
             : state.seenAchievements;
 
+          // Evolutions only move forward — celebrate each stage on one device.
+          const nextCelebratedStageLevel = Math.max(
+            state.celebratedStageLevel,
+            cloudState?.statsData?.celebratedStageLevel ?? 1
+          );
+
           const mergedState: GameState = {
             ...state,
             username: nextUsername,
@@ -1168,6 +1193,7 @@ export const useGameState = create<GameState>()(
             potionActive: nextPotionActive,
             stats: nextStats,
             seenAchievements: nextSeenAchievements,
+            celebratedStageLevel: nextCelebratedStageLevel,
             dailyProgress: nextDailyProgress,
             weeklyProgress: nextWeeklyProgress,
             ...getLevelData(nextXp),
@@ -1225,6 +1251,7 @@ export const useGameState = create<GameState>()(
         potionActive: state.potionActive,
         stats: state.stats,
         seenAchievements: state.seenAchievements,
+        celebratedStageLevel: state.celebratedStageLevel,
         dailyProgress: state.dailyProgress,
         weeklyProgress: state.weeklyProgress,
         pendingClaims: state.pendingClaims,

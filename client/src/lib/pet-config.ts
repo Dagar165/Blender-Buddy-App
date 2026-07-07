@@ -22,32 +22,33 @@ export type PetStage = {
 
 export const PET_STAGES: PetStage[] = [
   {
+    // Ждёт арта: малыш-призрачок в подгузнике, нарочито маленький и милый
     fromLevel: 1,
-    name: "Призрачок-новичок",
+    name: "Малыш-призрачок",
     image: ghostLevel1,
-    aura: "drop-shadow(0 16px 32px rgba(59, 130, 246, 0.18))",
-    scale: 1,
+    aura: "drop-shadow(0 12px 24px rgba(59, 130, 246, 0.18))",
+    scale: 0.8,
   },
   {
     fromLevel: 3,
     name: "Призрак-практикант",
     image: ghostLevel1,
     aura: "drop-shadow(0 16px 36px rgba(59, 130, 246, 0.38))",
-    scale: 1.04,
+    scale: 0.92,
   },
   {
     fromLevel: 5,
     name: "Призрак-умелец",
     image: ghostLevel1,
     aura: "drop-shadow(0 16px 40px rgba(139, 92, 246, 0.45))",
-    scale: 1.08,
+    scale: 1.02,
   },
   {
     fromLevel: 7,
     name: "Призрак-мастер",
     image: ghostLevel1,
     aura: "drop-shadow(0 16px 44px rgba(249, 115, 22, 0.45))",
-    scale: 1.12,
+    scale: 1.1,
   },
   {
     fromLevel: 10,
