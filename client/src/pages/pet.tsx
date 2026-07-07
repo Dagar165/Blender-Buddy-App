@@ -9,6 +9,7 @@ import {
   getPetStage,
   type PetMood,
 } from "@/lib/pet-config";
+import { Ghost } from "@/components/ghost";
 import { SHOP_ITEMS } from "@/lib/shop-config";
 
 const getPetMood = (input: {
@@ -122,16 +123,10 @@ export default function PetPage() {
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
-              className="flex items-center justify-center"
-              style={{ scale: stage.scale }}
+              className="flex items-center justify-center select-none"
+              style={{ scale: stage.scale, filter: stage.aura }}
             >
-              <img
-                src={stage.image}
-                alt={stage.name}
-                className="w-full max-w-[280px] md:max-w-[330px] h-auto select-none"
-                style={{ filter: stage.aura }}
-                draggable={false}
-              />
+              <Ghost stage={stage} mood={mood} size={250} />
             </motion.div>
           </motion.div>
 

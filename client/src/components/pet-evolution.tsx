@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import type { PetStage } from "@/lib/pet-config";
+import { Ghost } from "@/components/ghost";
 
 export type PetEvolutionEvent = {
   from: PetStage;
@@ -74,36 +75,34 @@ function EvolutionScene({
 
       <div className="relative h-52 flex items-center justify-center overflow-hidden mb-2">
         {!isNew ? (
-          <motion.img
+          <motion.div
             key="old"
-            src={evolution.from.image}
-            alt={evolution.from.name}
-            draggable={false}
-            className="h-44 w-auto select-none"
-            style={{ filter: evolution.from.aura, scale: evolution.from.scale * 0.85 }}
+            className="select-none"
+            style={{ filter: evolution.from.aura, scale: evolution.from.scale * 0.9 }}
             animate={
               phase === "old"
                 ? { x: [0, -3, 3, -4, 4, -2, 2, 0], rotate: [0, -2, 2, -2, 2, 0] }
-                : { scale: evolution.from.scale * 0.85 + 0.15, opacity: 0.4 }
+                : { scale: evolution.from.scale * 0.9 + 0.15, opacity: 0.4 }
             }
             transition={
               phase === "old"
                 ? { duration: 0.6, repeat: Infinity }
                 : { duration: 0.4 }
             }
-          />
+          >
+            <Ghost stage={evolution.from} mood="idle" size={170} />
+          </motion.div>
         ) : (
-          <motion.img
+          <motion.div
             key="new"
-            src={evolution.to.image}
-            alt={evolution.to.name}
-            draggable={false}
-            className="h-48 w-auto select-none"
+            className="select-none"
             style={{ filter: evolution.to.aura }}
             initial={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: evolution.to.scale, opacity: 1 }}
             transition={{ type: "spring", bounce: 0.5, duration: 0.7 }}
-          />
+          >
+            <Ghost stage={evolution.to} mood="happy" size={180} />
+          </motion.div>
         )}
 
         {/* Вспышка превращения */}
