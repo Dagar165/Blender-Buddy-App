@@ -8,6 +8,10 @@ import {
   STREAK_FREEZE_COST,
   STREAK_FREEZE_MAX,
 } from "@/lib/shop-config";
+import {
+  QUIZ_GOLD_PER_CORRECT,
+  QUIZ_XP_PER_CORRECT,
+} from "@/lib/quiz-config";
 
 export const LEVEL_THRESHOLDS = [
   0,     // level 1
@@ -185,6 +189,13 @@ export interface GameState extends LevelData {
   pettingDate: string;
   pettingCount: number;
 
+  // Викторина дня: на какие вопросы уже отвечено сегодня.
+  quizDate: string;
+  quizAnswered: string[];
+
+  // Сундук дня: когда открывали последний раз.
+  chestDate: string;
+
   dailyProgress: RecurringQuestProgress;
   weeklyProgress: RecurringQuestProgress;
   pendingClaims: PendingClaim[];
@@ -210,6 +221,8 @@ export interface GameState extends LevelData {
   markAchievementsSeen: (ids: string[]) => void;
   markEvolutionSeen: (stageLevel: number) => void;
   petGhost: () => { granted: boolean };
+  answerQuizQuestion: (questionId: string, correct: boolean) => boolean;
+  openDailyChest: () => number | null;
 
   refreshQuestCycles: () => void;
   buyItem: (itemId: string, cost: number, itemName: string) => boolean;
@@ -240,6 +253,9 @@ type PersistedGameState = Pick<
   | "celebratedStageLevel"
   | "pettingDate"
   | "pettingCount"
+  | "quizDate"
+  | "quizAnswered"
+  | "chestDate"
   | "dailyProgress"
   | "weeklyProgress"
   | "pendingClaims"
@@ -755,6 +771,9 @@ export const useGameState = create<GameState>()(
       celebratedStageLevel: 1,
       pettingDate: "",
       pettingCount: 0,
+      quizDate: "",
+      quizAnswered: [],
+      chestDate: "",
 
       dailyProgress: createDailyProgress(),
       weeklyProgress: createWeeklyProgress(),
@@ -1073,6 +1092,54 @@ export const useGameState = create<GameState>()(
         return { granted: true };
       },
 
+      answerQuizQuestion: (questionId, correct) => {
+        const state = get();
+        const today = formatLocalDate(new Date());
+        const answered = state.quizDate === today ? state.quizAnswered : [];
+
+        if (answered.includes(questionId)) return false;
+
+        const nextXp = state.xp + (correct ? QUIZ_XP_PER_CORRECT : 0);
+
+        set({
+          quizDate: today,
+          quizAnswered: [...answered, questionId],
+          xp: nextXp,
+          gold: state.gold + (correct ? QUIZ_GOLD_PER_CORRECT : 0),
+          ...getLevelData(nextXp),
+        });
+
+        queueCloudSave(get);
+        return true;
+      },
+
+      // The chest only appears on days the curator counted real practice —
+      // a variable reward, but strictly gated behind actual work.
+      openDailyChest: () => {
+        const state = get();
+        const today = formatLocalDate(new Date());
+
+        if (state.chestDate === today) return null;
+
+        const streak = getStreakInfo(
+          state.streakDays,
+          state.pendingClaims,
+          state.frozenDays
+        );
+        if (!streak.todayCounted) return null;
+
+        // 5–25 голды, с шансом 10% — джекпот 50
+        const gold =
+          Math.random() < 0.1 ? 50 : 5 + Math.floor(Math.random() * 21);
+
+        triggerRewardConfetti();
+
+        set({ chestDate: today, gold: state.gold + gold });
+
+        queueCloudSave(get);
+        return gold;
+      },
+
       refreshQuestCycles: () => {
         const state = get();
         const recurringPatch = getRecurringProgressPatch(state);
@@ -1127,6 +1194,9 @@ export const useGameState = create<GameState>()(
           celebratedStageLevel: 1,
           pettingDate: "",
           pettingCount: 0,
+          quizDate: "",
+          quizAnswered: [],
+          chestDate: "",
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
           pendingClaims: [],
@@ -1291,6 +1361,9 @@ export const useGameState = create<GameState>()(
         celebratedStageLevel: state.celebratedStageLevel,
         pettingDate: state.pettingDate,
         pettingCount: state.pettingCount,
+        quizDate: state.quizDate,
+        quizAnswered: state.quizAnswered,
+        chestDate: state.chestDate,
         dailyProgress: state.dailyProgress,
         weeklyProgress: state.weeklyProgress,
         pendingClaims: state.pendingClaims,

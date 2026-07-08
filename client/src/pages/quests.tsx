@@ -7,11 +7,13 @@ import {
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Brain,
   CheckCircle,
   Clock,
   Coins,
   Flame,
   FlaskConical,
+  Gift,
   Snowflake,
   Target,
 } from "lucide-react";
@@ -23,6 +25,15 @@ import {
 } from "@/lib/quests-config";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
 import { fetchClaimStatuses, submitQuestClaim } from "@/lib/quest-claim";
+import {
+  QUIZ_GOLD_PER_CORRECT,
+  QUIZ_PER_DAY,
+  QUIZ_XP_PER_CORRECT,
+  getTodaysQuizQuestions,
+  type QuizQuestion,
+} from "@/lib/quiz-config";
+
+type PageTab = QuestTab | "quiz";
 
 const CLAIM_POLL_INTERVAL_MS = 20_000;
 
@@ -133,19 +144,26 @@ export default function QuestsPage() {
     streakFreezes,
     doublePotions,
     potionActive,
+    quizDate,
+    quizAnswered,
+    chestDate,
     addPendingClaim,
     applyClaimResolutions,
     activateDoublePotion,
     autoApplyStreakFreeze,
+    answerQuizQuestion,
+    openDailyChest,
     refreshQuestCycles,
   } = useGameState();
 
   const streak = getStreakInfo(streakDays, pendingClaims, frozenDays);
   const savedByFreeze = wasYesterdaySavedByFreeze(frozenDays);
 
-  const [activeTab, setActiveTab] = useState<QuestTab>("daily");
+  const [activeTab, setActiveTab] = useState<PageTab>("daily");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [sendingQuestIds, setSendingQuestIds] = useState<string[]>([]);
+  // Что выбрал ученик в квизе в этой сессии (для подсветки своего ответа)
+  const [quizPicks, setQuizPicks] = useState<Record<string, number>>({});
   const rewardTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -173,7 +191,15 @@ export default function QuestsPage() {
 
   const dailyTabConfig = QUESTS_CONFIG.tabs.daily;
   const weeklyTabConfig = QUESTS_CONFIG.tabs.weekly;
-  const activeTabConfig = QUESTS_CONFIG.tabs[activeTab];
+
+  // Викторина дня: сегодняшняя дата берётся из «печати» дневного цикла
+  const todayKey = dailyProgress.cycleKey.slice("daily-".length);
+  const quizQuestions = useMemo(
+    () => getTodaysQuizQuestions(dailyProgress.cycleKey),
+    [dailyProgress.cycleKey]
+  );
+  const answeredToday = quizDate === todayKey ? quizAnswered : [];
+  const chestOpenedToday = chestDate === todayKey;
 
   const showNotice = useCallback((text: string, tone: Notice["tone"]) => {
     setNotice({ text, tone });
@@ -300,12 +326,36 @@ export default function QuestsPage() {
   const weeklyCompletedCount = getCompletedCount(weeklyQuests, weeklyCompletedIds);
 
   const isDailyTab = activeTab === "daily";
+  const isQuizTab = activeTab === "quiz";
   const visibleQuests = isDailyTab ? dailyQuests : weeklyQuests;
   const visibleCompletedIds = isDailyTab ? dailyCompletedIds : weeklyCompletedIds;
   const visibleCycleKey = isDailyTab
     ? dailyProgress.cycleKey
     : weeklyProgress.cycleKey;
-  const visibleOnComplete = handleComplete(activeTab);
+  const visibleOnComplete = handleComplete(isDailyTab ? "daily" : "weekly");
+
+  const handleQuizAnswer = (question: QuizQuestion, optionIndex: number) => {
+    const accepted = answerQuizQuestion(
+      question.id,
+      optionIndex === question.correctIndex
+    );
+
+    if (accepted) {
+      setQuizPicks((picks) => ({ ...picks, [question.id]: optionIndex }));
+    }
+  };
+
+  const handleOpenChest = () => {
+    const gold = openDailyChest();
+    if (gold !== null) {
+      showNotice(
+        gold >= 50
+          ? `ДЖЕКПОТ! Из сундука выпало ${gold} голды! 🎁🎉`
+          : `Сундук дня открыт: +${gold} голды 🎁`,
+        "success"
+      );
+    }
+  };
 
   const getQuestStatus = (quest: QuestDefinition): QuestCardStatus => {
     if (visibleCompletedIds.includes(quest.id)) return "completed";
@@ -395,6 +445,43 @@ export default function QuestsPage() {
           )}
         </div>
 
+        {streak.todayCounted && (
+          <div
+            className={`mb-4 flex items-center gap-3 rounded-2xl border p-3 ${
+              chestOpenedToday
+                ? "bg-white border-slate-200"
+                : "bg-yellow-50 border-yellow-200"
+            }`}
+          >
+            <Gift
+              className={`w-8 h-8 shrink-0 drop-shadow-sm ${
+                chestOpenedToday ? "text-slate-300" : "text-yellow-500"
+              }`}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-800">
+                {chestOpenedToday
+                  ? "Сундук дня уже открыт ✨"
+                  : "Сундук дня ждёт тебя!"}
+              </p>
+              <p className="text-xs text-slate-500">
+                {chestOpenedToday
+                  ? "Новый сундук — завтра, после практики"
+                  : "Награда за сегодняшнюю практику — внутри случайная голда"}
+              </p>
+            </div>
+
+            {!chestOpenedToday && (
+              <button
+                onClick={handleOpenChest}
+                className="shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+              >
+                Открыть
+              </button>
+            )}
+          </div>
+        )}
+
         {(potionActive || doublePotions > 0) && (
           <div
             className={`mb-4 flex items-center gap-3 rounded-2xl border p-3 ${
@@ -450,86 +537,77 @@ export default function QuestsPage() {
         </AnimatePresence>
 
         <div className="mb-5 rounded-3xl bg-white p-2 shadow-sm border border-slate-100">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setActiveTab("daily")}
-              className={`rounded-2xl px-4 py-3 text-left transition-all ${
-                isDailyTab
-                  ? "bg-primary text-white shadow-md"
-                  : "bg-slate-50 text-slate-600"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-display text-lg font-bold">
-                  {dailyTabConfig.tabLabel}
-                </span>
-                <span
-                  className={`min-w-10 rounded-xl px-2 py-1 text-center text-sm font-bold ${
-                    isDailyTab
-                      ? "bg-white/20 text-white"
-                      : "bg-white text-slate-700 border border-slate-200"
-                  }`}
-                >
-                  {dailyCompletedCount}/{dailyQuests.length}
-                </span>
-              </div>
-              <p
-                className={`mt-1 text-xs ${
-                  isDailyTab ? "text-white/80" : "text-slate-400"
-                }`}
-              >
-                {dailyTabConfig.tabHint}
-              </p>
-            </button>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              {
+                tab: "daily" as PageTab,
+                label: dailyTabConfig.tabLabel,
+                count: `${dailyCompletedCount}/${dailyQuests.length}`,
+                activeClass: "bg-primary text-white shadow-md",
+              },
+              {
+                tab: "weekly" as PageTab,
+                label: weeklyTabConfig.tabLabel,
+                count: `${weeklyCompletedCount}/${weeklyQuests.length}`,
+                activeClass: "bg-secondary text-white shadow-md",
+              },
+              {
+                tab: "quiz" as PageTab,
+                label: "Квиз",
+                count: `${answeredToday.length}/${QUIZ_PER_DAY}`,
+                activeClass: "bg-violet-500 text-white shadow-md",
+              },
+            ].map(({ tab, label, count, activeClass }) => {
+              const isActive = activeTab === tab;
 
-            <button
-              onClick={() => setActiveTab("weekly")}
-              className={`rounded-2xl px-4 py-3 text-left transition-all ${
-                !isDailyTab
-                  ? "bg-secondary text-white shadow-md"
-                  : "bg-slate-50 text-slate-600"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-display text-lg font-bold">
-                  {weeklyTabConfig.tabLabel}
-                </span>
-                <span
-                  className={`min-w-10 rounded-xl px-2 py-1 text-center text-sm font-bold ${
-                    !isDailyTab
-                      ? "bg-white/20 text-white"
-                      : "bg-white text-slate-700 border border-slate-200"
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-2xl px-3 py-3 text-center transition-all ${
+                    isActive ? activeClass : "bg-slate-50 text-slate-600"
                   }`}
                 >
-                  {weeklyCompletedCount}/{weeklyQuests.length}
-                </span>
-              </div>
-              <p
-                className={`mt-1 text-xs ${
-                  !isDailyTab ? "text-white/80" : "text-slate-400"
-                }`}
-              >
-                {weeklyTabConfig.tabHint}
-              </p>
-            </button>
+                  <span className="block font-display text-base font-bold">
+                    {label}
+                  </span>
+                  <span
+                    className={`mt-1 inline-block rounded-lg px-2 py-0.5 text-xs font-bold ${
+                      isActive
+                        ? "bg-white/20 text-white"
+                        : "bg-white text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-xl font-display font-bold text-slate-800">
-              {activeTabConfig.sectionTitle}
+              {isQuizTab
+                ? "Викторина дня"
+                : QUESTS_CONFIG.tabs[isDailyTab ? "daily" : "weekly"].sectionTitle}
             </h2>
             <p className="text-slate-500 text-sm">
-              {activeTabConfig.sectionSubtitle}
+              {isQuizTab
+                ? `Верный ответ: +${QUIZ_XP_PER_CORRECT} XP и +${QUIZ_GOLD_PER_CORRECT} монеты. Завтра — новые вопросы!`
+                : QUESTS_CONFIG.tabs[isDailyTab ? "daily" : "weekly"]
+                    .sectionSubtitle}
             </p>
           </div>
 
-          <div className="text-sm font-bold text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
-            {isDailyTab
-              ? `${dailyCompletedCount}/${dailyQuests.length}`
-              : `${weeklyCompletedCount}/${weeklyQuests.length}`}
-          </div>
+          {!isQuizTab && (
+            <div className="text-sm font-bold text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
+              {isDailyTab
+                ? `${dailyCompletedCount}/${dailyQuests.length}`
+                : `${weeklyCompletedCount}/${weeklyQuests.length}`}
+            </div>
+          )}
         </div>
 
         <AnimatePresence mode="wait">
@@ -541,14 +619,88 @@ export default function QuestsPage() {
             exit={{ opacity: 0, y: 10 }}
             className="space-y-4"
           >
-            {visibleQuests.map((quest) => (
-              <QuestCard
-                key={quest.id}
-                quest={quest}
-                status={getQuestStatus(quest)}
-                onComplete={visibleOnComplete}
-              />
-            ))}
+            {isQuizTab
+              ? quizQuestions.map((question) => {
+                  const isAnswered = answeredToday.includes(question.id);
+                  const picked = quizPicks[question.id];
+
+                  return (
+                    <motion.div
+                      key={question.id}
+                      variants={item}
+                      className="p-5 rounded-3xl bg-white border-2 border-transparent shadow-lg shadow-slate-200/50"
+                    >
+                      <div className="flex items-start gap-2 mb-3">
+                        <Brain className="w-5 h-5 mt-0.5 shrink-0 text-violet-500" />
+                        <h3 className="font-bold text-slate-800">
+                          {question.question}
+                        </h3>
+                      </div>
+
+                      <div className="space-y-2">
+                        {question.options.map((option, optionIndex) => {
+                          const isCorrect =
+                            optionIndex === question.correctIndex;
+                          const isPicked = picked === optionIndex;
+
+                          return (
+                            <button
+                              key={optionIndex}
+                              disabled={isAnswered}
+                              onClick={() =>
+                                handleQuizAnswer(question, optionIndex)
+                              }
+                              className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                                isAnswered
+                                  ? isCorrect
+                                    ? "bg-green-50 border-green-300 text-green-700 font-bold"
+                                    : isPicked
+                                      ? "bg-red-50 border-red-300 text-red-600"
+                                      : "bg-slate-50 border-slate-200 text-slate-400"
+                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:border-violet-300 active:scale-[0.99]"
+                              }`}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {isAnswered && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-3 p-3 rounded-xl bg-violet-50 border border-violet-100"
+                        >
+                          {picked !== undefined && (
+                            <p
+                              className={`text-xs font-bold mb-1 ${
+                                picked === question.correctIndex
+                                  ? "text-green-600"
+                                  : "text-red-500"
+                              }`}
+                            >
+                              {picked === question.correctIndex
+                                ? `Верно! +${QUIZ_XP_PER_CORRECT} XP и +${QUIZ_GOLD_PER_CORRECT} монеты 🎉`
+                                : "Не угадал — но теперь запомнишь!"}
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-600 leading-relaxed">
+                            {question.explanation}
+                          </p>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  );
+                })
+              : visibleQuests.map((quest) => (
+                  <QuestCard
+                    key={quest.id}
+                    quest={quest}
+                    status={getQuestStatus(quest)}
+                    onComplete={visibleOnComplete}
+                  />
+                ))}
           </motion.div>
         </AnimatePresence>
       </div>
