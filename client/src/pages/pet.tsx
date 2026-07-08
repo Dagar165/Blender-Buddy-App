@@ -120,7 +120,7 @@ export default function PetPage() {
             initial={{ scale: 0.92, y: 8, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="relative flex items-center justify-center"
+            className="relative flex items-center justify-center mt-10 mb-8"
           >
             {/* Сердечки от поглаживания */}
             <AnimatePresence>
@@ -141,7 +141,7 @@ export default function PetPage() {
 
             <motion.div
               animate={{ y: animation.y }}
-              whileTap={{ scale: stage.scale * 0.94 }}
+              whileTap={{ scale: 0.95 }}
               transition={{
                 duration: animation.duration,
                 repeat: Infinity,
@@ -149,12 +149,11 @@ export default function PetPage() {
               }}
               onClick={handlePet}
               className="flex items-center justify-center select-none cursor-pointer active:brightness-105"
-              style={{ scale: stage.scale }}
             >
               <Ghost
                 stage={stage}
                 mood={mood}
-                size={340}
+                size={300}
                 overlays={ownedItems
                   .map((item) => item.overlay)
                   .filter((src): src is string => Boolean(src))}

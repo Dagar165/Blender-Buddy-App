@@ -78,11 +78,11 @@ function EvolutionScene({
           <motion.div
             key="old"
             className="select-none"
-            style={{ scale: evolution.from.scale * 0.9 }}
+            style={{ scale: 0.92 }}
             animate={
               phase === "old"
                 ? { x: [0, -3, 3, -4, 4, -2, 2, 0], rotate: [0, -2, 2, -2, 2, 0] }
-                : { scale: evolution.from.scale * 0.9 + 0.15, opacity: 0.4 }
+                : { scale: 1.06, opacity: 0.4 }
             }
             transition={
               phase === "old"
@@ -90,17 +90,17 @@ function EvolutionScene({
                 : { duration: 0.4 }
             }
           >
-            <Ghost stage={evolution.from} mood="idle" size={250} />
+            <Ghost stage={evolution.from} mood="idle" size={230} />
           </motion.div>
         ) : (
           <motion.div
             key="new"
             className="select-none"
             initial={{ scale: 0.4, opacity: 0 }}
-            animate={{ scale: evolution.to.scale, opacity: 1 }}
+            animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", bounce: 0.5, duration: 0.7 }}
           >
-            <Ghost stage={evolution.to} mood="happy" size={270} />
+            <Ghost stage={evolution.to} mood="happy" size={240} />
           </motion.div>
         )}
 

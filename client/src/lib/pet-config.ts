@@ -1,4 +1,4 @@
-import ghostLevel1 from "@/assets/mascot/ghost-level-1.png";
+﻿import ghostLevel1 from "@/assets/mascot/ghost-level-1.png";
 
 /**
  * Правила редактирования (для владельца):
@@ -8,10 +8,11 @@ import ghostLevel1 from "@/assets/mascot/ghost-level-1.png";
  *   (ghost-stage-1.png … ghost-stage-5.png), добавь import сверху как у
  *   ghostLevel1 и поставь его в поле image нужной стадии
  * - пока новых картинок нет, везде стоит старая картинка-заглушка
- * - имена стадий (name), свечение (aura), размер (scale) и фразы (PET_PHRASES)
+ * - имена стадий (name), свечение (aura) и фразы (PET_PHRASES)
  *   можно менять свободно; fromLevel — с какого уровня начинается стадия
- * - scale: 1 = максимальный размер, который помещается на экране (уровень 10);
- *   младшие стадии меньше
+ * - призрак ОДНОГО размера на всех стадиях (решение владельца 08.07.2026):
+ *   так одежда-спрайты ложится одинаково; «взросление» показываем самой
+ *   картинкой стадии, свечением и именем
  */
 
 export type PetStage = {
@@ -20,8 +21,6 @@ export type PetStage = {
   image: string;
   // Цвет свечения вокруг призрака (CSS filter)
   aura: string;
-  // Призрак растёт с эволюцией; 1 — потолок
-  scale: number;
 };
 
 export const PET_STAGES: PetStage[] = [
@@ -31,35 +30,30 @@ export const PET_STAGES: PetStage[] = [
     name: "Малыш-призрачок",
     image: ghostLevel1,
     aura: "drop-shadow(0 10px 20px rgba(59, 130, 246, 0.18))",
-    scale: 0.78,
   },
   {
     fromLevel: 3,
     name: "Призрак-практикант",
     image: ghostLevel1,
     aura: "drop-shadow(0 12px 26px rgba(59, 130, 246, 0.35))",
-    scale: 0.86,
   },
   {
     fromLevel: 5,
     name: "Призрак-умелец",
     image: ghostLevel1,
     aura: "drop-shadow(0 14px 30px rgba(139, 92, 246, 0.4))",
-    scale: 0.92,
   },
   {
     fromLevel: 7,
     name: "Призрак-мастер",
     image: ghostLevel1,
     aura: "drop-shadow(0 14px 34px rgba(249, 115, 22, 0.4))",
-    scale: 0.97,
   },
   {
     fromLevel: 10,
     name: "Легенда 3D",
     image: ghostLevel1,
     aura: "drop-shadow(0 16px 38px rgba(250, 204, 21, 0.5))",
-    scale: 1,
   },
 ];
 
