@@ -148,7 +148,7 @@ export default function PetPage() {
                 ease: "easeInOut",
               }}
               onClick={handlePet}
-              className="flex items-center justify-center select-none cursor-pointer active:brightness-105"
+              className="flex items-center justify-center select-none cursor-pointer"
             >
               <Ghost
                 stage={stage}

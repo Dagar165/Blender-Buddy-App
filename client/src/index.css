@@ -5,6 +5,11 @@
 @tailwind utilities;
 
 @layer base {
+  /* Без серой вспышки iOS при касании — приложение ощущается как игра */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   :root {
     --font-sans: 'Nunito', sans-serif;
     --font-display: 'Varela Round', sans-serif;
