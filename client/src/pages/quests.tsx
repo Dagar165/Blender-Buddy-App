@@ -12,10 +12,7 @@ import {
   Clock,
   Coins,
   Flame,
-  FlaskConical,
-  Gift,
   Snowflake,
-  Target,
 } from "lucide-react";
 import { pluralizeDaysRu } from "@/lib/utils";
 import {
@@ -380,21 +377,6 @@ export default function QuestsPage() {
       <TopBar />
 
       <div className="px-6 pb-24 overflow-y-auto">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="p-3 bg-secondary/10 text-secondary rounded-2xl">
-            <Target className="w-6 h-6" />
-          </div>
-
-          <div>
-            <h1 className="text-2xl font-display font-bold text-slate-800">
-              {QUESTS_CONFIG.page.title}
-            </h1>
-            <p className="text-slate-500 text-sm font-medium">
-              {QUESTS_CONFIG.page.subtitle}
-            </p>
-          </div>
-        </div>
-
         <div
           className={`mb-4 flex items-center gap-3 rounded-2xl border p-3 ${
             streak.todayCounted
@@ -445,74 +427,33 @@ export default function QuestsPage() {
           )}
         </div>
 
-        {streak.todayCounted && (
-          <div
-            className={`mb-4 flex items-center gap-3 rounded-2xl border p-3 ${
-              chestOpenedToday
-                ? "bg-white border-slate-200"
-                : "bg-yellow-50 border-yellow-200"
-            }`}
-          >
-            <Gift
-              className={`w-8 h-8 shrink-0 drop-shadow-sm ${
-                chestOpenedToday ? "text-slate-300" : "text-yellow-500"
-              }`}
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-800">
-                {chestOpenedToday
-                  ? "Сундук дня уже открыт ✨"
-                  : "Сундук дня ждёт тебя!"}
-              </p>
-              <p className="text-xs text-slate-500">
-                {chestOpenedToday
-                  ? "Новый сундук — завтра, после практики"
-                  : "Награда за сегодняшнюю практику — внутри случайная голда"}
-              </p>
-            </div>
-
-            {!chestOpenedToday && (
+        {((streak.todayCounted && !chestOpenedToday) ||
+          potionActive ||
+          doublePotions > 0) && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {streak.todayCounted && !chestOpenedToday && (
               <button
                 onClick={handleOpenChest}
-                className="shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 transition-all active:scale-95 hover:bg-yellow-200"
               >
-                Открыть
+                🎁 Открыть сундук дня
               </button>
             )}
-          </div>
-        )}
 
-        {(potionActive || doublePotions > 0) && (
-          <div
-            className={`mb-4 flex items-center gap-3 rounded-2xl border p-3 ${
-              potionActive
-                ? "bg-fuchsia-50 border-fuchsia-200"
-                : "bg-white border-slate-200"
-            }`}
-          >
-            <FlaskConical
-              className={`w-8 h-8 shrink-0 drop-shadow-sm ${
-                potionActive ? "text-fuchsia-500" : "text-slate-300"
-              }`}
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-800">
-                {potionActive ? "Зелье ×2 действует! 🧪" : "У тебя есть зелье ×2"}
-              </p>
-              <p className="text-xs text-slate-500">
-                {potionActive
-                  ? "Следующее одобренное задание принесёт двойную награду"
-                  : `В запасе: ${doublePotions} шт. Выпей перед заданием подороже!`}
-              </p>
-            </div>
-
-            {!potionActive && (
-              <button
-                onClick={() => activateDoublePotion()}
-                className="shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-200"
-              >
-                Выпить
-              </button>
+            {potionActive ? (
+              <span className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-200">
+                🧪 Зелье ×2 активно
+              </span>
+            ) : (
+              doublePotions > 0 && (
+                <button
+                  onClick={() => activateDoublePotion()}
+                  className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200 transition-all active:scale-95 hover:bg-fuchsia-200"
+                >
+                  🧪 Выпить зелье ×2
+                  {doublePotions > 1 ? ` (${doublePotions})` : ""}
+                </button>
+              )
             )}
           </div>
         )}
@@ -584,30 +525,6 @@ export default function QuestsPage() {
               );
             })}
           </div>
-        </div>
-
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-display font-bold text-slate-800">
-              {isQuizTab
-                ? "Викторина дня"
-                : QUESTS_CONFIG.tabs[isDailyTab ? "daily" : "weekly"].sectionTitle}
-            </h2>
-            <p className="text-slate-500 text-sm">
-              {isQuizTab
-                ? `Верный ответ: +${QUIZ_XP_PER_CORRECT} XP и +${QUIZ_GOLD_PER_CORRECT} монеты. Завтра — новые вопросы!`
-                : QUESTS_CONFIG.tabs[isDailyTab ? "daily" : "weekly"]
-                    .sectionSubtitle}
-            </p>
-          </div>
-
-          {!isQuizTab && (
-            <div className="text-sm font-bold text-slate-600 bg-white px-3 py-2 rounded-xl border border-slate-200">
-              {isDailyTab
-                ? `${dailyCompletedCount}/${dailyQuests.length}`
-                : `${weeklyCompletedCount}/${weeklyQuests.length}`}
-            </div>
-          )}
         </div>
 
         <AnimatePresence mode="wait">

@@ -36,8 +36,6 @@ type Heart = { id: number; x: number; withXp: boolean };
 
 export default function PetPage() {
   const {
-    username,
-    xp,
     level,
     inventory,
     streakDays,
@@ -108,23 +106,11 @@ export default function PetPage() {
       <div className="flex-1 overflow-y-auto px-6 pb-24">
         <div className="flex flex-col items-center">
           <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", bounce: 0.5 }}
-            className="text-center mb-4"
-          >
-            <h1 className="text-3xl font-display font-bold text-primary drop-shadow-sm mb-1">
-              Привет, {username}!
-            </h1>
-            <p className="text-slate-500 font-medium">Готов изучать Blender 3D?</p>
-          </motion.div>
-
-          <motion.div
             key={phrase}
             initial={{ opacity: 0, y: 8, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="relative max-w-xs bg-white border border-slate-100 shadow-md shadow-slate-200/60 rounded-2xl px-4 py-2.5 mb-2"
+            className="relative max-w-xs bg-white border border-slate-100 shadow-md shadow-slate-200/60 rounded-2xl px-4 py-2.5 mt-2 mb-2 z-10"
           >
             <p className="text-sm font-bold text-slate-700 text-center">{phrase}</p>
             <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-white border-b border-r border-slate-100 rotate-45" />
@@ -168,7 +154,7 @@ export default function PetPage() {
               <Ghost
                 stage={stage}
                 mood={mood}
-                size={280}
+                size={340}
                 overlays={ownedItems
                   .map((item) => item.overlay)
                   .filter((src): src is string => Boolean(src))}
@@ -187,30 +173,25 @@ export default function PetPage() {
           </div>
 
           {ownedItems.length > 0 && (
-            <div className="w-full max-w-sm bg-white/80 backdrop-blur p-4 rounded-3xl shadow-sm border border-slate-100 mb-4">
-              <p className="text-xs font-bold text-slate-400 mb-2.5">
-                Вещи призрака · {ownedItems.length}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {ownedItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div
-                      key={item.id}
-                      title={item.name}
-                      className={`w-10 h-10 rounded-xl ${item.bg} ${item.color} flex items-center justify-center`}
-                    >
-                      <Icon className="w-5 h-5" />
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="flex flex-wrap justify-center gap-1.5 mb-4 max-w-xs">
+              {ownedItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div
+                    key={item.id}
+                    title={item.name}
+                    className={`w-8 h-8 rounded-lg ${item.bg} ${item.color} flex items-center justify-center`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                );
+              })}
             </div>
           )}
 
-          <div className="w-full max-w-sm bg-white p-6 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100">
+          <div className="w-full max-w-sm bg-white p-4 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100">
             <div className="flex justify-between items-end mb-2 gap-4">
-              <h3 className="font-display font-bold text-slate-700 text-lg">
+              <h3 className="font-display font-bold text-slate-700 text-base">
                 Следующий уровень
               </h3>
               <span className="text-sm font-bold text-primary whitespace-nowrap">
@@ -218,11 +199,7 @@ export default function PetPage() {
               </span>
             </div>
 
-            <div className="mb-1 text-xs text-slate-400 font-medium">
-              Всего XP: {xp}
-            </div>
-
-            <div className="mb-3 text-xs text-slate-400 font-medium">
+            <div className="mb-2 text-xs text-slate-400 font-medium">
               {subLabel}
             </div>
 
