@@ -162,7 +162,7 @@ export default function PetPage() {
             </motion.div>
           </motion.div>
 
-          <div className="flex items-center gap-2 mt-1 mb-4">
+          <div className="flex items-center gap-2 mt-1">
             <Sparkles className="w-4 h-4 text-primary" />
             <span className="font-display font-bold text-slate-700">{stage.name}</span>
             {nextStage && (
@@ -171,6 +171,10 @@ export default function PetPage() {
               </span>
             )}
           </div>
+
+          <p className="text-xs text-slate-400 font-medium mt-1 mb-4">
+            Нажми на призрака, чтобы погладить ❤️
+          </p>
 
           {ownedItems.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1.5 mb-4 max-w-xs">

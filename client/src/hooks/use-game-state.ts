@@ -1203,7 +1203,14 @@ export const useGameState = create<GameState>()(
           ...getLevelData(0),
         }));
 
-        queueCloudSave(get);
+        // Сброс обязан немедленно перезаписать облако Telegram: отложенное
+        // сохранение может не успеть до закрытия приложения, и тогда старые
+        // данные «воскреснут» при следующем запуске из-за max/union-слияния.
+        if (cloudSaveTimer) {
+          clearTimeout(cloudSaveTimer);
+          cloudSaveTimer = null;
+        }
+        void writeCloudState(get());
       },
 
       bootstrapTelegramCloud: async () => {

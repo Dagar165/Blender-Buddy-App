@@ -5,6 +5,11 @@ import type { PetMood, PetStage } from "@/lib/pet-config";
 // on the SAME canvas template, so layers line up and scale together
 // automatically. Emotion effects float on top so the base art stays static.
 
+// Заглушка-картинка широкоформатная с большими прозрачными полями — персонаж
+// занимает лишь треть кадра, поэтому увеличиваем изображение внутри рамки.
+// КОГДА ПРИДУТ НОВЫЕ КВАДРАТНЫЕ КАРТИНКИ (персонаж во весь кадр) — поставить 1.
+const IMAGE_ZOOM = 1.45;
+
 export function Ghost({
   stage,
   mood = "idle",
@@ -23,7 +28,7 @@ export function Ghost({
         alt={stage.name}
         draggable={false}
         className="w-full h-auto select-none"
-        style={{ filter: stage.aura }}
+        style={{ filter: stage.aura, transform: `scale(${IMAGE_ZOOM})` }}
       />
 
       {overlays.map((src) => (
@@ -32,6 +37,7 @@ export function Ghost({
           src={src}
           draggable={false}
           className="absolute inset-0 w-full h-auto select-none pointer-events-none"
+          style={{ transform: `scale(${IMAGE_ZOOM})` }}
         />
       ))}
 
