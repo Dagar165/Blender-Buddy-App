@@ -48,6 +48,10 @@ export const STREAK_BONUS_PER_DAY = 5;
 export const STREAK_BONUS_CAP = 50;
 const STREAK_DAYS_KEPT = 120;
 
+// Petting the ghost grants a tiny XP treat, capped per day so the real
+// progress still comes from quests.
+export const PETTING_DAILY_LIMIT = 10;
+
 type LevelData = {
   level: number;
   currentLevelStartXp: number;
@@ -177,6 +181,10 @@ export interface GameState extends LevelData {
   // fromLevel of the last pet-evolution stage celebrated with the modal.
   celebratedStageLevel: number;
 
+  // Поглаживание призрака: дата и счётчик за сегодня.
+  pettingDate: string;
+  pettingCount: number;
+
   dailyProgress: RecurringQuestProgress;
   weeklyProgress: RecurringQuestProgress;
   pendingClaims: PendingClaim[];
@@ -201,6 +209,7 @@ export interface GameState extends LevelData {
 
   markAchievementsSeen: (ids: string[]) => void;
   markEvolutionSeen: (stageLevel: number) => void;
+  petGhost: () => { granted: boolean };
 
   refreshQuestCycles: () => void;
   buyItem: (itemId: string, cost: number, itemName: string) => boolean;
@@ -229,6 +238,8 @@ type PersistedGameState = Pick<
   | "stats"
   | "seenAchievements"
   | "celebratedStageLevel"
+  | "pettingDate"
+  | "pettingCount"
   | "dailyProgress"
   | "weeklyProgress"
   | "pendingClaims"
@@ -742,6 +753,8 @@ export const useGameState = create<GameState>()(
       stats: createDefaultStats(),
       seenAchievements: [],
       celebratedStageLevel: 1,
+      pettingDate: "",
+      pettingCount: 0,
 
       dailyProgress: createDailyProgress(),
       weeklyProgress: createWeeklyProgress(),
@@ -1038,6 +1051,28 @@ export const useGameState = create<GameState>()(
         queueCloudSave(get);
       },
 
+      petGhost: () => {
+        const state = get();
+        const today = formatLocalDate(new Date());
+        const countToday = state.pettingDate === today ? state.pettingCount : 0;
+
+        if (countToday >= PETTING_DAILY_LIMIT) {
+          return { granted: false };
+        }
+
+        const nextXp = state.xp + 1;
+
+        set({
+          pettingDate: today,
+          pettingCount: countToday + 1,
+          xp: nextXp,
+          ...getLevelData(nextXp),
+        });
+
+        queueCloudSave(get);
+        return { granted: true };
+      },
+
       refreshQuestCycles: () => {
         const state = get();
         const recurringPatch = getRecurringProgressPatch(state);
@@ -1090,6 +1125,8 @@ export const useGameState = create<GameState>()(
           stats: createDefaultStats(),
           seenAchievements: [],
           celebratedStageLevel: 1,
+          pettingDate: "",
+          pettingCount: 0,
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
           pendingClaims: [],
@@ -1252,6 +1289,8 @@ export const useGameState = create<GameState>()(
         stats: state.stats,
         seenAchievements: state.seenAchievements,
         celebratedStageLevel: state.celebratedStageLevel,
+        pettingDate: state.pettingDate,
+        pettingCount: state.pettingCount,
         dailyProgress: state.dailyProgress,
         weeklyProgress: state.weeklyProgress,
         pendingClaims: state.pendingClaims,

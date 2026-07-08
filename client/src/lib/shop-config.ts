@@ -34,6 +34,11 @@ export type ShopItem = {
   icon: LucideIcon;
   color: string;
   bg: string;
+  // Картинка-одежда, надеваемая на призрака (рисуется на том же шаблоне-холсте,
+  // что и сам призрак — см. «JKids_Bot_спецификация_картинок.md»).
+  // Как подключить: import hatOverlay from "@/assets/mascot/item-hat.png";
+  // и сюда overlay: hatOverlay. Пока картинок нет — поле пустое.
+  overlay?: string;
 };
 
 // Предметы для питомца (покупаются один раз), отсортированы по цене

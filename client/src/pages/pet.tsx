@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import {
   PET_PHRASES,
@@ -31,6 +31,9 @@ const MOOD_ANIMATION: Record<PetMood, { y: number[]; duration: number }> = {
   worried: { y: [0, -5, 0], duration: 4 },
 };
 
+// Плавающее сердечко после поглаживания
+type Heart = { id: number; x: number; withXp: boolean };
+
 export default function PetPage() {
   const {
     username,
@@ -45,7 +48,24 @@ export default function PetPage() {
     requiredForNextLevel,
     xpToNextLevel,
     xpProgress,
+    petGhost,
   } = useGameState();
+
+  const [hearts, setHearts] = useState<Heart[]>([]);
+
+  const handlePet = () => {
+    const { granted } = petGhost();
+    const id = Date.now() + Math.random();
+
+    setHearts((current) => [
+      ...current.slice(-5),
+      { id, x: Math.round(Math.random() * 80 - 40), withXp: granted },
+    ]);
+
+    window.setTimeout(() => {
+      setHearts((current) => current.filter((heart) => heart.id !== id));
+    }, 1100);
+  };
 
   const streak = getStreakInfo(streakDays, pendingClaims, frozenDays);
   const mood = getPetMood({
@@ -114,19 +134,45 @@ export default function PetPage() {
             initial={{ scale: 0.92, y: 8, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="flex items-center justify-center"
+            className="relative flex items-center justify-center"
           >
+            {/* Сердечки от поглаживания */}
+            <AnimatePresence>
+              {hearts.map((heart) => (
+                <motion.div
+                  key={heart.id}
+                  initial={{ opacity: 1, y: 0, scale: 0.7 }}
+                  animate={{ opacity: 0, y: -70, scale: 1.15 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="absolute top-6 z-10 pointer-events-none text-lg font-bold text-rose-500"
+                  style={{ left: `calc(50% + ${heart.x}px)` }}
+                >
+                  {heart.withXp ? "❤️ +1 XP" : "❤️"}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
             <motion.div
               animate={{ y: animation.y }}
+              whileTap={{ scale: stage.scale * 0.94 }}
               transition={{
                 duration: animation.duration,
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
-              className="flex items-center justify-center select-none"
-              style={{ scale: stage.scale, filter: stage.aura }}
+              onClick={handlePet}
+              className="flex items-center justify-center select-none cursor-pointer active:brightness-105"
+              style={{ scale: stage.scale }}
             >
-              <Ghost stage={stage} mood={mood} size={250} />
+              <Ghost
+                stage={stage}
+                mood={mood}
+                size={280}
+                overlays={ownedItems
+                  .map((item) => item.overlay)
+                  .filter((src): src is string => Boolean(src))}
+              />
             </motion.div>
           </motion.div>
 

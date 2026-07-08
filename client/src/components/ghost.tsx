@@ -1,87 +1,79 @@
+import { motion } from "framer-motion";
 import type { PetMood, PetStage } from "@/lib/pet-config";
-import {
-  ACCESSORIES,
-  FACES,
-  FACE_PALETTE,
-  GHOST_BODY,
-  SPARKLES,
-  SPRITE_H,
-  SPRITE_W,
-  type Sprite,
-} from "@/lib/pixel-sprites";
 
-// The mascot is drawn as layered pixel sprites (SVG rects) — no image files,
-// loads instantly, scales crisply, and clothing overlays share the same grid
-// so they always line up with the body.
-
-type PixelRun = { x: number; y: number; w: number; fill: string; key: string };
-
-// Merge horizontal runs of the same color so we emit a handful of rects, not
-// one per pixel.
-function spriteRuns(sprite: Sprite, layerKey: string): PixelRun[] {
-  const runs: PixelRun[] = [];
-
-  sprite.rows.forEach((row, y) => {
-    let x = 0;
-    while (x < row.length) {
-      const ch = row[x];
-      const fill = sprite.palette[ch];
-      if (!fill) {
-        x += 1;
-        continue;
-      }
-
-      let width = 1;
-      while (x + width < row.length && row[x + width] === ch) width += 1;
-
-      runs.push({ x, y, w: width, fill, key: `${layerKey}-${y}-${x}` });
-      x += width;
-    }
-  });
-
-  return runs;
-}
+// The mascot is a transparent-background image with clothing overlays drawn
+// on the SAME canvas template, so layers line up and scale together
+// automatically. Emotion effects float on top so the base art stays static.
 
 export function Ghost({
   stage,
   mood = "idle",
-  size = 240,
+  size = 280,
+  overlays = [],
 }: {
   stage: PetStage;
   mood?: PetMood;
   size?: number;
+  overlays?: string[];
 }) {
-  const bodyPalette: Record<string, string> = {
-    O: stage.bodyDark,
-    B: stage.bodyLight,
-    W: "#FFFFFF",
-    K: "#22304a",
-    P: "#F9A8D4",
-  };
-
-  const faceMood: PetMood = mood === "potion" ? "happy" : mood;
-
-  const layers: Sprite[] = [
-    { rows: GHOST_BODY, palette: bodyPalette },
-    { rows: FACES[faceMood] ?? FACES.idle, palette: FACE_PALETTE },
-    ACCESSORIES[stage.accessory],
-  ];
-  if (mood === "potion") layers.push(SPARKLES);
-
-  const runs = layers.flatMap((layer, i) => spriteRuns(layer, `l${i}`));
-  const height = (size * SPRITE_H) / SPRITE_W;
-
   return (
-    <svg
-      width={size}
-      height={height}
-      viewBox={`0 0 ${SPRITE_W} ${SPRITE_H}`}
-      shapeRendering="crispEdges"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {runs.map((r) => (
-        <rect key={r.key} x={r.x} y={r.y} width={r.w} height={1} fill={r.fill} />
+    <div className="relative" style={{ width: size }}>
+      <img
+        src={stage.image}
+        alt={stage.name}
+        draggable={false}
+        className="w-full h-auto select-none"
+        style={{ filter: stage.aura }}
+      />
+
+      {overlays.map((src) => (
+        <img
+          key={src}
+          src={src}
+          draggable={false}
+          className="absolute inset-0 w-full h-auto select-none pointer-events-none"
+        />
       ))}
-    </svg>
+
+      {/* Эффекты эмоций поверх картинки */}
+      {mood === "worried" && (
+        <motion.span
+          className="absolute top-[6%] right-[16%] text-2xl pointer-events-none"
+          animate={{ y: [0, 7, 0], opacity: [0.9, 0.45, 0.9] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        >
+          💧
+        </motion.span>
+      )}
+
+      {mood === "potion" && (
+        <>
+          <motion.span
+            className="absolute top-[10%] left-[14%] text-2xl pointer-events-none"
+            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+          >
+            ✨
+          </motion.span>
+          <motion.span
+            className="absolute top-[34%] right-[10%] text-xl pointer-events-none"
+            animate={{ opacity: [1, 0.2, 1], scale: [1.15, 0.8, 1.15] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          >
+            ✨
+          </motion.span>
+        </>
+      )}
+
+      {mood === "happy" && (
+        <motion.span
+          className="absolute top-[4%] left-[16%] text-xl pointer-events-none"
+          animate={{ y: [0, -6, 0], rotate: [-10, 10, -10] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          🎵
+        </motion.span>
+      )}
+    </div>
   );
 }

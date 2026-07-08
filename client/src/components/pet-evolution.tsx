@@ -78,7 +78,7 @@ function EvolutionScene({
           <motion.div
             key="old"
             className="select-none"
-            style={{ filter: evolution.from.aura, scale: evolution.from.scale * 0.9 }}
+            style={{ scale: evolution.from.scale * 0.9 }}
             animate={
               phase === "old"
                 ? { x: [0, -3, 3, -4, 4, -2, 2, 0], rotate: [0, -2, 2, -2, 2, 0] }
@@ -96,7 +96,6 @@ function EvolutionScene({
           <motion.div
             key="new"
             className="select-none"
-            style={{ filter: evolution.to.aura }}
             initial={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: evolution.to.scale, opacity: 1 }}
             transition={{ type: "spring", bounce: 0.5, duration: 0.7 }}

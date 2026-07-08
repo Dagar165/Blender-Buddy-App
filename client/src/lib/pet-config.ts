@@ -1,77 +1,65 @@
+import ghostLevel1 from "@/assets/mascot/ghost-level-1.png";
+
 /**
  * Правила редактирования (для владельца):
- * - призрак теперь РИСУЕТСЯ КОДОМ (client/src/components/ghost.tsx) —
- *   картинки не нужны, всё грузится мгновенно
- * - имена стадий (name), цвета тела (bodyLight/bodyDark), свечение (aura),
- *   размер (scale) и фразы (PET_PHRASES) можно менять свободно
- * - accessory — что надето на призраке на этой стадии:
- *     "diaper"  — подгузник и кудряшка (малыш)
- *     "beanie"  — оранжевая шапочка
- *     "glasses" — очки
- *     "gradcap" — академическая шапка (как на старой картинке)
- *     "crown"   — золотая корона
- * - fromLevel — с какого уровня начинается стадия; не ставь два одинаковых
+ * - призрак — КАРТИНКИ на прозрачном фоне (как рисовать — см. документ
+ *   «JKids_Bot_спецификация_картинок.md» в папке с документами)
+ * - когда картинки готовы: положи файлы в client/src/assets/mascot
+ *   (ghost-stage-1.png … ghost-stage-5.png), добавь import сверху как у
+ *   ghostLevel1 и поставь его в поле image нужной стадии
+ * - пока новых картинок нет, везде стоит старая картинка-заглушка
+ * - имена стадий (name), свечение (aura), размер (scale) и фразы (PET_PHRASES)
+ *   можно менять свободно; fromLevel — с какого уровня начинается стадия
+ * - scale: 1 = максимальный размер, который помещается на экране (уровень 10);
+ *   младшие стадии меньше
  */
-
-export type PetAccessory = "diaper" | "beanie" | "glasses" | "gradcap" | "crown";
 
 export type PetStage = {
   fromLevel: number;
   name: string;
-  accessory: PetAccessory;
-  bodyLight: string;
-  bodyDark: string;
+  image: string;
   // Цвет свечения вокруг призрака (CSS filter)
   aura: string;
-  // Призрак растёт с эволюцией
+  // Призрак растёт с эволюцией; 1 — потолок
   scale: number;
 };
 
 export const PET_STAGES: PetStage[] = [
   {
+    // Ждёт арта: малыш в подгузнике, нарочито маленький и милый
     fromLevel: 1,
     name: "Малыш-призрачок",
-    accessory: "diaper",
-    bodyLight: "#DBEAFE",
-    bodyDark: "#93C5FD",
-    aura: "drop-shadow(0 12px 24px rgba(59, 130, 246, 0.18))",
-    scale: 0.78,
+    image: ghostLevel1,
+    aura: "drop-shadow(0 10px 20px rgba(59, 130, 246, 0.18))",
+    scale: 0.7,
   },
   {
     fromLevel: 3,
     name: "Призрак-практикант",
-    accessory: "beanie",
-    bodyLight: "#BFDBFE",
-    bodyDark: "#60A5FA",
-    aura: "drop-shadow(0 16px 36px rgba(59, 130, 246, 0.38))",
-    scale: 0.9,
+    image: ghostLevel1,
+    aura: "drop-shadow(0 12px 26px rgba(59, 130, 246, 0.35))",
+    scale: 0.8,
   },
   {
     fromLevel: 5,
     name: "Призрак-умелец",
-    accessory: "glasses",
-    bodyLight: "#A5B4FC",
-    bodyDark: "#6366F1",
-    aura: "drop-shadow(0 16px 40px rgba(139, 92, 246, 0.45))",
-    scale: 1,
+    image: ghostLevel1,
+    aura: "drop-shadow(0 14px 30px rgba(139, 92, 246, 0.4))",
+    scale: 0.88,
   },
   {
     fromLevel: 7,
     name: "Призрак-мастер",
-    accessory: "gradcap",
-    bodyLight: "#93C5FD",
-    bodyDark: "#3B82F6",
-    aura: "drop-shadow(0 16px 44px rgba(249, 115, 22, 0.45))",
-    scale: 1.08,
+    image: ghostLevel1,
+    aura: "drop-shadow(0 14px 34px rgba(249, 115, 22, 0.4))",
+    scale: 0.95,
   },
   {
     fromLevel: 10,
     name: "Легенда 3D",
-    accessory: "crown",
-    bodyLight: "#93C5FD",
-    bodyDark: "#2563EB",
-    aura: "drop-shadow(0 18px 48px rgba(250, 204, 21, 0.55))",
-    scale: 1.16,
+    image: ghostLevel1,
+    aura: "drop-shadow(0 16px 38px rgba(250, 204, 21, 0.5))",
+    scale: 1,
   },
 ];
 
@@ -109,6 +97,6 @@ export const PET_PHRASES: Record<PetMood, string[]> = {
   idle: [
     "Готов изучать Blender?",
     "Сделаем сегодня что-нибудь крутое?",
-    "Я скучал! Заглянем в задания?",
+    "Я скучал! Погладь меня или загляни в задания!",
   ],
 };
