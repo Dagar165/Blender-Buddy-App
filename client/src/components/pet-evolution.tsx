@@ -90,7 +90,7 @@ function EvolutionScene({
                 : { duration: 0.4 }
             }
           >
-            <Ghost stage={evolution.from} mood="idle" size={230} />
+            <Ghost stage={evolution.from} mood="idle" size={185} />
           </motion.div>
         ) : (
           <motion.div
@@ -100,7 +100,7 @@ function EvolutionScene({
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", bounce: 0.5, duration: 0.7 }}
           >
-            <Ghost stage={evolution.to} mood="happy" size={240} />
+            <Ghost stage={evolution.to} mood="happy" size={195} />
           </motion.div>
         )}
 

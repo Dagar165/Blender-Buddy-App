@@ -1,4 +1,4 @@
-﻿import ghostLevel1 from "@/assets/mascot/ghost-level-1.png";
+﻿import ghostLevel1 from "@/assets/mascot/ghost-level-1.webp";
 
 /**
  * Правила редактирования (для владельца):
@@ -7,6 +7,8 @@
  * - когда картинки готовы: положи файлы в client/src/assets/mascot
  *   (ghost-stage-1.png … ghost-stage-5.png), добавь import сверху как у
  *   ghostLevel1 и поставь его в поле image нужной стадии
+ * - каждую новую картинку сначала прогнать через tools/normalize-mascot.ps1
+ *   (обрежет поля и поставит персонажа по спецификации) и сжать в WebP
  * - пока новых картинок нет, везде стоит старая картинка-заглушка
  * - имена стадий (name), свечение (aura) и фразы (PET_PHRASES)
  *   можно менять свободно; fromLevel — с какого уровня начинается стадия

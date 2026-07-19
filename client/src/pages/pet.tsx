@@ -153,7 +153,7 @@ export default function PetPage() {
               <Ghost
                 stage={stage}
                 mood={mood}
-                size={300}
+                size={240}
                 overlays={ownedItems
                   .map((item) => item.overlay)
                   .filter((src): src is string => Boolean(src))}
