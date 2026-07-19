@@ -1,5 +1,7 @@
 import {
   QUESTS_CONFIG,
+  WEEKEND_LIMIT,
+  WEEKEND_QUESTS,
   type QuestDefinition,
   type QuestTab,
 } from "@/lib/quests-config";
@@ -89,24 +91,16 @@ export function getActiveQuestsForTab(
   const dateKey = cycleKey.replace("daily-", "");
   const stepIndex = getStepForDate(dateKey);
 
-  // Выходной — свободные задания из общего списка.
+  // Выходной — отдыхаем от моделинга: смотрим, разбираем, наводим порядок.
   if (stepIndex === null || !weekCycleKey) {
-    return getActiveQuestsFromPool(
-      QUESTS_CONFIG.pools.daily,
-      cycleKey,
-      QUESTS_CONFIG.limits.daily
-    );
+    return getActiveQuestsFromPool(WEEKEND_QUESTS, cycleKey, WEEKEND_LIMIT);
   }
 
   const project = getWeekProject(weekCycleKey);
   const step = project.steps[stepIndex];
 
   if (!step) {
-    return getActiveQuestsFromPool(
-      QUESTS_CONFIG.pools.daily,
-      cycleKey,
-      QUESTS_CONFIG.limits.daily
-    );
+    return getActiveQuestsFromPool(WEEKEND_QUESTS, cycleKey, WEEKEND_LIMIT);
   }
 
   return [
