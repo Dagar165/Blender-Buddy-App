@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   PET_PHRASES,
+  RETURN_AFTER_DAYS,
+  RETURN_PHRASES,
   PET_STAGES,
   getNextPetStage,
   getPetStage,
@@ -11,6 +13,7 @@ import {
 } from "@/lib/pet-config";
 import { Ghost } from "@/components/ghost";
 import { SHOP_ITEMS } from "@/lib/shop-config";
+import { TIP_VISIBLE_MS } from "@/lib/tips-config";
 
 const getPetMood = (input: {
   todayCounted: boolean;
@@ -67,13 +70,34 @@ export default function PetPage() {
     xpToNextLevel,
     xpProgress,
     petGhost,
+    markVisit,
   } = useGameState();
 
   const [hearts, setHearts] = useState<Heart[]>([]);
+  // Совет по Blender вытесняет обычную фразу на несколько секунд.
+  const [tip, setTip] = useState<string | null>(null);
+  // Встреча после паузы — показывается один раз за визит.
+  const [greeting, setGreeting] = useState<string | null>(null);
+
+  useEffect(() => {
+    const daysAway = markVisit();
+
+    if (daysAway >= RETURN_AFTER_DAYS) {
+      setGreeting(
+        RETURN_PHRASES[Math.floor(Math.random() * RETURN_PHRASES.length)]
+      );
+    }
+  }, [markVisit]);
 
   const handlePet = () => {
-    const { granted } = petGhost();
+    const { granted, tip: freshTip } = petGhost();
     const id = Date.now() + Math.random();
+
+    if (freshTip) {
+      setGreeting(null);
+      setTip(freshTip);
+      window.setTimeout(() => setTip(null), TIP_VISIBLE_MS);
+    }
 
     setHearts((current) => [
       ...current.slice(-5),
@@ -92,10 +116,13 @@ export default function PetPage() {
     potionActive,
   });
 
-  const phrase = useMemo(() => {
+  const moodPhrase = useMemo(() => {
     const phrases = PET_PHRASES[mood];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }, [mood]);
+
+  // Что призрак говорит прямо сейчас: совет важнее встречи, встреча — фразы.
+  const phrase = tip ?? greeting ?? moodPhrase;
 
   const stage = getPetStage(level);
   const nextStage = getNextPetStage(level);
@@ -154,12 +181,29 @@ export default function PetPage() {
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="relative max-w-[80%] bg-white dark:bg-card border border-slate-100 dark:border-border shadow-md shadow-slate-200/60 dark:shadow-black/40 rounded-2xl px-4 py-2.5 z-10"
+                className={`relative max-w-[80%] border shadow-md rounded-2xl px-4 py-2.5 z-10 ${
+                  tip
+                    ? "bg-amber-50 border-amber-200 shadow-amber-200/50 dark:bg-amber-500/15 dark:border-amber-500/40 dark:shadow-black/40"
+                    : "bg-white border-slate-100 shadow-slate-200/60 dark:bg-card dark:border-border dark:shadow-black/40"
+                }`}
               >
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-200 text-center">
+                <p
+                  className={`text-sm font-bold text-center ${
+                    tip
+                      ? "text-amber-700 dark:text-amber-200"
+                      : "text-slate-700 dark:text-slate-200"
+                  }`}
+                >
+                  {tip && <span className="mr-1">💡</span>}
                   {phrase}
                 </p>
-                <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-white dark:bg-card border-b border-r border-slate-100 dark:border-border rotate-45" />
+                <div
+                  className={`absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 border-b border-r rotate-45 ${
+                    tip
+                      ? "bg-amber-50 border-amber-200 dark:bg-amber-500/15 dark:border-amber-500/40"
+                      : "bg-white border-slate-100 dark:bg-card dark:border-border"
+                  }`}
+                />
               </motion.div>
 
               <div className="relative flex items-center justify-center mt-3">

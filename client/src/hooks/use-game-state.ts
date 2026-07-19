@@ -12,6 +12,7 @@ import {
   QUIZ_GOLD_PER_CORRECT,
   QUIZ_XP_PER_CORRECT,
 } from "@/lib/quiz-config";
+import { TIP_MAX_TAPS, TIP_MIN_TAPS, pickTip } from "@/lib/tips-config";
 
 /**
  * Кривая опыта (пересчитана 19.07.2026 по решению владельца).
@@ -71,6 +72,10 @@ const STREAK_DAYS_KEPT = 120;
 // Petting the ghost grants a tiny XP treat, capped per day so the real
 // progress still comes from quests.
 export const PETTING_DAILY_LIMIT = 10;
+
+// Через сколько нажатий призрак выдаст следующий совет по Blender.
+const randomTipInterval = () =>
+  TIP_MIN_TAPS + Math.floor(Math.random() * (TIP_MAX_TAPS - TIP_MIN_TAPS + 1));
 
 type LevelData = {
   level: number;
@@ -208,6 +213,15 @@ export interface GameState extends LevelData {
   pettingDate: string;
   pettingCount: number;
 
+  // Советы по Blender в пузыре: сколько раз погладили с прошлого совета,
+  // на каком нажатии выдать следующий и какой совет идёт по кругу.
+  petTapsTotal: number;
+  nextTipAt: number;
+  tipCursor: number;
+
+  // Когда ученик последний раз открывал приложение (для встречи после паузы).
+  lastSeenDate: string;
+
   // Викторина дня: на какие вопросы уже отвечено сегодня.
   quizDate: string;
   quizAnswered: string[];
@@ -240,7 +254,8 @@ export interface GameState extends LevelData {
   markAchievementsSeen: (ids: string[]) => void;
   markEvolutionSeen: (stageLevel: number) => void;
   markLevelUpSeen: (level: number) => void;
-  petGhost: () => { granted: boolean };
+  markVisit: () => number;
+  petGhost: () => { granted: boolean; tip: string | null };
   answerQuizQuestion: (questionId: string, correct: boolean) => boolean;
   openDailyChest: () => number | null;
 
@@ -273,6 +288,10 @@ type PersistedGameState = Pick<
   | "celebratedStageLevel"
   | "celebratedLevel"
   | "pettingDate"
+  | "petTapsTotal"
+  | "nextTipAt"
+  | "tipCursor"
+  | "lastSeenDate"
   | "pettingCount"
   | "quizDate"
   | "quizAnswered"
@@ -795,6 +814,10 @@ export const useGameState = create<GameState>()(
       celebratedStageLevel: 1,
       celebratedLevel: 1,
       pettingDate: "",
+      petTapsTotal: 0,
+      nextTipAt: randomTipInterval(),
+      tipCursor: Math.floor(Math.random() * 40),
+      lastSeenDate: "",
       pettingCount: 0,
       quizDate: "",
       quizAnswered: [],
@@ -1095,6 +1118,27 @@ export const useGameState = create<GameState>()(
         queueCloudSave(get);
       },
 
+      // Отмечает визит и говорит, сколько дней ученика не было.
+      // Нужно для встречи после паузы — и пригодится системе ухода.
+      markVisit: () => {
+        const state = get();
+        const today = formatLocalDate(new Date());
+
+        if (state.lastSeenDate === today) return 0;
+
+        const daysAway = state.lastSeenDate
+          ? Math.round(
+              (new Date(today).getTime() - new Date(state.lastSeenDate).getTime()) /
+                86400000
+            )
+          : 0;
+
+        set({ lastSeenDate: today });
+        queueCloudSave(get);
+
+        return daysAway;
+      },
+
       markLevelUpSeen: (level) => {
         const state = get();
 
@@ -1109,13 +1153,30 @@ export const useGameState = create<GameState>()(
         const today = formatLocalDate(new Date());
         const countToday = state.pettingDate === today ? state.pettingCount : 0;
 
+        // Совет выпадает по счётчику нажатий, а не по выданному XP:
+        // гладить можно сколько угодно, XP кончается через 10 раз в день.
+        const taps = state.petTapsTotal + 1;
+        const tipDue = taps >= state.nextTipAt;
+        const tip = tipDue ? pickTip(state.tipCursor) : null;
+
+        const tipState = tipDue
+          ? {
+              petTapsTotal: 0,
+              tipCursor: state.tipCursor + 1,
+              nextTipAt: randomTipInterval(),
+            }
+          : { petTapsTotal: taps };
+
         if (countToday >= PETTING_DAILY_LIMIT) {
-          return { granted: false };
+          set(tipState);
+          queueCloudSave(get);
+          return { granted: false, tip };
         }
 
         const nextXp = state.xp + 1;
 
         set({
+          ...tipState,
           pettingDate: today,
           pettingCount: countToday + 1,
           xp: nextXp,
@@ -1123,7 +1184,7 @@ export const useGameState = create<GameState>()(
         });
 
         queueCloudSave(get);
-        return { granted: true };
+        return { granted: true, tip };
       },
 
       answerQuizQuestion: (questionId, correct) => {
@@ -1232,6 +1293,10 @@ export const useGameState = create<GameState>()(
           quizDate: "",
           quizAnswered: [],
           chestDate: "",
+          petTapsTotal: 0,
+          nextTipAt: randomTipInterval(),
+          tipCursor: 0,
+          lastSeenDate: formatLocalDate(new Date()),
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
           pendingClaims: [],
@@ -1417,6 +1482,10 @@ export const useGameState = create<GameState>()(
         dailyProgress: state.dailyProgress,
         weeklyProgress: state.weeklyProgress,
         pendingClaims: state.pendingClaims,
+        petTapsTotal: state.petTapsTotal,
+        nextTipAt: state.nextTipAt,
+        tipCursor: state.tipCursor,
+        lastSeenDate: state.lastSeenDate,
       }),
       merge: (persistedState, currentState) => {
         const typedState = (persistedState as Partial<PersistedGameState>) || {};
