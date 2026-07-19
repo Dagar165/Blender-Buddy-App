@@ -1,5 +1,5 @@
 import {
-  QUESTS_CONFIG,
+  WARMUP_QUESTS,
   WEEKEND_LIMIT,
   WEEKEND_QUESTS,
   type QuestDefinition,
@@ -61,10 +61,26 @@ export function getActiveQuestsFromPool(
 }
 
 /**
+ * Разминка дня: одна на каждый будний день, за неделю не повторяется.
+ *
+ * Список тасуется ключом НЕДЕЛИ, а не дня, и из него берётся элемент по
+ * номеру шага — поэтому за пять будних дней выпадают пять разных разминок,
+ * а на следующей неделе порядок другой.
+ */
+function getWarmupForStep(stepIndex: number, weekCycleKey: string) {
+  if (WARMUP_QUESTS.length === 0) return null;
+
+  const shuffled = shuffleQuests(WARMUP_QUESTS, `warmup-${weekCycleKey}`);
+
+  return shuffled[stepIndex % shuffled.length] ?? null;
+}
+
+/**
  * Задания дня и недели.
  *
- * Неделя — один большой проект (projects-config.ts). Будние дни дают по
- * одному его шагу: день служит цели недели, а не живёт сам по себе.
+ * Неделя — один большой проект (projects-config.ts). Будний день даёт два
+ * задания: шаг проекта (главное дело дня) и короткую разминку на 5–10 минут,
+ * чтобы день не выглядел неподъёмным и всегда был выполним.
  * Суббота и воскресенье оставлены свободными, но задания там всё же есть —
  * иначе серия дней сгорала бы каждые выходные.
  */
@@ -103,6 +119,8 @@ export function getActiveQuestsForTab(
     return getActiveQuestsFromPool(WEEKEND_QUESTS, cycleKey, WEEKEND_LIMIT);
   }
 
+  const warmup = getWarmupForStep(stepIndex, weekCycleKey);
+
   return [
     {
       id: step.id,
@@ -110,8 +128,18 @@ export function getActiveQuestsForTab(
       description: step.description,
       result: step.result,
       stepLabel: `Шаг ${stepIndex + 1} из ${project.steps.length} — ${project.title}`,
+      kind: "step",
       xpReward: step.xpReward,
       goldReward: step.goldReward,
     },
+    ...(warmup
+      ? [
+          {
+            ...warmup,
+            stepLabel: "Разминка — на пять минут",
+            kind: "warmup" as const,
+          },
+        ]
+      : []),
   ];
 }

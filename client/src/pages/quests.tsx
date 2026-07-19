@@ -10,10 +10,13 @@ import {
   Brain,
   Camera,
   CheckCircle,
+  Circle,
   Clock,
   Coins,
   Flame,
+  Lock,
   Snowflake,
+  Zap,
 } from "lucide-react";
 import { pluralizeDaysRu } from "@/lib/utils";
 import {
@@ -22,6 +25,13 @@ import {
   type QuestTab,
 } from "@/lib/quests-config";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
+import {
+  STEP_WEEKDAY_LABELS,
+  getStepForDate,
+  getStepStates,
+  getWeekProject,
+  type WeeklyProject,
+} from "@/lib/projects-config";
 import { fetchClaimStatuses, submitQuestClaim } from "@/lib/quest-claim";
 import {
   QUIZ_GOLD_PER_CORRECT,
@@ -105,18 +115,35 @@ function QuestCard({
     );
   }
 
+  // Разминка — второстепенная: у неё синяя полоска и контурная кнопка,
+  // чтобы на экране осталась ОДНА оранжевая кнопка — главное дело дня.
+  const isWarmup = quest.kind === "warmup";
+
   return (
     <motion.div
       variants={item}
-      className="p-5 rounded-3xl bg-white dark:bg-card border border-slate-100 dark:border-border border-l-4 border-l-secondary shadow-lg shadow-slate-200/50 dark:shadow-black/30"
+      className={`p-5 rounded-3xl bg-white dark:bg-card border border-slate-100 dark:border-border border-l-4 shadow-lg shadow-slate-200/50 dark:shadow-black/30 ${
+        isWarmup ? "border-l-primary/50" : "border-l-secondary"
+      }`}
     >
       {quest.stepLabel && (
-        <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-secondary mb-1">
+        <p
+          className={`font-mono text-[11px] font-bold uppercase tracking-wide mb-1 flex items-center gap-1 ${
+            quest.kind === "warmup"
+              ? "text-slate-400 dark:text-slate-500"
+              : "text-secondary"
+          }`}
+        >
+          {quest.kind === "warmup" && <Zap className="w-3 h-3" />}
           {quest.stepLabel}
         </p>
       )}
 
-      <h3 className="font-display font-bold text-lg text-slate-800 dark:text-slate-100">
+      <h3
+        className={`font-display font-bold text-slate-800 dark:text-slate-100 ${
+          isWarmup ? "text-base" : "text-lg"
+        }`}
+      >
         {quest.title}
       </h3>
 
@@ -146,10 +173,117 @@ function QuestCard({
 
       <button
         onClick={() => onComplete(quest)}
-        className="w-full py-3 rounded-2xl font-bold text-[15px] text-white bg-gradient-to-r from-secondary to-orange-400 shadow-md shadow-secondary/30 hover:shadow-lg transition-all active:scale-[0.98]"
+        className={`w-full py-3 rounded-2xl font-bold text-[15px] transition-all active:scale-[0.98] ${
+          isWarmup
+            ? "border-2 border-primary/40 text-primary dark:text-blue-300 dark:border-blue-400/40 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+            : "text-white bg-gradient-to-r from-secondary to-orange-400 shadow-md shadow-secondary/30 hover:shadow-lg"
+        }`}
       >
         Выполнил! → на проверку
       </button>
+    </motion.div>
+  );
+}
+
+// Путь недели: пять шагов проекта с их состоянием. Без него неделя выглядит
+// одним простым заданием, которое можно сделать как попало — а это итог
+// пяти дней, и это должно быть видно до того, как ребёнок нажмёт кнопку.
+function WeekPath({
+  project,
+  doneIds,
+  todayStepIndex,
+}: {
+  project: WeeklyProject;
+  doneIds: string[];
+  todayStepIndex: number | null;
+}) {
+  const states = getStepStates(project, doneIds, todayStepIndex);
+  const doneCount = states.filter((state) => state === "done").length;
+
+  return (
+    <motion.div
+      variants={item}
+      className="p-5 rounded-3xl bg-white dark:bg-card border border-slate-100 dark:border-border shadow-lg shadow-slate-200/50 dark:shadow-black/30"
+    >
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-secondary">
+          Путь недели
+        </p>
+        <span className="font-mono text-[11px] font-bold text-slate-400 dark:text-slate-500">
+          {doneCount} из {project.steps.length}
+        </span>
+      </div>
+
+      <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug mb-4">
+        Каждый будний день открывается один шаг. Пройдёшь все пять — проект
+        собран.
+      </p>
+
+      <div className="space-y-1.5">
+        {project.steps.map((step, index) => {
+          const state = states[index];
+          const isDone = state === "done";
+          const isToday = state === "today";
+          const isLocked = state === "locked";
+
+          return (
+            <div
+              key={step.id}
+              className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 border ${
+                isToday
+                  ? "bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:border-orange-500/30"
+                  : isDone
+                    ? "bg-green-50/60 border-green-100 dark:bg-green-500/10 dark:border-green-500/25"
+                    : "bg-slate-50 border-slate-100 dark:bg-muted dark:border-border"
+              }`}
+            >
+              <span
+                className={`shrink-0 w-9 text-center font-mono text-[11px] font-bold ${
+                  isToday
+                    ? "text-secondary"
+                    : isDone
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-slate-400 dark:text-slate-500"
+                }`}
+              >
+                {STEP_WEEKDAY_LABELS[index]}
+              </span>
+
+              {isDone ? (
+                <CheckCircle className="w-4 h-4 shrink-0 text-green-500" />
+              ) : isLocked ? (
+                <Lock className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
+              ) : (
+                <Circle
+                  className={`w-4 h-4 shrink-0 ${
+                    isToday
+                      ? "text-secondary"
+                      : "text-slate-300 dark:text-slate-600"
+                  }`}
+                />
+              )}
+
+              <span
+                className={`flex-1 min-w-0 truncate text-sm ${
+                  isToday
+                    ? "font-bold text-slate-800 dark:text-slate-100"
+                    : isDone
+                      ? "text-slate-400 dark:text-slate-500 line-through"
+                      : "text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                {step.title}
+              </span>
+
+              {isToday && (
+                <span className="shrink-0 text-[11px] font-bold text-secondary">
+                  сегодня
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </motion.div>
   );
 }
@@ -220,6 +354,16 @@ export default function QuestsPage() {
   const weeklyQuests = useMemo(
     () => getActiveQuestsForTab("weekly", weeklyProgress.cycleKey),
     [weeklyProgress.cycleKey]
+  );
+
+  // Путь недели: сам проект, его сданные шаги и шаг сегодняшнего дня.
+  const weekProject = useMemo(
+    () => getWeekProject(weeklyProgress.cycleKey),
+    [weeklyProgress.cycleKey]
+  );
+  const weekDoneIds = weeklyProgress.weekDoneIds ?? [];
+  const todayStepIndex = getStepForDate(
+    dailyProgress.cycleKey.slice("daily-".length)
   );
 
   const dailyTabConfig = QUESTS_CONFIG.tabs.daily;
@@ -569,7 +713,9 @@ export default function QuestsPage() {
           <p className="mt-2 text-center text-xs font-medium text-slate-400 dark:text-slate-500">
             {activeTab === "quiz"
               ? "Пять вопросов в день — быстрая проверка себя"
-              : "Задание дня — шаг к проекту недели"}
+              : activeTab === "weekly"
+                ? "Проект недели собирается из пяти дневных шагов"
+                : "Шаг к проекту недели плюс короткая разминка"}
           </p>
         </div>
 
@@ -656,14 +802,26 @@ export default function QuestsPage() {
                     </motion.div>
                   );
                 })
-              : visibleQuests.map((quest) => (
-                  <QuestCard
-                    key={quest.id}
-                    quest={quest}
-                    status={getQuestStatus(quest)}
-                    onComplete={visibleOnComplete}
-                  />
-                ))}
+              : (
+                  <>
+                    {!isDailyTab && (
+                      <WeekPath
+                        project={weekProject}
+                        doneIds={weekDoneIds}
+                        todayStepIndex={todayStepIndex}
+                      />
+                    )}
+
+                    {visibleQuests.map((quest) => (
+                      <QuestCard
+                        key={quest.id}
+                        quest={quest}
+                        status={getQuestStatus(quest)}
+                        onComplete={visibleOnComplete}
+                      />
+                    ))}
+                  </>
+                )}
           </motion.div>
         </AnimatePresence>
       </div>

@@ -17,11 +17,13 @@ import { TIP_MAX_TAPS, TIP_MIN_TAPS, pickTip } from "@/lib/tips-config";
 /**
  * Кривая опыта (пересчитана 19.07.2026 по решению владельца).
  *
- * Считали так: идеальный будний день = шаг проекта недели (150 XP) + квиз (20)
- * + поглаживания (10) + доля самого проекта (400 XP за неделю ≈ 57) ≈ 237 XP,
- * плюс бонус серии до +50% и зелье ×2 → около 460–490 XP в день у отличника.
- * 30-й уровень стоит ~23 000 XP, то есть берётся примерно за 50 дней
- * (полтора-два месяца) при соблюдении ВСЕХ критериев — как и просил владелец.
+ * Считали так: идеальный будний день = шаг проекта недели (150 XP)
+ * + разминка (40) + квиз (20) + поглаживания (10) + доля самого проекта
+ * (400 XP за неделю ≈ 57) ≈ 277 XP, плюс бонус серии до +50% и зелье ×2 →
+ * около 540–570 XP в день у отличника. 30-й уровень стоит ~23 000 XP, то есть
+ * берётся примерно за 43 дня — полтора месяца при соблюдении ВСЕХ критериев,
+ * как и просил владелец (20.07: разминка добавила ~40 XP в день, срок
+ * сдвинулся с 50 дней к 43 — это ещё внутри «полтора-два месяца»).
  *
  * Если будешь менять награды за шаги (projects-config.ts) — пересчитай и это.
  *
@@ -92,6 +94,11 @@ type LevelData = {
 type RecurringQuestProgress = {
   cycleKey: string;
   completedIds: string[];
+  // Только у недельного прогресса: id ДНЕВНЫХ заданий, одобренных за эту
+  // неделю. Дневной прогресс обнуляется каждую ночь, а карточке недели надо
+  // показать пройденный путь — какие шаги проекта уже сданы. Живёт здесь,
+  // потому что здесь уже есть правильный сброс при смене недели.
+  weekDoneIds?: string[];
 };
 
 // Lifetime counters achievements are computed from.
@@ -422,6 +429,13 @@ const dateFromDailyCycleKey = (cycleKey: string) => {
   return cycleKey.startsWith("daily-") ? cycleKey.slice("daily-".length) : null;
 };
 
+// «2026-07-20» → локальная полночь. Через new Date(строка) нельзя: такая
+// строка читается как UTC и западнее Гринвича съезжает на день назад.
+const parseLocalDate = (day: string) => {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, date || 1);
+};
+
 const chainLengthEndingAt = (coveredDays: Set<string>, day: string) => {
   let length = 0;
   let cursor = day;
@@ -520,6 +534,7 @@ const createDailyProgress = (): RecurringQuestProgress => ({
 const createWeeklyProgress = (): RecurringQuestProgress => ({
   cycleKey: getWeeklyCycleKey(),
   completedIds: [],
+  weekDoneIds: [],
 });
 
 const getRecurringProgressPatch = (
@@ -543,6 +558,7 @@ const getRecurringProgressPatch = (
     patch.weeklyProgress = {
       cycleKey: nextWeeklyKey,
       completedIds: [],
+      weekDoneIds: [],
     };
     hasChanges = true;
   }
@@ -980,6 +996,27 @@ export const useGameState = create<GameState>()(
               ...dailyProgress,
               completedIds: [...dailyProgress.completedIds, claim.questId],
             };
+          }
+
+          // Путь недели: помним одобренные дневные задания до конца недели,
+          // даже когда дневной прогресс уже обнулился ночью. Считаем по дню
+          // самого задания, чтобы вчерашнее одобрение не попало в новую неделю.
+          if (claim.questType === "daily") {
+            const claimDay = dateFromDailyCycleKey(claim.cycleKey);
+            const claimWeekKey = claimDay
+              ? getWeeklyCycleKey(parseLocalDate(claimDay))
+              : null;
+            const weekDoneIds = weeklyProgress.weekDoneIds ?? [];
+
+            if (
+              claimWeekKey === weeklyProgress.cycleKey &&
+              !weekDoneIds.includes(claim.questId)
+            ) {
+              weeklyProgress = {
+                ...weeklyProgress,
+                weekDoneIds: [...weekDoneIds, claim.questId],
+              };
+            }
           }
 
           if (

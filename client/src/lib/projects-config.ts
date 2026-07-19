@@ -336,3 +336,32 @@ export function getStepForDate(dateKey: string): number | null {
 
   return weekday - 1;
 }
+
+export const STEP_WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+
+export type StepState = "done" | "today" | "past" | "locked";
+
+/**
+ * Состояние каждого шага для карточки недели.
+ *
+ * Ребёнок должен видеть, что проект — итог пяти дней, а не задание, которое
+ * можно сделать как попало за вечер: пройденные шаги с галочкой, сегодняшний
+ * подсвечен, будущие закрыты с указанием дня, когда откроются.
+ *
+ * «past» — день прошёл, а шаг не сдан: не наказываем, просто не притворяемся,
+ * что он ещё сегодняшний.
+ */
+export function getStepStates(
+  project: WeeklyProject,
+  doneIds: string[],
+  todayStepIndex: number | null
+): StepState[] {
+  return project.steps.map((step, index) => {
+    if (doneIds.includes(step.id)) return "done";
+    // Выходные: будни этой недели уже позади, открывать нечего.
+    if (todayStepIndex === null) return "past";
+    if (index === todayStepIndex) return "today";
+
+    return index < todayStepIndex ? "past" : "locked";
+  });
+}
