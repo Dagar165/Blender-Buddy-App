@@ -8,6 +8,7 @@ import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Brain,
+  Camera,
   CheckCircle,
   Clock,
   Coins,
@@ -109,6 +110,12 @@ function QuestCard({
       variants={item}
       className="p-5 rounded-3xl bg-white dark:bg-card border border-slate-100 dark:border-border border-l-4 border-l-secondary shadow-lg shadow-slate-200/50 dark:shadow-black/30"
     >
+      {quest.stepLabel && (
+        <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-secondary mb-1">
+          {quest.stepLabel}
+        </p>
+      )}
+
       <h3 className="font-display font-bold text-lg text-slate-800 dark:text-slate-100">
         {quest.title}
       </h3>
@@ -116,6 +123,17 @@ function QuestCard({
       <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mt-1.5 mb-3">
         {quest.description}
       </p>
+
+      {/* Что показать куратору — ребёнок должен знать это заранее */}
+      {quest.result && (
+        <div className="flex gap-2 mb-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-muted">
+          <Camera className="w-4 h-4 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
+            <span className="font-bold">На скриншоте: </span>
+            {quest.result}
+          </p>
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap mb-3">
         <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-500/10 text-primary px-3 py-1 rounded-xl text-xs font-bold">
@@ -188,9 +206,15 @@ export default function QuestsPage() {
     };
   }, []);
 
+  // Задание дня — шаг проекта недели, поэтому нужен и ключ недели.
   const dailyQuests = useMemo(
-    () => getActiveQuestsForTab("daily", dailyProgress.cycleKey),
-    [dailyProgress.cycleKey]
+    () =>
+      getActiveQuestsForTab(
+        "daily",
+        dailyProgress.cycleKey,
+        weeklyProgress.cycleKey
+      ),
+    [dailyProgress.cycleKey, weeklyProgress.cycleKey]
   );
 
   const weeklyQuests = useMemo(

@@ -6,6 +6,10 @@ export type QuestDefinition = {
   description: string;
   xpReward: number;
   goldReward: number;
+  // Что показать куратору на скриншоте (у шагов проекта недели).
+  result?: string;
+  // «Шаг 2 из 5 — Меч героя»: связывает день с проектом недели.
+  stepLabel?: string;
 };
 
 type QuestTabContent = {
@@ -45,14 +49,14 @@ export const QUESTS_CONFIG: QuestsConfig = {
     daily: {
       tabLabel: "День",
       tabHint: "Обновляется каждый день",
-      sectionTitle: "Ежедневные задания",
-      sectionSubtitle: "Короткие задачи на сегодня",
+      sectionTitle: "Задание дня",
+      sectionSubtitle: "Один шаг к проекту недели — на 20–40 минут",
     },
     weekly: {
       tabLabel: "Неделя",
-      tabHint: "Обновляется каждую неделю",
-      sectionTitle: "Еженедельные задания",
-      sectionSubtitle: "Более крупные цели на несколько сессий",
+      tabHint: "Новый проект каждый понедельник",
+      sectionTitle: "Проект недели",
+      sectionSubtitle: "Задания дня ведут к нему шаг за шагом",
     },
   },
 

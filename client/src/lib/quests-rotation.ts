@@ -3,6 +3,7 @@ import {
   type QuestDefinition,
   type QuestTab,
 } from "@/lib/quests-config";
+import { getStepForDate, getWeekProject } from "@/lib/projects-config";
 
 function clampLimit(limit: number, poolLength: number) {
   if (poolLength <= 0) return 0;
@@ -57,9 +58,66 @@ export function getActiveQuestsFromPool(
   return shuffled.slice(0, safeLimit);
 }
 
-export function getActiveQuestsForTab(tab: QuestTab, cycleKey: string) {
-  const pool = QUESTS_CONFIG.pools[tab];
-  const limit = QUESTS_CONFIG.limits[tab];
+/**
+ * Задания дня и недели.
+ *
+ * Неделя — один большой проект (projects-config.ts). Будние дни дают по
+ * одному его шагу: день служит цели недели, а не живёт сам по себе.
+ * Суббота и воскресенье оставлены свободными, но задания там всё же есть —
+ * иначе серия дней сгорала бы каждые выходные.
+ */
+export function getActiveQuestsForTab(
+  tab: QuestTab,
+  cycleKey: string,
+  weekCycleKey?: string
+): QuestDefinition[] {
+  if (tab === "weekly") {
+    const project = getWeekProject(cycleKey);
 
-  return getActiveQuestsFromPool(pool, cycleKey, limit);
+    return [
+      {
+        id: project.id,
+        title: project.title,
+        description: project.why,
+        result: "Итоговый рендер проекта — то, что получилось за неделю.",
+        xpReward: project.xpReward,
+        goldReward: project.goldReward,
+      },
+    ];
+  }
+
+  const dateKey = cycleKey.replace("daily-", "");
+  const stepIndex = getStepForDate(dateKey);
+
+  // Выходной — свободные задания из общего списка.
+  if (stepIndex === null || !weekCycleKey) {
+    return getActiveQuestsFromPool(
+      QUESTS_CONFIG.pools.daily,
+      cycleKey,
+      QUESTS_CONFIG.limits.daily
+    );
+  }
+
+  const project = getWeekProject(weekCycleKey);
+  const step = project.steps[stepIndex];
+
+  if (!step) {
+    return getActiveQuestsFromPool(
+      QUESTS_CONFIG.pools.daily,
+      cycleKey,
+      QUESTS_CONFIG.limits.daily
+    );
+  }
+
+  return [
+    {
+      id: step.id,
+      title: step.title,
+      description: step.description,
+      result: step.result,
+      stepLabel: `Шаг ${stepIndex + 1} из ${project.steps.length} — ${project.title}`,
+      xpReward: step.xpReward,
+      goldReward: step.goldReward,
+    },
+  ];
 }
