@@ -11,9 +11,15 @@ import {
   Coins,
   Sun,
   Moon,
+  ExternalLink,
 } from "lucide-react";
 import { useState } from "react";
 import { setTheme, useTheme } from "@/lib/theme";
+import {
+  HELPER_BOT,
+  SOCIAL_LINKS,
+  openOutboundLink,
+} from "@/lib/links-config";
 import {
   buildAchievementSnapshot,
   evaluateAchievements,
@@ -293,6 +299,44 @@ export default function ProfilePage() {
             ))}
           </div>
         )}
+
+        {/* Бот-помощник и наши каналы */}
+        <button
+          onClick={() => openOutboundLink(HELPER_BOT)}
+          className="w-full mb-3 p-4 rounded-3xl bg-gradient-to-r from-primary to-blue-400 text-white shadow-lg shadow-primary/30 flex items-center gap-3 text-left active:scale-95 transition-transform"
+        >
+          <span className="text-2xl leading-none">{HELPER_BOT.emoji}</span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-display font-bold">{HELPER_BOT.title}</span>
+            <span className="block text-xs text-blue-50/90 leading-snug">
+              {HELPER_BOT.subtitle}
+            </span>
+          </span>
+          <ExternalLink className="w-4 h-4 shrink-0 opacity-80" />
+        </button>
+
+        <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-8 overflow-hidden">
+          {SOCIAL_LINKS.map((link, index) => (
+            <button
+              key={link.id}
+              onClick={() => openOutboundLink(link)}
+              className={`w-full flex items-center gap-3 px-5 py-3.5 text-left active:bg-slate-50 dark:active:bg-muted transition-colors ${
+                index > 0 ? "border-t border-slate-100 dark:border-border" : ""
+              }`}
+            >
+              <span className="text-xl leading-none">{link.emoji}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block font-bold text-sm text-slate-700 dark:text-slate-200">
+                  {link.title}
+                </span>
+                <span className="block text-xs text-slate-400 dark:text-slate-500">
+                  {link.subtitle}
+                </span>
+              </span>
+              <ExternalLink className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
+            </button>
+          ))}
+        </div>
 
         <button
           onClick={() => {

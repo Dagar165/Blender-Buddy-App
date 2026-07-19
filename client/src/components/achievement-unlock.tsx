@@ -54,24 +54,24 @@ export function AchievementUnlock({
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.85, opacity: 0 }}
             transition={{ type: "spring", bounce: 0.45 }}
-            className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl ring-8 ring-orange-500/15"
+            className="bg-white dark:bg-card border border-transparent dark:border-border rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl ring-8 ring-orange-500/15 dark:ring-orange-500/25"
           >
-            <p className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-500 dark:text-amber-300 mb-3">
               Новое достижение!
             </p>
 
             <motion.div
               animate={{ rotate: [0, -8, 8, -4, 4, 0] }}
               transition={{ duration: 0.7, delay: 0.35 }}
-              className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-50 border-4 border-amber-200 flex items-center justify-center shadow-lg shadow-amber-200/60"
+              className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-50 dark:from-amber-500/25 dark:to-amber-400/10 border-4 border-amber-200 dark:border-amber-500/40 flex items-center justify-center shadow-lg shadow-amber-200/60"
             >
               <span className="text-5xl leading-none">{achievement.emoji}</span>
             </motion.div>
 
-            <h2 className="text-2xl font-display font-bold text-slate-800 mb-1">
+            <h2 className="text-2xl font-display font-bold text-slate-800 dark:text-slate-100 mb-1">
               {achievement.title}
             </h2>
-            <p className="text-sm text-slate-500 mb-5">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
               {achievement.description}
             </p>
 
@@ -83,7 +83,7 @@ export function AchievementUnlock({
             </button>
 
             {remainingCount > 0 && (
-              <p className="text-xs font-bold text-slate-400 mt-3">
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-3">
                 …и ещё {remainingCount} 🏅
               </p>
             )}

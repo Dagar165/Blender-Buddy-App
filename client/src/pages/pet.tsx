@@ -129,16 +129,11 @@ export default function PetPage() {
           {/* Комната призрака — отсылка к 3D-окну Blender:
               сетка пола, гизмо осей, а призрак «выделен» оранжевым */}
           <div className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10">
-            {/* Угол HUD, как в Blender: имя сцены, под ним — активный объект */}
-            <div className="absolute top-3 left-4 z-10 flex flex-col items-start gap-1 select-none">
-              <span className="font-mono text-[10px] font-semibold text-slate-400 dark:text-slate-500">
-                Комната призрака
-              </span>
-              <span className="flex items-center gap-1.5 bg-white/85 dark:bg-slate-900/70 border border-orange-200 dark:border-orange-500/40 rounded-full px-2.5 py-1 text-[10px] font-bold text-orange-600 dark:text-orange-300">
-                <span className="w-2 h-2 rounded-[3px] bg-orange-500 shrink-0" />
-                {stage.name}
-              </span>
-            </div>
+            {/* Угол HUD, как в Blender: имя активного объекта */}
+            <span className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/85 dark:bg-slate-900/70 border border-orange-200 dark:border-orange-500/40 rounded-full px-2.5 py-1 text-[10px] font-bold text-orange-600 dark:text-orange-300 select-none">
+              <span className="w-2 h-2 rounded-[3px] bg-orange-500 shrink-0" />
+              {stage.name}
+            </span>
             <AxisGizmo />
 
             {/* Пол-сетка в перспективе */}

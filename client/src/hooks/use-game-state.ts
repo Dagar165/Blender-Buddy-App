@@ -13,37 +13,53 @@ import {
   QUIZ_XP_PER_CORRECT,
 } from "@/lib/quiz-config";
 
+/**
+ * Кривая опыта (пересчитана 19.07.2026 по решению владельца).
+ *
+ * Считали так: идеальный день = 3 дневных задания (~170 XP) + квиз (20) +
+ * поглаживания (10) + доля недельных (~57) ≈ 257 XP, плюс бонус серии до +50%
+ * и зелье ×2 → около 460 XP в день у отличника. 30-й уровень стоит ~23 000 XP,
+ * то есть берётся примерно за 50 дней (полтора-два месяца) при соблюдении ВСЕХ
+ * критериев — как и просил владелец.
+ *
+ * Форма кривой: цена уровня растёт линейно (120 XP за 2-й, +48 XP за каждый
+ * следующий). Первые уровни намеренно быстрые — новичок должен сразу увидеть
+ * движение; растянута середина и верх.
+ *
+ * Если менять — держи в голове обе стороны: и отличника с зельями (~460 XP/день),
+ * и обычного ребёнка с одним заданием (~80 XP/день).
+ */
 export const LEVEL_THRESHOLDS = [
   0,     // level 1
-  40,    // level 2
-  100,   // level 3
-  185,   // level 4
-  300,   // level 5
-  450,   // level 6
-  640,   // level 7
-  875,   // level 8
-  1160,  // level 9
-  1500,  // level 10
-  1900,  // level 11
-  2350,  // level 12
-  2850,  // level 13
-  3400,  // level 14
-  4000,  // level 15
-  4650,  // level 16
-  5350,  // level 17
-  6100,  // level 18
-  6900,  // level 19
-  7750,  // level 20
-  8650,  // level 21
-  9600,  // level 22
-  10600, // level 23
-  11650, // level 24
-  12750, // level 25
-  13900, // level 26
-  15100, // level 27
-  16350, // level 28
-  17650, // level 29
-  19000, // level 30
+  120,   // level 2
+  290,   // level 3
+  500,   // level 4
+  770,   // level 5
+  1080,  // level 6
+  1440,  // level 7
+  1850,  // level 8
+  2300,  // level 9
+  2800,  // level 10
+  3360,  // level 11
+  3960,  // level 12
+  4600,  // level 13
+  5300,  // level 14
+  6050,  // level 15
+  6840,  // level 16
+  7680,  // level 17
+  8570,  // level 18
+  9500,  // level 19
+  10490, // level 20
+  11520, // level 21
+  12600, // level 22
+  13730, // level 23
+  14900, // level 24
+  16130, // level 25
+  17400, // level 26
+  18720, // level 27
+  20090, // level 28
+  21500, // level 29
+  22970, // level 30
 ];
 
 // Streak: a day counts once a daily quest SUBMITTED that day is approved.
@@ -146,6 +162,7 @@ type CloudStatsData = {
   stats: GameStats;
   seenAchievements: string[];
   celebratedStageLevel?: number;
+  celebratedLevel?: number;
 };
 
 type LoadedCloudState = {
@@ -184,6 +201,8 @@ export interface GameState extends LevelData {
   seenAchievements: string[];
   // fromLevel of the last pet-evolution stage celebrated with the modal.
   celebratedStageLevel: number;
+  // Последний обычный уровень, для которого уже показали поздравление.
+  celebratedLevel: number;
 
   // Поглаживание призрака: дата и счётчик за сегодня.
   pettingDate: string;
@@ -220,6 +239,7 @@ export interface GameState extends LevelData {
 
   markAchievementsSeen: (ids: string[]) => void;
   markEvolutionSeen: (stageLevel: number) => void;
+  markLevelUpSeen: (level: number) => void;
   petGhost: () => { granted: boolean };
   answerQuizQuestion: (questionId: string, correct: boolean) => boolean;
   openDailyChest: () => number | null;
@@ -251,6 +271,7 @@ type PersistedGameState = Pick<
   | "stats"
   | "seenAchievements"
   | "celebratedStageLevel"
+  | "celebratedLevel"
   | "pettingDate"
   | "pettingCount"
   | "quizDate"
@@ -638,6 +659,7 @@ const buildCloudPayloads = (state: Pick<
   | "stats"
   | "seenAchievements"
   | "celebratedStageLevel"
+  | "celebratedLevel"
 >) => {
   const profilePayload: CloudProfileData = {
     username: state.username,
@@ -671,6 +693,7 @@ const buildCloudPayloads = (state: Pick<
     stats: state.stats,
     seenAchievements: state.seenAchievements,
     celebratedStageLevel: state.celebratedStageLevel,
+    celebratedLevel: state.celebratedLevel,
   };
 
   return {
@@ -702,6 +725,7 @@ const writeCloudState = async (
     | "stats"
     | "seenAchievements"
     | "celebratedStageLevel"
+    | "celebratedLevel"
   >
 ): Promise<boolean> => {
   if (!getTelegramCloudStorage()) {
@@ -769,6 +793,7 @@ export const useGameState = create<GameState>()(
       stats: createDefaultStats(),
       seenAchievements: [],
       celebratedStageLevel: 1,
+      celebratedLevel: 1,
       pettingDate: "",
       pettingCount: 0,
       quizDate: "",
@@ -1070,6 +1095,15 @@ export const useGameState = create<GameState>()(
         queueCloudSave(get);
       },
 
+      markLevelUpSeen: (level) => {
+        const state = get();
+
+        if (level <= state.celebratedLevel) return;
+
+        set({ celebratedLevel: level });
+        queueCloudSave(get);
+      },
+
       petGhost: () => {
         const state = get();
         const today = formatLocalDate(new Date());
@@ -1192,6 +1226,7 @@ export const useGameState = create<GameState>()(
           stats: createDefaultStats(),
           seenAchievements: [],
           celebratedStageLevel: 1,
+          celebratedLevel: 1,
           pettingDate: "",
           pettingCount: 0,
           quizDate: "",
@@ -1288,6 +1323,12 @@ export const useGameState = create<GameState>()(
             cloudState?.statsData?.celebratedStageLevel ?? 1
           );
 
+          // Поздравления с уровнем — тоже только вперёд.
+          const nextCelebratedLevel = Math.max(
+            state.celebratedLevel,
+            cloudState?.statsData?.celebratedLevel ?? 1
+          );
+
           const mergedState: GameState = {
             ...state,
             username: nextUsername,
@@ -1308,6 +1349,7 @@ export const useGameState = create<GameState>()(
             stats: nextStats,
             seenAchievements: nextSeenAchievements,
             celebratedStageLevel: nextCelebratedStageLevel,
+            celebratedLevel: nextCelebratedLevel,
             dailyProgress: nextDailyProgress,
             weeklyProgress: nextWeeklyProgress,
             ...getLevelData(nextXp),
@@ -1366,6 +1408,7 @@ export const useGameState = create<GameState>()(
         stats: state.stats,
         seenAchievements: state.seenAchievements,
         celebratedStageLevel: state.celebratedStageLevel,
+        celebratedLevel: state.celebratedLevel,
         pettingDate: state.pettingDate,
         pettingCount: state.pettingCount,
         quizDate: state.quizDate,

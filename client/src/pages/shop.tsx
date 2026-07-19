@@ -137,26 +137,30 @@ export default function ShopPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.08 }}
                 key={item.key}
-                className="bg-white dark:bg-card p-4 rounded-3xl shadow-md shadow-slate-200/50 dark:shadow-black/30 border border-transparent dark:border-border flex items-center gap-4"
+                className="bg-white dark:bg-card p-4 rounded-3xl shadow-md shadow-slate-200/50 dark:shadow-black/30 border border-transparent dark:border-border"
               >
-                <div
-                  className={`w-14 h-14 shrink-0 rounded-2xl ${item.iconClasses} flex items-center justify-center`}
-                >
-                  <Icon className="w-7 h-7" />
-                </div>
+                {/* Иконка и текст в строку, кнопка — отдельной строкой снизу:
+                    так описание идёт во всю ширину, а не по одному слову */}
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`w-14 h-14 shrink-0 rounded-2xl ${item.iconClasses} flex items-center justify-center`}
+                  >
+                    <Icon className="w-7 h-7" />
+                  </div>
 
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">{item.name}</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
-                    {item.description}
-                  </p>
-                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1">{item.ownedLabel}</p>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">{item.name}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                      {item.description}
+                    </p>
+                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1">{item.ownedLabel}</p>
+                  </div>
                 </div>
 
                 <button
                   onClick={item.onBuy}
                   disabled={buyDisabled}
-                  className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center gap-1.5 ${
+                  className={`w-full mt-3 px-4 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
                     item.atCap
                       ? "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
                       : item.canAfford

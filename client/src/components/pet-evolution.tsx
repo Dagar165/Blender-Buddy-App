@@ -67,12 +67,12 @@ function EvolutionScene({
       animate={{ scale: 1, y: 0, opacity: 1 }}
       exit={{ scale: 0.85, opacity: 0 }}
       transition={{ type: "spring", bounce: 0.45 }}
-      className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl"
+      className="bg-white dark:bg-card border border-transparent dark:border-border rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl"
     >
       {/* Отсылка к Blender: превращение подано как рендер новой формы */}
       <p
         className={`text-xs font-bold uppercase tracking-widest mb-2 font-mono transition-colors ${
-          isNew ? "text-green-500" : "text-slate-400"
+          isNew ? "text-green-500 dark:text-green-400" : "text-slate-400 dark:text-slate-500"
         }`}
       >
         {isNew ? "Рендер завершён ✓" : "Рендерим новую форму…"}
@@ -117,7 +117,7 @@ function EvolutionScene({
               animate={{ opacity: 1, scale: 2.2 }}
               exit={{ opacity: 0, scale: 2.6 }}
               transition={{ duration: 0.45 }}
-              className="absolute inset-0 m-auto w-40 h-40 rounded-full bg-gradient-to-tr from-white via-fuchsia-100 to-amber-100"
+              className="absolute inset-0 m-auto w-40 h-40 rounded-full bg-gradient-to-tr from-white via-fuchsia-100 to-amber-100 dark:from-slate-100 dark:via-fuchsia-300/70 dark:to-amber-200/70"
               style={{ boxShadow: "0 0 80px 50px rgba(255,255,255,0.95)" }}
             />
           )}
@@ -132,10 +132,10 @@ function EvolutionScene({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
           >
-            <h2 className="text-2xl font-display font-bold text-slate-800 mb-1">
+            <h2 className="text-2xl font-display font-bold text-slate-800 dark:text-slate-100 mb-1">
               Эволюция! {evolution.to.name}
             </h2>
-            <p className="text-sm text-slate-500 mb-5">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
               Твои задания сделали своё дело — {evolution.from.name} вырос!
             </p>
 
@@ -152,7 +152,7 @@ function EvolutionScene({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="text-sm font-bold text-slate-500 py-8"
+            className="text-sm font-bold text-slate-500 dark:text-slate-400 py-8"
           >
             Что-то происходит…✨
           </motion.p>

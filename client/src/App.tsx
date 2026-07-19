@@ -12,6 +12,7 @@ import {
 } from "@/lib/achievements-config";
 import { AchievementUnlock } from "@/components/achievement-unlock";
 import { PetEvolution, type PetEvolutionEvent } from "@/components/pet-evolution";
+import { LevelUp } from "@/components/level-up";
 import { getPetStage } from "@/lib/pet-config";
 import { refreshTheme } from "@/lib/theme";
 
@@ -65,6 +66,8 @@ function AppContent() {
     (state) => state.celebratedStageLevel
   );
   const markEvolutionSeen = useGameState((state) => state.markEvolutionSeen);
+  const celebratedLevel = useGameState((state) => state.celebratedLevel);
+  const markLevelUpSeen = useGameState((state) => state.markLevelUpSeen);
   const [achievementQueue, setAchievementQueue] = useState<
     AchievementDefinition[]
   >([]);
@@ -75,6 +78,9 @@ function AppContent() {
     currentStage.fromLevel > celebratedStageLevel
       ? { from: getPetStage(celebratedStageLevel), to: currentStage }
       : null;
+
+  // Обычный уровень: показываем плашку, но не поверх эволюции.
+  const levelUp = !evolution && level > celebratedLevel ? level : null;
 
   useEffect(() => {
     const enqueue = (state: GameState) => {
@@ -151,6 +157,7 @@ function AppContent() {
             evolution={evolution}
             onClaim={() => markEvolutionSeen(currentStage.fromLevel)}
           />
+          <LevelUp level={levelUp} onDone={() => markLevelUpSeen(level)} />
           {/* Медали ждут своей очереди, пока играет эволюция */}
           <AchievementUnlock
             achievement={evolution ? null : achievementQueue[0] ?? null}
