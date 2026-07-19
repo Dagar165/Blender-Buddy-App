@@ -6,7 +6,7 @@ import type { PetMood, PetStage } from "@/lib/pet-config";
 // automatically. Emotion effects float on top so the base art stays static.
 
 // Картинки — квадратные, персонаж занимает ~80% высоты холста (спецификация).
-// Новые файлы перед подключением прогонять через tools/normalize-mascot.ps1 —
+// Новые файлы перед подключением прогонять через tools/cutout-mascot.ps1 —
 // тогда никакого CSS-зума не нужно (зум ломал нажатие на iOS).
 
 export function Ghost({

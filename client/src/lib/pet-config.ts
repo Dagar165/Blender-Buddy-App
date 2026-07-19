@@ -1,4 +1,8 @@
 ﻿import ghostLevel1 from "@/assets/mascot/ghost-level-1.webp";
+import ghostStage1 from "@/assets/mascot/ghost-stage-1.webp";
+import ghostStage2 from "@/assets/mascot/ghost-stage-2.webp";
+import ghostStage3 from "@/assets/mascot/ghost-stage-3.webp";
+import ghostStage4 from "@/assets/mascot/ghost-stage-4.webp";
 
 /**
  * Правила редактирования (для владельца):
@@ -7,9 +11,10 @@
  * - когда картинки готовы: положи файлы в client/src/assets/mascot
  *   (ghost-stage-1.png … ghost-stage-5.png), добавь import сверху как у
  *   ghostLevel1 и поставь его в поле image нужной стадии
- * - каждую новую картинку сначала прогнать через tools/normalize-mascot.ps1
- *   (обрежет поля и поставит персонажа по спецификации) и сжать в WebP
- * - пока новых картинок нет, везде стоит старая картинка-заглушка
+ * - каждую новую картинку сначала прогнать через tools/cutout-mascot.ps1
+ *   (вырежет фон, обрежет поля, поставит персонажа по спецификации),
+ *   потом сжать в WebP (tools/README-mascot.md — как именно)
+ * - стадии 1–4 — готовый арт; на 5-й пока стоит картинка-заглушка
  * - имена стадий (name), свечение (aura) и фразы (PET_PHRASES)
  *   можно менять свободно; fromLevel — с какого уровня начинается стадия
  * - призрак ОДНОГО размера на всех стадиях (решение владельца 08.07.2026):
@@ -27,31 +32,37 @@ export type PetStage = {
 
 export const PET_STAGES: PetStage[] = [
   {
-    // Ждёт арта: малыш в подгузнике, нарочито маленький и милый
+    // малыш в подгузнике, нарочито маленький и милый
     fromLevel: 1,
     name: "Зритель",
-    image: ghostLevel1,
+    image: ghostStage1,
     aura: "drop-shadow(0 10px 20px rgba(59, 130, 246, 0.18))",
   },
   {
+    // шапка-бини со значком Blender
     fromLevel: 5,
     name: "Ученик",
-    image: ghostLevel1,
+    image: ghostStage2,
     aura: "drop-shadow(0 12px 26px rgba(59, 130, 246, 0.35))",
   },
   {
+    // круглые очки
     fromLevel: 12,
     name: "Моделлер",
-    image: ghostLevel1,
+    image: ghostStage3,
     aura: "drop-shadow(0 14px 30px rgba(139, 92, 246, 0.4))",
   },
   {
+    // выпускная шапочка со значком Blender
     fromLevel: 20,
     name: "Художник",
-    image: ghostLevel1,
+    image: ghostStage4,
     aura: "drop-shadow(0 14px 34px rgba(249, 115, 22, 0.4))",
   },
   {
+    // Ждёт арта: корона. Присланная картинка не годится — вокруг короны
+    // намертво впечатано жёлтое свечение вместе с фоном, вырезать начисто
+    // нельзя. Нужна перерисовка без свечения.
     fromLevel: 30,
     name: "Творец",
     image: ghostLevel1,
