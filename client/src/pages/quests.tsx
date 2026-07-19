@@ -563,6 +563,14 @@ export default function QuestsPage() {
               );
             })}
           </div>
+
+          {/* Одна строка связки: без неё ребёнок не поймёт, что день ведёт
+              к неделе. Заголовков разделов по-прежнему нет. */}
+          <p className="mt-2 text-center text-xs font-medium text-slate-400 dark:text-slate-500">
+            {activeTab === "quiz"
+              ? "Пять вопросов в день — быстрая проверка себя"
+              : "Задание дня — шаг к проекту недели"}
+          </p>
         </div>
 
         <AnimatePresence mode="wait">

@@ -14,20 +14,11 @@ export type QuestDefinition = {
 
 type QuestTabContent = {
   tabLabel: string;
-  tabHint: string;
-  sectionTitle: string;
-  sectionSubtitle: string;
-};
-
-type QuestPageContent = {
-  title: string;
-  subtitle: string;
 };
 
 type QuestLimits = Record<QuestTab, number>;
 
 export type QuestsConfig = {
-  page: QuestPageContent;
   tabs: Record<QuestTab, QuestTabContent>;
   limits: QuestLimits;
   pools: Record<QuestTab, QuestDefinition[]>;
@@ -106,32 +97,23 @@ export const WEEKEND_QUESTS: QuestDefinition[] = [
 ];
 
 /**
- * Правила:
+ * ВНИМАНИЕ, что тут живое, а что запас:
+ *
+ * - tabLabel — надписи на вкладках, видны на экране;
+ * - pools — СТАРЫЕ задания, сейчас НЕ показываются нигде. В будни выдаются
+ *   шаги проекта недели (projects-config.ts), на выходных — WEEKEND_QUESTS.
+ *   Список оставлен как запас: если понадобится вернуть свободные задания,
+ *   всё готово. Правки в нём на экран не влияют.
+ *
+ * Правила для запаса и для WEEKEND_QUESTS:
  * - title / description / xpReward / goldReward можно менять свободно
  * - id не меняй у уже существующих заданий без необходимости
  * - если нужен новый квест, создавай новый id
- * - pools.daily теперь запасной вариант: в будни выдаются шаги проекта недели
- *   (projects-config.ts), на выходных — WEEKEND_QUESTS выше
  */
 export const QUESTS_CONFIG: QuestsConfig = {
-  page: {
-    title: "Задания",
-    subtitle: "Ежедневные и еженедельные цели для стабильного прогресса",
-  },
-
   tabs: {
-    daily: {
-      tabLabel: "День",
-      tabHint: "Обновляется каждый день",
-      sectionTitle: "Задание дня",
-      sectionSubtitle: "Один шаг к проекту недели — на 20–40 минут",
-    },
-    weekly: {
-      tabLabel: "Неделя",
-      tabHint: "Новый проект каждый понедельник",
-      sectionTitle: "Проект недели",
-      sectionSubtitle: "Задания дня ведут к нему шаг за шагом",
-    },
+    daily: { tabLabel: "День" },
+    weekly: { tabLabel: "Неделя" },
   },
 
   limits: {
