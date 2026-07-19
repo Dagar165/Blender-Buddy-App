@@ -298,16 +298,33 @@ export const WEEKLY_PROJECTS: WeeklyProject[] = [
   },
 ];
 
+/**
+ * С какого понедельника начинается отсчёт проектов. Нужен, чтобы проекты шли
+ * по порядку списка — от простого меча к роботу, — а не с середины, куда
+ * попал бы отсчёт от календарного номера недели.
+ *
+ * Хочешь начать список заново — поставь сюда дату нужного понедельника.
+ */
+const ROTATION_START_MONDAY = "2026-07-20";
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
 // Проект недели: по кругу, чтобы у всех в одну неделю был один и тот же.
 export function getWeekProject(weekCycleKey: string): WeeklyProject {
   const weekDate = weekCycleKey.replace("weekly-", "");
-  const weekIndex = Math.floor(
-    new Date(weekDate).getTime() / (7 * 24 * 60 * 60 * 1000)
+  const weeksPassed = Math.round(
+    (new Date(weekDate).getTime() - new Date(ROTATION_START_MONDAY).getTime()) /
+      WEEK_MS
   );
 
-  const safeIndex = Number.isFinite(weekIndex) ? Math.abs(weekIndex) : 0;
+  if (!Number.isFinite(weeksPassed)) return WEEKLY_PROJECTS[0];
 
-  return WEEKLY_PROJECTS[safeIndex % WEEKLY_PROJECTS.length];
+  // Остаток от деления в JS может быть отрицательным — поправляем,
+  // иначе недели до стартовой даты дали бы пустой проект.
+  const count = WEEKLY_PROJECTS.length;
+  const index = ((weeksPassed % count) + count) % count;
+
+  return WEEKLY_PROJECTS[index];
 }
 
 // Шаг буднего дня: понедельник → шаг 1, пятница → шаг 5.
