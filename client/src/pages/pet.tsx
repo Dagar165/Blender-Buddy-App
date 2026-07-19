@@ -129,9 +129,16 @@ export default function PetPage() {
           {/* Комната призрака — отсылка к 3D-окну Blender:
               сетка пола, гизмо осей, а призрак «выделен» оранжевым */}
           <div className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10">
-            <span className="absolute top-3 left-4 z-10 font-mono text-[10px] font-semibold text-slate-400 dark:text-slate-500 select-none">
-              Комната призрака
-            </span>
+            {/* Угол HUD, как в Blender: имя сцены, под ним — активный объект */}
+            <div className="absolute top-3 left-4 z-10 flex flex-col items-start gap-1 select-none">
+              <span className="font-mono text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                Комната призрака
+              </span>
+              <span className="flex items-center gap-1.5 bg-white/85 dark:bg-slate-900/70 border border-orange-200 dark:border-orange-500/40 rounded-full px-2.5 py-1 text-[10px] font-bold text-orange-600 dark:text-orange-300">
+                <span className="w-2 h-2 rounded-[3px] bg-orange-500 shrink-0" />
+                {stage.name}
+              </span>
+            </div>
             <AxisGizmo />
 
             {/* Пол-сетка в перспективе */}
@@ -145,13 +152,14 @@ export default function PetPage() {
               }}
             />
 
-            <div className="relative flex flex-col items-center pt-4 pb-12">
+            {/* pt-14 — чтобы пузырь начинался ниже HUD слева и гизмо справа */}
+            <div className="relative flex flex-col items-center pt-14 pb-12">
               <motion.div
                 key={phrase}
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="relative max-w-[85%] bg-white dark:bg-card border border-slate-100 dark:border-border shadow-md shadow-slate-200/60 dark:shadow-black/40 rounded-2xl px-4 py-2.5 mt-4 z-10"
+                className="relative max-w-[80%] bg-white dark:bg-card border border-slate-100 dark:border-border shadow-md shadow-slate-200/60 dark:shadow-black/40 rounded-2xl px-4 py-2.5 z-10"
               >
                 <p className="text-sm font-bold text-slate-700 dark:text-slate-200 text-center">
                   {phrase}
@@ -159,7 +167,7 @@ export default function PetPage() {
                 <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-white dark:bg-card border-b border-r border-slate-100 dark:border-border rotate-45" />
               </motion.div>
 
-              <div className="relative flex items-center justify-center mt-5">
+              <div className="relative flex items-center justify-center mt-3">
                 {/* Сердечки от поглаживания */}
                 <AnimatePresence>
                   {hearts.map((heart) => (
@@ -208,11 +216,6 @@ export default function PetPage() {
               </span>
             </div>
 
-            {/* Подпись «выделенного объекта» — имя и стадия */}
-            <span className="absolute bottom-3 left-3 hidden min-[380px]:flex items-center gap-1.5 bg-white/85 dark:bg-slate-900/70 border border-orange-200 dark:border-orange-500/40 rounded-full px-2.5 py-1 text-[10px] font-bold text-orange-600 dark:text-orange-300 select-none">
-              <span className="w-2 h-2 rounded-[3px] bg-orange-500 shrink-0" />
-              {stage.name}
-            </span>
           </div>
 
           <div className="flex items-center gap-2 mt-3 mb-4 text-xs font-bold text-slate-400 dark:text-slate-500">

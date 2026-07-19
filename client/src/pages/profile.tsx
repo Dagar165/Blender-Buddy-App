@@ -1,8 +1,19 @@
 import { useGameState } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
-import { User, Trophy, Package, RotateCcw, PenSquare, Medal } from "lucide-react";
+import {
+  User,
+  Trophy,
+  Package,
+  RotateCcw,
+  PenSquare,
+  Medal,
+  Coins,
+  Sun,
+  Moon,
+} from "lucide-react";
 import { useState } from "react";
+import { setTheme, useTheme } from "@/lib/theme";
 import {
   buildAchievementSnapshot,
   evaluateAchievements,
@@ -11,6 +22,7 @@ import {
 export default function ProfilePage() {
   const { username, level, xp, gold, inventory, stats, setUsername, resetGame } =
     useGameState();
+  const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(username);
   const [selectedAchievementId, setSelectedAchievementId] = useState<
@@ -84,17 +96,64 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Тема: ставится сама при первом входе, но выбор здесь важнее */}
+        <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-6 px-5 py-4 flex items-center gap-3">
+          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+            Тема
+          </span>
+
+          <div className="ml-auto flex items-center gap-1 bg-slate-100 dark:bg-muted rounded-xl p-1">
+            {([
+              { value: "light" as const, label: "Светлая", icon: Sun },
+              { value: "dark" as const, label: "Тёмная", icon: Moon },
+            ]).map((option) => {
+              const OptionIcon = option.icon;
+              const isActive = theme === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => setTheme(option.value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                    isActive
+                      ? "bg-white dark:bg-card text-slate-800 dark:text-slate-100 shadow-sm"
+                      : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  <OptionIcon
+                    className={`w-4 h-4 ${
+                      isActive ? "text-secondary" : ""
+                    }`}
+                  />
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Статистика — строки «название → значение», как панель свойств */}
         <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-6 overflow-hidden">
           {[
-            { label: "Заданий сделано", value: `${stats.approvedQuestsTotal}` },
+            {
+              label: "Заданий сделано",
+              value: `${stats.approvedQuestsTotal}`,
+              hot: false,
+              coin: false,
+            },
             {
               label: "Рекорд серии",
               value:
                 stats.bestStreak > 0 ? `${stats.bestStreak} дн. 🔥` : "—",
               hot: stats.bestStreak > 0,
+              coin: false,
             },
-            { label: "Голды потрачено", value: `${stats.goldSpent} 🪙` },
+            {
+              label: "Голды потрачено",
+              value: `${stats.goldSpent}`,
+              hot: false,
+              coin: true,
+            },
           ].map((row, index) => (
             <div
               key={row.label}
@@ -106,13 +165,14 @@ export default function ProfilePage() {
                 {row.label}
               </span>
               <span
-                className={`ml-auto font-mono text-sm font-bold ${
+                className={`ml-auto flex items-center gap-1.5 font-mono text-sm font-bold ${
                   row.hot
                     ? "text-orange-500"
                     : "text-slate-800 dark:text-slate-100"
                 }`}
               >
                 {row.value}
+                {row.coin && <Coins className="w-4 h-4 text-amber-400" />}
               </span>
             </div>
           ))}

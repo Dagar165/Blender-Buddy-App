@@ -13,6 +13,7 @@ import {
 import { AchievementUnlock } from "@/components/achievement-unlock";
 import { PetEvolution, type PetEvolutionEvent } from "@/components/pet-evolution";
 import { getPetStage } from "@/lib/pet-config";
+import { refreshTheme } from "@/lib/theme";
 
 // Components & Pages
 import { BottomNav } from "@/components/bottom-nav";
@@ -90,35 +91,20 @@ function AppContent() {
     });
   }, []);
 
-  // Тема (светлая/тёмная) берётся из Telegram и меняется вместе с ним;
-  // вне Telegram — из системной настройки устройства.
+  // Тема (светлая/тёмная): при первом входе — как в Telegram (вне Telegram —
+  // как в системе), но ручной выбор в профиле важнее и запоминается.
   useEffect(() => {
-    const applyTheme = () => {
-      try {
-        // @ts-ignore
-        const scheme: string | undefined =
-          // @ts-ignore
-          window.Telegram?.WebApp?.colorScheme ??
-          (window.matchMedia("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "light");
-        document.documentElement.classList.toggle("dark", scheme === "dark");
-      } catch {
-        // тема не критична — молча остаёмся в светлой
-      }
-    };
-
-    applyTheme();
+    refreshTheme();
 
     // @ts-ignore
-    window.Telegram?.WebApp?.onEvent?.("themeChanged", applyTheme);
+    window.Telegram?.WebApp?.onEvent?.("themeChanged", refreshTheme);
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener?.("change", applyTheme);
+    media.addEventListener?.("change", refreshTheme);
 
     return () => {
       // @ts-ignore
-      window.Telegram?.WebApp?.offEvent?.("themeChanged", applyTheme);
-      media.removeEventListener?.("change", applyTheme);
+      window.Telegram?.WebApp?.offEvent?.("themeChanged", refreshTheme);
+      media.removeEventListener?.("change", refreshTheme);
     };
   }, []);
 

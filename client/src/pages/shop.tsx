@@ -171,7 +171,10 @@ export default function ShopPage() {
                       {item.cost} <Coins className="w-4 h-4" />
                     </>
                   ) : (
-                    `Накопи ещё ${item.cost - gold} 🪙`
+                    <>
+                      Накопи ещё {item.cost - gold}{" "}
+                      <Coins className="w-4 h-4 text-amber-400" />
+                    </>
                   )}
                 </button>
               </motion.div>
@@ -221,7 +224,10 @@ export default function ShopPage() {
                       {item.cost} <Coins className="w-4 h-4" />
                     </>
                   ) : (
-                    `Накопи ещё ${item.cost - gold} 🪙`
+                    <>
+                      Накопи ещё {item.cost - gold}{" "}
+                      <Coins className="w-4 h-4 text-amber-400" />
+                    </>
                   )}
                 </button>
               </motion.div>
