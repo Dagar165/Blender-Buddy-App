@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
 import {
   PET_PHRASES,
+  PET_STAGES,
   getNextPetStage,
   getPetStage,
   type PetMood,
@@ -33,6 +33,26 @@ const MOOD_ANIMATION: Record<PetMood, { y: number[]; duration: number }> = {
 
 // Плавающее сердечко после поглаживания
 type Heart = { id: number; x: number; withXp: boolean };
+
+// Гизмо осей из угла 3D-окна Blender — просто украшение-отсылка
+function AxisGizmo() {
+  return (
+    <svg
+      className="absolute top-2.5 right-2.5 opacity-90 pointer-events-none"
+      width="40"
+      height="40"
+      viewBox="0 0 46 46"
+    >
+      <circle cx="23" cy="23" r="22" className="fill-white/80 dark:fill-slate-900/60" />
+      <line x1="23" y1="23" x2="38" y2="29" stroke="#e3402e" strokeWidth="1.7" />
+      <line x1="23" y1="23" x2="10" y2="30" stroke="#6fa21c" strokeWidth="1.7" />
+      <line x1="23" y1="23" x2="23" y2="7" stroke="#3b83bd" strokeWidth="1.7" />
+      <circle cx="38" cy="29" r="4.4" fill="#e3402e" />
+      <circle cx="10" cy="30" r="4.4" fill="#6fa21c" />
+      <circle cx="23" cy="7" r="4.4" fill="#3b83bd" />
+    </svg>
+  );
+}
 
 export default function PetPage() {
   const {
@@ -79,6 +99,7 @@ export default function PetPage() {
 
   const stage = getPetStage(level);
   const nextStage = getNextPetStage(level);
+  const stageNumber = PET_STAGES.indexOf(stage) + 1;
   const animation = MOOD_ANIMATION[mood];
 
   const ownedItems = SHOP_ITEMS.filter((item) =>
@@ -92,88 +113,112 @@ export default function PetPage() {
 
   const subLabel =
     requiredForNextLevel > 0
-      ? `До следующего уровня: ${xpToNextLevel} XP`
+      ? `Осталось ${xpToNextLevel} XP — их дают за задания`
       : "Максимальный уровень достигнут";
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col h-full bg-gradient-to-b from-blue-50 via-white to-blue-50/30"
+      className="flex flex-col h-full bg-gradient-to-b from-blue-50 via-white to-blue-50/30 dark:from-[#101a2e] dark:via-[#0b1220] dark:to-[#0d1526]"
     >
       <TopBar />
 
-      <div className="flex-1 overflow-y-auto px-6 pb-24">
+      <div className="flex-1 overflow-y-auto px-5 pb-24">
         <div className="flex flex-col items-center">
-          <motion.div
-            key={phrase}
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="relative max-w-xs bg-white border border-slate-100 shadow-md shadow-slate-200/60 rounded-2xl px-4 py-2.5 mt-2 mb-2 z-10"
-          >
-            <p className="text-sm font-bold text-slate-700 text-center">{phrase}</p>
-            <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-white border-b border-r border-slate-100 rotate-45" />
-          </motion.div>
+          {/* Комната призрака — отсылка к 3D-окну Blender:
+              сетка пола, гизмо осей, а призрак «выделен» оранжевым */}
+          <div className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10">
+            <span className="absolute top-3 left-4 z-10 font-mono text-[10px] font-semibold text-slate-400 dark:text-slate-500 select-none">
+              Комната призрака
+            </span>
+            <AxisGizmo />
 
-          <motion.div
-            initial={{ scale: 0.92, y: 8, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="relative flex items-center justify-center mt-10 mb-8"
-          >
-            {/* Сердечки от поглаживания */}
-            <AnimatePresence>
-              {hearts.map((heart) => (
-                <motion.div
-                  key={heart.id}
-                  initial={{ opacity: 1, y: 0, scale: 0.7 }}
-                  animate={{ opacity: 0, y: -70, scale: 1.15 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="absolute top-6 z-10 pointer-events-none text-lg font-bold text-rose-500"
-                  style={{ left: `calc(50% + ${heart.x}px)` }}
-                >
-                  {heart.withXp ? "❤️ +1 XP" : "❤️"}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            <motion.div
-              animate={{ y: animation.y }}
-              whileTap={{ scale: 0.95 }}
-              transition={{
-                duration: animation.duration,
-                repeat: Infinity,
-                ease: "easeInOut",
+            {/* Пол-сетка в перспективе */}
+            <div
+              className="absolute -left-1/3 -right-1/3 -bottom-2 h-[44%] pointer-events-none"
+              style={{
+                background:
+                  "repeating-linear-gradient(90deg, rgba(59,130,246,.14) 0 1.5px, transparent 1.5px 46px), repeating-linear-gradient(0deg, rgba(59,130,246,.10) 0 1.5px, transparent 1.5px 30px)",
+                transform: "perspective(340px) rotateX(58deg)",
+                transformOrigin: "50% 100%",
               }}
-              onClick={handlePet}
-              className="flex items-center justify-center select-none cursor-pointer"
-            >
-              <Ghost
-                stage={stage}
-                mood={mood}
-                size={240}
-                overlays={ownedItems
-                  .map((item) => item.overlay)
-                  .filter((src): src is string => Boolean(src))}
-              />
-            </motion.div>
-          </motion.div>
+            />
 
-          <div className="flex items-center gap-2 mt-1">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="font-display font-bold text-slate-700">{stage.name}</span>
-            {nextStage && (
-              <span className="text-xs font-bold text-slate-400">
-                · эволюция на {nextStage.fromLevel} ур.
+            <div className="relative flex flex-col items-center pt-4 pb-12">
+              <motion.div
+                key={phrase}
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="relative max-w-[85%] bg-white dark:bg-card border border-slate-100 dark:border-border shadow-md shadow-slate-200/60 dark:shadow-black/40 rounded-2xl px-4 py-2.5 mt-4 z-10"
+              >
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200 text-center">
+                  {phrase}
+                </p>
+                <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 bg-white dark:bg-card border-b border-r border-slate-100 dark:border-border rotate-45" />
+              </motion.div>
+
+              <div className="relative flex items-center justify-center mt-5">
+                {/* Сердечки от поглаживания */}
+                <AnimatePresence>
+                  {hearts.map((heart) => (
+                    <motion.div
+                      key={heart.id}
+                      initial={{ opacity: 1, y: 0, scale: 0.7 }}
+                      animate={{ opacity: 0, y: -70, scale: 1.15 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      className="absolute top-6 z-10 pointer-events-none text-lg font-bold text-rose-500"
+                      style={{ left: `calc(50% + ${heart.x}px)` }}
+                    >
+                      {heart.withXp ? "❤️ +1 XP" : "❤️"}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                <motion.div
+                  animate={{ y: animation.y }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{
+                    duration: animation.duration,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  onClick={handlePet}
+                  className="flex items-center justify-center select-none cursor-pointer"
+                  style={{
+                    // Оранжевый контур «выбранного объекта», как в Blender
+                    filter: "drop-shadow(0 0 2px rgba(249, 115, 22, 0.75))",
+                  }}
+                >
+                  <Ghost
+                    stage={stage}
+                    mood={mood}
+                    size={240}
+                    overlays={ownedItems
+                      .map((item) => item.overlay)
+                      .filter((src): src is string => Boolean(src))}
+                  />
+                </motion.div>
+              </div>
+
+              <span className="absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/70 rounded-full px-4 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-300 shadow-sm select-none">
+                Нажми — погладь ❤️ +1 XP
               </span>
-            )}
+            </div>
+
+            {/* Подпись «выделенного объекта» — имя и стадия */}
+            <span className="absolute bottom-3 left-3 hidden min-[380px]:flex items-center gap-1.5 bg-white/85 dark:bg-slate-900/70 border border-orange-200 dark:border-orange-500/40 rounded-full px-2.5 py-1 text-[10px] font-bold text-orange-600 dark:text-orange-300 select-none">
+              <span className="w-2 h-2 rounded-[3px] bg-orange-500 shrink-0" />
+              {stage.name}
+            </span>
           </div>
 
-          <p className="text-xs text-slate-400 font-medium mt-1 mb-4">
-            Нажми на призрака, чтобы погладить ❤️
-          </p>
+          <div className="flex items-center gap-2 mt-3 mb-4 text-xs font-bold text-slate-400 dark:text-slate-500">
+            <span>Стадия {stageNumber} из {PET_STAGES.length}</span>
+            {nextStage && <span>· эволюция на {nextStage.fromLevel} ур. ✨</span>}
+          </div>
 
           {ownedItems.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1.5 mb-4 max-w-xs">
@@ -192,34 +237,39 @@ export default function PetPage() {
             </div>
           )}
 
-          <div className="w-full max-w-sm bg-white p-4 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100">
+          {/* Полоса XP — как ползунок-значение в Blender: процент прямо в полосе */}
+          <div className="w-full max-w-sm bg-white dark:bg-card p-4 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100 dark:border-border">
             <div className="flex justify-between items-end mb-2 gap-4">
-              <h3 className="font-display font-bold text-slate-700 text-base">
-                Следующий уровень
+              <h3 className="font-display font-bold text-slate-700 dark:text-slate-200 text-base">
+                До уровня {requiredForNextLevel > 0 ? level + 1 : level}
               </h3>
               <span className="text-sm font-bold text-primary whitespace-nowrap">
                 {progressLabel}
               </span>
             </div>
 
-            <div className="mb-2 text-xs text-slate-400 font-medium">
-              {subLabel}
-            </div>
-
-            <div className="relative h-6 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+            <div className="relative h-6 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${xpProgress}%` }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
-                className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-blue-400 rounded-full"
-              >
-                <div className="absolute top-0 right-0 bottom-0 w-20 bg-gradient-to-r from-transparent to-white/30" />
-              </motion.div>
+                className="absolute top-0 left-0 h-full bg-gradient-to-b from-blue-400 to-primary rounded-l-lg"
+              />
+              <div className="absolute inset-0 flex items-center justify-between px-2.5 pointer-events-none">
+                <span
+                  className={`text-[11px] font-bold font-mono ${
+                    xpProgress >= 16
+                      ? "text-white drop-shadow-sm"
+                      : "text-slate-500 dark:text-slate-300"
+                  }`}
+                >
+                  {Math.round(xpProgress)}%
+                </span>
+              </div>
             </div>
 
-            <div className="flex justify-between mt-2 text-xs font-bold text-slate-400">
-              <span>Уровень {level}</span>
-              <span>Уровень {requiredForNextLevel > 0 ? level + 1 : level}</span>
+            <div className="mt-2 text-xs text-slate-400 dark:text-slate-500 font-medium">
+              {subLabel}
             </div>
           </div>
         </div>

@@ -13,7 +13,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 w-full bg-white border-t border-slate-100 rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50 pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-card border-t border-slate-100 dark:border-border rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.6)] z-50 pb-safe">
       <div className="flex justify-around items-center p-3">
         {tabs.map((tab) => {
           const isActive = location === tab.path;
@@ -35,13 +35,15 @@ export function BottomNav() {
 
               <Icon
                 className={`w-6 h-6 mb-1 transition-all duration-300 ${
-                  isActive ? "text-primary scale-110" : "text-slate-400 hover:text-slate-600"
+                  isActive
+                    ? "text-primary scale-110"
+                    : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                 }`}
                 strokeWidth={isActive ? 2.5 : 2}
               />
               <span
                 className={`text-[10px] font-bold transition-colors ${
-                  isActive ? "text-primary" : "text-slate-400"
+                  isActive ? "text-primary" : "text-slate-400 dark:text-slate-500"
                 }`}
               >
                 {tab.name}

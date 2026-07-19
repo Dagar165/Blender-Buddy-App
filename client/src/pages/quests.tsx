@@ -54,13 +54,8 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
-const QUEST_BUTTON_LABELS: Record<QuestCardStatus, string> = {
-  available: "Выполнить",
-  sending: "Отправка…",
-  pending: "На проверке",
-  completed: "Готово",
-};
-
+// Статус карточки читается цветной полоской слева, как в утверждённом дизайне:
+// оранжевая «сделай», жёлтая «на проверке», зелёная «готово» (сжата в строку).
 function QuestCard({
   quest,
   status,
@@ -70,56 +65,73 @@ function QuestCard({
   status: QuestCardStatus;
   onComplete: (quest: QuestDefinition) => void;
 }) {
-  const isCompleted = status === "completed";
-  const isPending = status === "pending" || status === "sending";
+  if (status === "completed") {
+    return (
+      <motion.div
+        variants={item}
+        className="px-4 py-3 rounded-2xl bg-white/70 dark:bg-card/60 border border-slate-100 dark:border-border border-l-4 border-l-green-400 flex items-center gap-3"
+      >
+        <CheckCircle className="text-green-500 w-5 h-5 shrink-0" />
+        <h3 className="flex-1 min-w-0 truncate font-bold text-sm text-slate-400 dark:text-slate-500 line-through">
+          {quest.title}
+        </h3>
+        <span className="shrink-0 text-xs font-bold text-green-500">
+          +{quest.xpReward} XP
+        </span>
+      </motion.div>
+    );
+  }
+
+  if (status === "pending" || status === "sending") {
+    return (
+      <motion.div
+        variants={item}
+        className="p-4 rounded-3xl bg-white dark:bg-card border border-slate-100 dark:border-border border-l-4 border-l-amber-400"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-100">
+            {quest.title}
+          </h3>
+          <span className="shrink-0 flex items-center gap-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 px-2.5 py-1 rounded-full text-[11px] font-bold">
+            <Clock className="w-3.5 h-3.5" />
+            {status === "sending" ? "Отправка…" : "Проверяется"}
+          </span>
+        </div>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
+          Награда придёт сама после ✅ куратора
+        </p>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
       variants={item}
-      className={`p-5 rounded-3xl border-2 transition-all ${
-        isCompleted
-          ? "bg-white border-green-100 opacity-60"
-          : isPending
-            ? "bg-white border-amber-100"
-            : "bg-white border-transparent shadow-lg shadow-slate-200/50 hover:border-primary/20"
-      }`}
+      className="p-5 rounded-3xl bg-white dark:bg-card border border-slate-100 dark:border-border border-l-4 border-l-secondary shadow-lg shadow-slate-200/50 dark:shadow-black/30"
     >
-      <div className="flex justify-between items-start mb-2 gap-3">
-        <h3 className="font-display font-bold text-lg text-slate-800">
-          {quest.title}
-        </h3>
-        {isCompleted && <CheckCircle className="text-green-500 w-6 h-6 shrink-0" />}
-        {isPending && <Clock className="text-amber-500 w-6 h-6 shrink-0" />}
-      </div>
+      <h3 className="font-display font-bold text-lg text-slate-800 dark:text-slate-100">
+        {quest.title}
+      </h3>
 
-      <p className="text-slate-500 text-sm leading-relaxed mb-4">
+      <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mt-1.5 mb-3">
         {quest.description}
       </p>
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex gap-2 flex-wrap">
-          <span className="flex items-center gap-1 bg-blue-50 text-primary px-3 py-1 rounded-xl text-xs font-bold">
-            +{quest.xpReward} XP
-          </span>
-          <span className="flex items-center gap-1 bg-yellow-50 text-yellow-600 px-3 py-1 rounded-xl text-xs font-bold">
-            +{quest.goldReward} <Coins className="w-3 h-3" />
-          </span>
-        </div>
-
-        <button
-          onClick={() => status === "available" && onComplete(quest)}
-          disabled={status !== "available"}
-          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-            isCompleted
-              ? "bg-slate-100 text-slate-400"
-              : isPending
-                ? "bg-amber-50 text-amber-600"
-                : "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30 hover:shadow-lg"
-          }`}
-        >
-          {QUEST_BUTTON_LABELS[status]}
-        </button>
+      <div className="flex gap-2 flex-wrap mb-3">
+        <span className="flex items-center gap-1 bg-blue-50 dark:bg-blue-500/10 text-primary px-3 py-1 rounded-xl text-xs font-bold">
+          +{quest.xpReward} XP
+        </span>
+        <span className="flex items-center gap-1 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-3 py-1 rounded-xl text-xs font-bold">
+          +{quest.goldReward} <Coins className="w-3 h-3" />
+        </span>
       </div>
+
+      <button
+        onClick={() => onComplete(quest)}
+        className="w-full py-3 rounded-2xl font-bold text-[15px] text-white bg-gradient-to-r from-secondary to-orange-400 shadow-md shadow-secondary/30 hover:shadow-lg transition-all active:scale-[0.98]"
+      >
+        Выполнил! → на проверку
+      </button>
     </motion.div>
   );
 }
@@ -372,7 +384,7 @@ export default function QuestsPage() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex flex-col h-full bg-slate-50"
+      className="flex flex-col h-full bg-slate-50 dark:bg-background"
     >
       <TopBar />
 
@@ -380,10 +392,10 @@ export default function QuestsPage() {
         <div
           className={`mb-4 flex items-center gap-3 rounded-2xl border p-3 ${
             streak.todayCounted
-              ? "bg-orange-50 border-orange-200"
+              ? "bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:border-orange-500/30"
               : streak.atRisk
-                ? "bg-amber-50 border-amber-200"
-                : "bg-white border-slate-200"
+                ? "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30"
+                : "bg-white border-slate-200 dark:bg-card dark:border-border"
           }`}
         >
           <Flame
@@ -392,19 +404,19 @@ export default function QuestsPage() {
                 ? "text-orange-500"
                 : streak.atRisk
                   ? "text-amber-400"
-                  : "text-slate-300"
+                  : "text-slate-300 dark:text-slate-600"
             }`}
             fill="currentColor"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-800">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
               {streak.current === 0
                 ? "Серия дней не начата"
                 : `Серия: ${streak.current} ${pluralizeDaysRu(streak.current)}${
                     streak.todayCounted ? " 🔥" : ""
                   }`}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {streak.current === 0
                 ? "Выполни ежедневное задание сегодня, чтобы зажечь огонёк"
                 : streak.atRisk
@@ -420,7 +432,7 @@ export default function QuestsPage() {
           </div>
 
           {streakFreezes > 0 && (
-            <div className="shrink-0 flex items-center gap-1 bg-cyan-50 border border-cyan-200 text-cyan-600 px-2.5 py-1.5 rounded-xl">
+            <div className="shrink-0 flex items-center gap-1 bg-cyan-50 border border-cyan-200 text-cyan-600 dark:bg-cyan-500/10 dark:border-cyan-500/30 dark:text-cyan-300 px-2.5 py-1.5 rounded-xl">
               <Snowflake className="w-4 h-4" />
               <span className="text-xs font-bold">{streakFreezes}</span>
             </div>
@@ -434,21 +446,21 @@ export default function QuestsPage() {
             {streak.todayCounted && !chestOpenedToday && (
               <button
                 onClick={handleOpenChest}
-                className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 transition-all active:scale-95 hover:bg-yellow-200"
+                className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:border-yellow-500/30 transition-all active:scale-95 hover:bg-yellow-200 dark:hover:bg-yellow-500/25"
               >
                 🎁 Открыть сундук дня
               </button>
             )}
 
             {potionActive ? (
-              <span className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-200">
+              <span className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-200 dark:bg-fuchsia-500/10 dark:text-fuchsia-300 dark:border-fuchsia-500/30">
                 🧪 Зелье ×2 активно
               </span>
             ) : (
               doublePotions > 0 && (
                 <button
                   onClick={() => activateDoublePotion()}
-                  className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200 transition-all active:scale-95 hover:bg-fuchsia-200"
+                  className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30 transition-all active:scale-95 hover:bg-fuchsia-200 dark:hover:bg-fuchsia-500/25"
                 >
                   🧪 Выпить зелье ×2
                   {doublePotions > 1 ? ` (${doublePotions})` : ""}
@@ -466,10 +478,10 @@ export default function QuestsPage() {
               exit={{ opacity: 0, y: -20 }}
               className={`mb-4 p-3 rounded-2xl text-center font-bold text-sm border ${
                 notice.tone === "success"
-                  ? "bg-green-100 text-green-700 border-green-200"
+                  ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/30"
                   : notice.tone === "info"
-                    ? "bg-amber-100 text-amber-700 border-amber-200"
-                    : "bg-red-100 text-red-700 border-red-200"
+                    ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30"
+                    : "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30"
               }`}
             >
               {notice.text}
@@ -477,7 +489,7 @@ export default function QuestsPage() {
           )}
         </AnimatePresence>
 
-        <div className="mb-5 rounded-3xl bg-white p-2 shadow-sm border border-slate-100">
+        <div className="mb-5 rounded-3xl bg-white dark:bg-card p-2 shadow-sm border border-slate-100 dark:border-border">
           <div className="grid grid-cols-3 gap-2">
             {[
               {
@@ -506,7 +518,9 @@ export default function QuestsPage() {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`rounded-2xl px-3 py-3 text-center transition-all ${
-                    isActive ? activeClass : "bg-slate-50 text-slate-600"
+                    isActive
+                      ? activeClass
+                      : "bg-slate-50 text-slate-600 dark:bg-muted dark:text-slate-300"
                   }`}
                 >
                   <span className="block font-display text-base font-bold">
@@ -516,7 +530,7 @@ export default function QuestsPage() {
                     className={`mt-1 inline-block rounded-lg px-2 py-0.5 text-xs font-bold ${
                       isActive
                         ? "bg-white/20 text-white"
-                        : "bg-white text-slate-700 border border-slate-200"
+                        : "bg-white text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
                     }`}
                   >
                     {count}
@@ -545,11 +559,11 @@ export default function QuestsPage() {
                     <motion.div
                       key={question.id}
                       variants={item}
-                      className="p-5 rounded-3xl bg-white border-2 border-transparent shadow-lg shadow-slate-200/50"
+                      className="p-5 rounded-3xl bg-white dark:bg-card border border-slate-100 dark:border-border border-l-4 border-l-violet-400 shadow-lg shadow-slate-200/50 dark:shadow-black/30"
                     >
                       <div className="flex items-start gap-2 mb-3">
                         <Brain className="w-5 h-5 mt-0.5 shrink-0 text-violet-500" />
-                        <h3 className="font-bold text-slate-800">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-100">
                           {question.question}
                         </h3>
                       </div>
@@ -570,11 +584,11 @@ export default function QuestsPage() {
                               className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
                                 isAnswered
                                   ? isCorrect
-                                    ? "bg-green-50 border-green-300 text-green-700 font-bold"
+                                    ? "bg-green-50 border-green-300 text-green-700 font-bold dark:bg-green-500/15 dark:border-green-500/40 dark:text-green-300"
                                     : isPicked
-                                      ? "bg-red-50 border-red-300 text-red-600"
-                                      : "bg-slate-50 border-slate-200 text-slate-400"
-                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:border-violet-300 active:scale-[0.99]"
+                                      ? "bg-red-50 border-red-300 text-red-600 dark:bg-red-500/15 dark:border-red-500/40 dark:text-red-300"
+                                      : "bg-slate-50 border-slate-200 text-slate-400 dark:bg-muted dark:border-border dark:text-slate-500"
+                                  : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-muted dark:border-border dark:text-slate-200 hover:border-violet-300 dark:hover:border-violet-500/50 active:scale-[0.99]"
                               }`}
                             >
                               {option}
@@ -587,14 +601,14 @@ export default function QuestsPage() {
                         <motion.div
                           initial={{ opacity: 0, y: -6 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="mt-3 p-3 rounded-xl bg-violet-50 border border-violet-100"
+                          className="mt-3 p-3 rounded-xl bg-violet-50 border border-violet-100 dark:bg-violet-500/10 dark:border-violet-500/30"
                         >
                           {picked !== undefined && (
                             <p
                               className={`text-xs font-bold mb-1 ${
                                 picked === question.correctIndex
-                                  ? "text-green-600"
-                                  : "text-red-500"
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-red-500 dark:text-red-400"
                               }`}
                             >
                               {picked === question.correctIndex
@@ -602,7 +616,7 @@ export default function QuestsPage() {
                                 : "Не угадал — но теперь запомнишь!"}
                             </p>
                           )}
-                          <p className="text-xs text-slate-600 leading-relaxed">
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                             {question.explanation}
                           </p>
                         </motion.div>

@@ -13,6 +13,8 @@
   :root {
     --font-sans: 'Nunito', sans-serif;
     --font-display: 'Varela Round', sans-serif;
+    /* Моноширинный — для «технических» подписей в духе Blender (цифры, HUD) */
+    --font-mono: ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace;
 
     /* Cute, kid-friendly bright colors */
     --background: 210 40% 96%;
@@ -47,6 +49,40 @@
     --ring: 217 91% 60%;
 
     --radius: 1.5rem;
+  }
+
+  /* Тёмная тема — «ночная комната»: глубокая синева вместо серости.
+     Класс dark ставится на <html> автоматически из темы Telegram (App.tsx). */
+  .dark {
+    color-scheme: dark;
+
+    --background: 224 47% 8%;
+    --foreground: 214 32% 91%;
+
+    --card: 222 40% 13%;
+    --card-foreground: 214 32% 91%;
+
+    --popover: 222 40% 13%;
+    --popover-foreground: 214 32% 91%;
+
+    --primary: 217 91% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 24 95% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 222 30% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 48 96% 55%;
+    --accent-foreground: 222 47% 10%;
+
+    --destructive: 0 74% 55%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 26% 21%;
+    --input: 222 26% 21%;
+    --ring: 217 91% 65%;
   }
 
   * {

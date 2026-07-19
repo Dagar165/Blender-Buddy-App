@@ -90,6 +90,38 @@ function AppContent() {
     });
   }, []);
 
+  // Тема (светлая/тёмная) берётся из Telegram и меняется вместе с ним;
+  // вне Telegram — из системной настройки устройства.
+  useEffect(() => {
+    const applyTheme = () => {
+      try {
+        // @ts-ignore
+        const scheme: string | undefined =
+          // @ts-ignore
+          window.Telegram?.WebApp?.colorScheme ??
+          (window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light");
+        document.documentElement.classList.toggle("dark", scheme === "dark");
+      } catch {
+        // тема не критична — молча остаёмся в светлой
+      }
+    };
+
+    applyTheme();
+
+    // @ts-ignore
+    window.Telegram?.WebApp?.onEvent?.("themeChanged", applyTheme);
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    media.addEventListener?.("change", applyTheme);
+
+    return () => {
+      // @ts-ignore
+      window.Telegram?.WebApp?.offEvent?.("themeChanged", applyTheme);
+      media.removeEventListener?.("change", applyTheme);
+    };
+  }, []);
+
   useEffect(() => {
     try {
       // @ts-ignore

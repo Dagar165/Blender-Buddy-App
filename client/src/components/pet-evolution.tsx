@@ -69,8 +69,13 @@ function EvolutionScene({
       transition={{ type: "spring", bounce: 0.45 }}
       className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl"
     >
-      <p className="text-xs font-bold uppercase tracking-widest text-fuchsia-500 mb-2">
-        Эволюция!
+      {/* Отсылка к Blender: превращение подано как рендер новой формы */}
+      <p
+        className={`text-xs font-bold uppercase tracking-widest mb-2 font-mono transition-colors ${
+          isNew ? "text-green-500" : "text-slate-400"
+        }`}
+      >
+        {isNew ? "Рендер завершён ✓" : "Рендерим новую форму…"}
       </p>
 
       <div className="relative h-52 flex items-center justify-center overflow-hidden mb-2">
@@ -128,7 +133,7 @@ function EvolutionScene({
             transition={{ delay: 0.25 }}
           >
             <h2 className="text-2xl font-display font-bold text-slate-800 mb-1">
-              {evolution.to.name}
+              Эволюция! {evolution.to.name}
             </h2>
             <p className="text-sm text-slate-500 mb-5">
               Твои задания сделали своё дело — {evolution.from.name} вырос!

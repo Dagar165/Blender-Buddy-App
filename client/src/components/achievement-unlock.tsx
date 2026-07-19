@@ -54,7 +54,7 @@ export function AchievementUnlock({
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.85, opacity: 0 }}
             transition={{ type: "spring", bounce: 0.45 }}
-            className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl"
+            className="bg-white rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl ring-8 ring-orange-500/15"
           >
             <p className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-3">
               Новое достижение!
