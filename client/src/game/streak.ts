@@ -1,4 +1,8 @@
-import { formatLocalDate, previousDayString } from "@/game/dates";
+import {
+  dateFromDailyCycleKey,
+  formatLocalDate,
+  previousDayString,
+} from "@/game/dates";
 
 /**
  * Серия дней («огонёк») — вся арифметика в одном месте.

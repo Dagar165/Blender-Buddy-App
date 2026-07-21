@@ -74,7 +74,7 @@ const randomTipInterval = () =>
   TIP_MIN_TAPS + Math.floor(Math.random() * (TIP_MAX_TAPS - TIP_MIN_TAPS + 1));
 
 
-type RecurringQuestProgress = {
+export type RecurringQuestProgress = {
   cycleKey: string;
   completedIds: string[];
   // Только у недельного прогресса: id ДНЕВНЫХ заданий, одобренных за эту

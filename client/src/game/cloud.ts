@@ -1,4 +1,9 @@
-import type { GameState } from "@/hooks/use-game-state";
+import type {
+  GameState,
+  GameStats,
+  RecurringQuestProgress,
+} from "@/hooks/use-game-state";
+import type { CareNeedId } from "@/lib/care-config";
 
 /**
  * Хранилище Telegram: чтение и запись прогресса в облако мини-аппа.
