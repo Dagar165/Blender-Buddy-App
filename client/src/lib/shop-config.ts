@@ -1,6 +1,7 @@
 import glassesOverlay from "@/assets/mascot/item-glasses.webp";
 import hatOverlay from "@/assets/mascot/item-hat.webp";
 import headphonesOverlay from "@/assets/mascot/item-headphones.webp";
+import headphonesBehind from "@/assets/mascot/item-headphones-back.webp";
 import {
   Crown,
   Gamepad2,
@@ -98,6 +99,11 @@ export type ShopItem = {
   // и сюда overlay: hatOverlay. Пока картинки нет — поле пустое:
   // вещь покупается и надевается, просто пока не видна на призраке.
   overlay?: string;
+  // Часть вещи, которая уходит ЗА призрака. Голова у него чуть повёрнута,
+  // поэтому дальняя чашка наушников должна прятаться за затылком, а не лежать
+  // на глазу. Картинки призрака непрозрачные, так что слой ниже него честно
+  // скрывает всё, что попало на тело.
+  overlayBehind?: string;
   // Дорогая вещь «на потом»: помечается в магазине и стоит заметно больше.
   legendary?: boolean;
 };
@@ -108,7 +114,7 @@ export type ShopItem = {
 export const SHOP_ITEMS: ShopItem[] = [
   { id: "item5", name: "Стильные очки", cost: 80, slot: "face", overlay: glassesOverlay, icon: Glasses, color: "text-sky-500", bg: "bg-sky-100" },
   { id: "item1", name: "Волшебная шляпа", cost: 150, slot: "head", overlay: hatOverlay, icon: Crown, color: "text-purple-500", bg: "bg-purple-100" },
-  { id: "item6", name: "Наушники", cost: 220, slot: "ears", overlay: headphonesOverlay, icon: Headphones, color: "text-emerald-500", bg: "bg-emerald-100" },
+  { id: "item6", name: "Наушники", cost: 220, slot: "ears", overlay: headphonesOverlay, overlayBehind: headphonesBehind, icon: Headphones, color: "text-emerald-500", bg: "bg-emerald-100" },
   { id: "item2", name: "Зелье скорости", cost: 300, slot: "hand", icon: Zap, color: "text-blue-500", bg: "bg-blue-100" },
   { id: "item7", name: "Палитра художника", cost: 380, slot: "hand", icon: Palette, color: "text-pink-500", bg: "bg-pink-100" },
   { id: "item3", name: "Золотая клавиатура", cost: 480, slot: "hand", icon: Keyboard, color: "text-yellow-500", bg: "bg-yellow-100" },

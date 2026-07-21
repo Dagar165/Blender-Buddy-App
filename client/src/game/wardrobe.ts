@@ -169,21 +169,33 @@ export const seedEquippedFromInventory = (inventory: string[]): Equipped => {
 export const getWornOverlays = (
   equipped: Equipped,
   stage: PetStage
-): WornOverlay[] =>
-  getWornItems(equipped)
-    .filter((item): item is ShopItem & { overlay: string } => Boolean(item.overlay))
-    .map((item) => {
-      const onHead = HEAD_SLOTS.includes(item.slot);
-      const fit = onHead ? HEAD_FIT_BY_STAGE[stage.fromLevel] ?? NO_FIT : NO_FIT;
+): WornOverlay[] => {
+  const overlays: WornOverlay[] = [];
 
-      return {
-        itemId: item.id,
-        src: item.overlay,
-        layer: getClothingSlot(item.slot).layer,
-        scale: fit.scale,
-        dxPercent: fit.dx / CLOTHING_FRAME,
-        dyPercent: fit.dy / CLOTHING_FRAME,
-        transformOrigin: onHead ? HEAD_ORIGIN : "50% 50%",
-      };
-    })
-    .sort((a, b) => a.layer - b.layer);
+  for (const item of getWornItems(equipped)) {
+    const onHead = HEAD_SLOTS.includes(item.slot);
+    const fit = onHead ? HEAD_FIT_BY_STAGE[stage.fromLevel] ?? NO_FIT : NO_FIT;
+
+    const place = (id: string, src: string, layer: number): WornOverlay => ({
+      itemId: id,
+      src,
+      layer,
+      scale: fit.scale,
+      dxPercent: fit.dx / CLOTHING_FRAME,
+      dyPercent: fit.dy / CLOTHING_FRAME,
+      transformOrigin: onHead ? HEAD_ORIGIN : "50% 50%",
+    });
+
+    // Задняя часть вещи идёт на слой 0 — под призрака. Двигается и
+    // масштабируется вместе с передней, иначе половинки разъедутся.
+    if (item.overlayBehind) {
+      overlays.push(place(`${item.id}-back`, item.overlayBehind, 0));
+    }
+
+    if (item.overlay) {
+      overlays.push(place(item.id, item.overlay, getClothingSlot(item.slot).layer));
+    }
+  }
+
+  return overlays.sort((a, b) => a.layer - b.layer);
+};
