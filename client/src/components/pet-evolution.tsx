@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import type { PetStage } from "@/lib/pet-config";
 import { Ghost } from "@/components/ghost";
+import { hapticSuccess } from "@/lib/haptics";
 
 export type PetEvolutionEvent = {
   from: PetStage;
@@ -38,6 +39,8 @@ function EvolutionScene({
 
   useEffect(() => {
     if (phase !== "new") return;
+
+    hapticSuccess();
 
     confetti({
       particleCount: 130,

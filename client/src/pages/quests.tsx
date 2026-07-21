@@ -26,6 +26,13 @@ import {
 } from "@/lib/quests-config";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
 import {
+  hapticFail,
+  hapticSelect,
+  hapticSuccess,
+  hapticTap,
+  hapticWarn,
+} from "@/lib/haptics";
+import {
   STEP_WEEKDAY_LABELS,
   getStepForDate,
   getStepStates,
@@ -410,6 +417,7 @@ export default function QuestsPage() {
     } = applyClaimResolutions(statuses);
 
     if (approved.length > 0) {
+      hapticSuccess();
       const bonusNote =
         bonusPercent > 0 ? ` (с бонусом серии +${bonusPercent}%)` : "";
       const potionNote = potionUsedOn ? " Зелье ×2 сработало! 🧪" : "";
@@ -420,6 +428,7 @@ export default function QuestsPage() {
         "success"
       );
     } else if (rejected.length > 0) {
+      hapticWarn();
       showNotice(
         `Задание «${rejected[0].questTitle}» не засчитано — попробуй ещё раз и отправь заново`,
         "info"
@@ -438,7 +447,10 @@ export default function QuestsPage() {
   }, [syncPendingClaims]);
 
   const handleComplete = (tab: QuestTab) => async (quest: QuestDefinition) => {
+    hapticTap("medium");
+
     if (!telegramUserId) {
+      hapticFail();
       showNotice(
         "Открой приложение через Telegram, чтобы задания засчитывались",
         "error"
@@ -466,6 +478,7 @@ export default function QuestsPage() {
     setSendingQuestIds((ids) => ids.filter((id) => id !== quest.id));
 
     if (!result.ok) {
+      hapticFail();
       showNotice(
         "Не получилось отправить заявку — проверь интернет и попробуй ещё раз",
         "error"
@@ -490,6 +503,7 @@ export default function QuestsPage() {
       return;
     }
 
+    hapticSuccess();
     showNotice(
       "Заявка отправлена куратору! Награда придёт после проверки ✅",
       "success"
@@ -512,12 +526,12 @@ export default function QuestsPage() {
   const visibleOnComplete = handleComplete(isDailyTab ? "daily" : "weekly");
 
   const handleQuizAnswer = (question: QuizQuestion, optionIndex: number) => {
-    const accepted = answerQuizQuestion(
-      question.id,
-      optionIndex === question.correctIndex
-    );
+    const isCorrect = optionIndex === question.correctIndex;
+    const accepted = answerQuizQuestion(question.id, isCorrect);
 
     if (accepted) {
+      if (isCorrect) hapticSuccess();
+      else hapticWarn();
       setQuizPicks((picks) => ({ ...picks, [question.id]: optionIndex }));
     }
   };
@@ -525,6 +539,7 @@ export default function QuestsPage() {
   const handleOpenChest = () => {
     const gold = openDailyChest();
     if (gold !== null) {
+      hapticSuccess();
       showNotice(
         gold >= 50
           ? `ДЖЕКПОТ! Из сундука выпало ${gold} голды! 🎁🎉`
@@ -627,7 +642,10 @@ export default function QuestsPage() {
             ) : (
               doublePotions > 0 && (
                 <button
-                  onClick={() => activateDoublePotion()}
+                  onClick={() => {
+                    hapticTap("medium");
+                    activateDoublePotion();
+                  }}
                   className="px-4 py-2.5 rounded-2xl text-sm font-bold bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30 transition-all active:scale-95 hover:bg-fuchsia-200 dark:hover:bg-fuchsia-500/25"
                 >
                   🧪 Выпить зелье ×2
@@ -684,7 +702,10 @@ export default function QuestsPage() {
               return (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    if (!isActive) hapticSelect();
+                    setActiveTab(tab);
+                  }}
                   className={`rounded-2xl px-3 py-3 text-center transition-all ${
                     isActive
                       ? activeClass

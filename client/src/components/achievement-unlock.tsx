@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import type { AchievementDefinition } from "@/lib/achievements-config";
+import { hapticSuccess } from "@/lib/haptics";
 
 // Full-screen "you earned a medal" moment: dark backdrop, centered card,
 // stays until the student claims it with the button.
@@ -18,6 +19,8 @@ export function AchievementUnlock({
 
   useEffect(() => {
     if (!achievementId) return;
+
+    hapticSuccess();
 
     confetti({
       particleCount: 110,

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Ghost, Scroll, ShoppingBag, UserRound } from "lucide-react";
 import { motion } from "framer-motion";
+import { hapticSelect } from "@/lib/haptics";
 
 export function BottomNav() {
   const [location] = useLocation();
@@ -23,6 +24,9 @@ export function BottomNav() {
             <Link
               key={tab.path}
               href={tab.path}
+              onClick={() => {
+                if (!isActive) hapticSelect();
+              }}
               className="relative flex flex-col items-center justify-center w-16 h-14"
             >
               {isActive && (

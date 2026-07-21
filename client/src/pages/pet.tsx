@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+} from "framer-motion";
+import { hapticTap } from "@/lib/haptics";
+import { Link } from "wouter";
+import { CheckCircle, ChevronRight, Clock, Scroll } from "lucide-react";
+import { getActiveQuestsForTab } from "@/lib/quests-rotation";
 import {
   PET_PHRASES,
   RETURN_AFTER_DAYS,
@@ -64,6 +73,8 @@ export default function PetPage() {
     streakDays,
     frozenDays,
     pendingClaims,
+    dailyProgress,
+    weeklyProgress,
     potionActive,
     progressInLevel,
     requiredForNextLevel,
@@ -89,7 +100,21 @@ export default function PetPage() {
     }
   }, [markVisit]);
 
+  // Призрака можно крутить пальцем. Тестировщик: «отчаянно хочется покрутить
+  // персонажа, интерфейс блендера располагает». Тянем — поворачивается и
+  // наклоняется, отпускаем — пружинит обратно. Заодно это и есть тот самый
+  // отклик, которого не хватало: приложение слушается пальца.
+  const swing = useMotionValue(0);
+  const rotateY = useTransform(swing, [-140, 140], [-26, 26]);
+  const tilt = useTransform(swing, [-140, 140], [7, -7]);
+  // Чтобы бросок пальцем не засчитался как поглаживание.
+  const draggingRef = useRef(false);
+
   const handlePet = () => {
+    if (draggingRef.current) return;
+
+    hapticTap();
+
     const { granted, tip: freshTip } = petGhost();
     const id = Date.now() + Math.random();
 
@@ -132,6 +157,54 @@ export default function PetPage() {
   const ownedItems = SHOP_ITEMS.filter((item) =>
     inventory.includes(item.name)
   );
+
+  // Что делать прямо сейчас. Тестировщики говорили: «непонятно, куда тыкать
+  // с первого взгляда» — главный экран красивый, но немой. Одна строка-кнопка
+  // отвечает на этот вопрос и уводит туда, где происходит дело.
+  const todo = useMemo(() => {
+    const quests = getActiveQuestsForTab(
+      "daily",
+      dailyProgress.cycleKey,
+      weeklyProgress.cycleKey
+    );
+
+    const waiting = quests.filter((quest) => {
+      if (dailyProgress.completedIds.includes(quest.id)) return false;
+
+      return !pendingClaims.some(
+        (claim) =>
+          claim.questId === quest.id &&
+          claim.questType === "daily" &&
+          claim.cycleKey === dailyProgress.cycleKey
+      );
+    });
+
+    if (waiting.length > 0) {
+      return {
+        tone: "action" as const,
+        text:
+          waiting.length === 1
+            ? `Осталось задание: ${waiting[0].title}`
+            : `Сегодня ${waiting.length} задания — начни с первого`,
+      };
+    }
+
+    const onReview = quests.some((quest) =>
+      pendingClaims.some(
+        (claim) =>
+          claim.questId === quest.id && claim.cycleKey === dailyProgress.cycleKey
+      )
+    );
+
+    return onReview
+      ? { tone: "waiting" as const, text: "Куратор проверяет — награда придёт" }
+      : { tone: "done" as const, text: "Задания дня сделаны. Красавчик!" };
+  }, [
+    dailyProgress.cycleKey,
+    dailyProgress.completedIds,
+    weeklyProgress.cycleKey,
+    pendingClaims,
+  ]);
 
   const progressLabel =
     requiredForNextLevel > 0
@@ -224,40 +297,91 @@ export default function PetPage() {
                   ))}
                 </AnimatePresence>
 
+                {/* Внешний слой парит, внутренний слушается пальца:
+                    два разных transform на одном элементе конфликтуют */}
                 <motion.div
                   animate={{ y: animation.y }}
-                  whileTap={{ scale: 0.95 }}
                   transition={{
                     duration: animation.duration,
                     repeat: Infinity,
                     ease: "easeInOut",
                   }}
-                  onClick={handlePet}
-                  className="flex items-center justify-center select-none cursor-pointer"
-                  style={{
-                    // Оранжевый контур «выбранного объекта», как в Blender
-                    filter: "drop-shadow(0 0 2px rgba(249, 115, 22, 0.75))",
-                  }}
+                  style={{ perspective: 700 }}
                 >
-                  <Ghost
-                    stage={stage}
-                    mood={mood}
-                    size={240}
-                    overlays={ownedItems
-                      .map((item) => item.overlay)
-                      .filter((src): src is string => Boolean(src))}
-                  />
+                  <motion.div
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.55}
+                    dragMomentum={false}
+                    onDragStart={() => {
+                      draggingRef.current = true;
+                      hapticTap("soft");
+                    }}
+                    onDragEnd={() => {
+                      // Небольшая пауза: палец отрывается позже, чем кончается
+                      // перетаскивание, иначе бросок засчитается поглаживанием.
+                      window.setTimeout(() => {
+                        draggingRef.current = false;
+                      }, 60);
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handlePet}
+                    className="flex items-center justify-center select-none cursor-pointer touch-pan-y"
+                    style={{
+                      x: swing,
+                      rotateY,
+                      rotate: tilt,
+                      // Оранжевый контур «выбранного объекта», как в Blender
+                      filter: "drop-shadow(0 0 2px rgba(249, 115, 22, 0.75))",
+                    }}
+                  >
+                    <Ghost
+                      stage={stage}
+                      mood={mood}
+                      size={240}
+                      overlays={ownedItems
+                        .map((item) => item.overlay)
+                        .filter((src): src is string => Boolean(src))}
+                    />
+                  </motion.div>
                 </motion.div>
               </div>
 
               <span className="absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/70 rounded-full px-4 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-300 shadow-sm select-none">
-                Нажми — погладь ❤️ +1 XP
+                Нажми — погладь · потяни — покрути
               </span>
             </div>
 
           </div>
 
-          <div className="flex items-center gap-2 mt-3 mb-4 text-xs font-bold text-slate-400 dark:text-slate-500">
+          {/* Единственная оранжевая кнопка главного экрана */}
+          <Link
+            href="/quests"
+            onClick={() => hapticTap("medium")}
+            className={`w-full max-w-sm mt-4 flex items-center gap-3 rounded-2xl px-4 py-3.5 border transition-all active:scale-[0.98] ${
+              todo.tone === "action"
+                ? "bg-gradient-to-r from-secondary to-orange-400 border-transparent text-white shadow-lg shadow-secondary/30"
+                : todo.tone === "waiting"
+                  ? "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
+                  : "bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/30 dark:text-green-300"
+            }`}
+          >
+            {todo.tone === "action" ? (
+              <Scroll className="w-5 h-5 shrink-0" />
+            ) : todo.tone === "waiting" ? (
+              <Clock className="w-5 h-5 shrink-0" />
+            ) : (
+              <CheckCircle className="w-5 h-5 shrink-0" />
+            )}
+
+            <span className="flex-1 min-w-0 text-sm font-bold leading-snug">
+              {todo.text}
+            </span>
+
+            <ChevronRight className="w-5 h-5 shrink-0 opacity-70" />
+          </Link>
+
+          <div className="flex items-center gap-2 mt-4 mb-4 text-xs font-bold text-slate-400 dark:text-slate-500">
             <span>Стадия {stageNumber} из {PET_STAGES.length}</span>
             {nextStage && <span>· эволюция на {nextStage.fromLevel} ур. ✨</span>}
           </div>

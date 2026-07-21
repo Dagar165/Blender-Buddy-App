@@ -3,6 +3,7 @@ import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
 import { Coins, Snowflake, FlaskConical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { hapticSuccess, hapticWarn } from "@/lib/haptics";
 import {
   SHOP_ITEMS,
   STREAK_FREEZE_COST,
@@ -25,6 +26,7 @@ export default function ShopPage() {
   const { toast } = useToast();
 
   const showNoGoldToast = () => {
+    hapticWarn();
     toast({
       title: "Недостаточно голды!",
       description: "Выполняй больше заданий, чтобы заработать голду.",
@@ -35,6 +37,7 @@ export default function ShopPage() {
   const handleBuy = (id: string, cost: number, name: string) => {
     const success = buyItem(id, cost, name);
     if (success) {
+      hapticSuccess();
       toast({
         title: "Товар куплен! 🎉",
         description: `${name} добавлен в твой инвентарь.`,
@@ -46,6 +49,7 @@ export default function ShopPage() {
 
   const handleBuyFreeze = () => {
     if (buyStreakFreeze()) {
+      hapticSuccess();
       toast({
         title: "Заморозка куплена! ❄️",
         description:
@@ -63,6 +67,7 @@ export default function ShopPage() {
 
   const handleBuyPotion = () => {
     if (buyDoublePotion()) {
+      hapticSuccess();
       toast({
         title: "Зелье куплено! 🧪",
         description: "Выпей его на странице заданий перед следующим заданием.",
@@ -168,16 +173,19 @@ export default function ShopPage() {
                         : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
                   }`}
                 >
+                  {/* Всегда просто цена — как в играх. «Накопи ещё N» путало:
+                      число читалось как стоимость товара. Что не по карману,
+                      видно по серой кнопке. */}
                   {item.atCap ? (
                     "Максимум"
-                  ) : item.canAfford ? (
-                    <>
-                      {item.cost} <Coins className="w-4 h-4" />
-                    </>
                   ) : (
                     <>
-                      Накопи ещё {item.cost - gold}{" "}
-                      <Coins className="w-4 h-4 text-amber-400" />
+                      {item.cost}{" "}
+                      <Coins
+                        className={`w-4 h-4 ${
+                          item.canAfford ? "" : "text-amber-400"
+                        }`}
+                      />
                     </>
                   )}
                 </button>
@@ -223,14 +231,12 @@ export default function ShopPage() {
                 >
                   {isOwned ? (
                     "Надето ✓"
-                  ) : canAfford ? (
-                    <>
-                      {item.cost} <Coins className="w-4 h-4" />
-                    </>
                   ) : (
                     <>
-                      Накопи ещё {item.cost - gold}{" "}
-                      <Coins className="w-4 h-4 text-amber-400" />
+                      {item.cost}{" "}
+                      <Coins
+                        className={`w-4 h-4 ${canAfford ? "" : "text-amber-400"}`}
+                      />
                     </>
                   )}
                 </button>

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
+import { hapticSuccess } from "@/lib/haptics";
 
 // Обычное повышение уровня. Полноэкранный блокирующий момент нарочно оставлен
 // за эволюцией — она редкая и потому ценная. Здесь короткая заметная плашка:
@@ -17,6 +18,8 @@ export function LevelUp({
 }) {
   useEffect(() => {
     if (!level) return;
+
+    hapticSuccess();
 
     confetti({
       particleCount: 45,
