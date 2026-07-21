@@ -71,12 +71,23 @@ public static class CutoutSheet
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("sheet " + W + "x" + H);
 
+            // ---- 0. если прозрачность в файле УЖЕ есть, берём её как есть ----
+            // Лучший случай: вырезать нечего, край нарисован автором. Так надо
+            // просить у генератора всегда — см. шапку файла.
+            long clearPixels = 0;
+            for (int i = 3; i < px.Length; i += 4) if (px[i] < 10) clearPixels++;
+            bool alreadyCut = clearPixels > (long)(W * (long)H * 0.05);
+
             // ---- 1. background palette from the border ----
             List<int[]> pal = new List<int[]>();
-            for (int i = 0; i < W; i += 3) { AddSample(px, stride, i, 2, pal); AddSample(px, stride, i, H-3, pal); }
-            for (int j = 0; j < H; j += 3) { AddSample(px, stride, 2, j, pal); AddSample(px, stride, W-3, j, pal); }
-            if (pal.Count == 0) return "ERROR: border is not a flat/checker background";
-            sb.AppendLine("  background shades: " + pal.Count);
+            if (!alreadyCut) {
+                for (int i = 0; i < W; i += 3) { AddSample(px, stride, i, 2, pal); AddSample(px, stride, i, H-3, pal); }
+                for (int j = 0; j < H; j += 3) { AddSample(px, stride, 2, j, pal); AddSample(px, stride, W-3, j, pal); }
+                if (pal.Count == 0) return "ERROR: border is neither transparent nor a flat/checker background";
+                sb.AppendLine("  background shades: " + pal.Count);
+            } else {
+                sb.AppendLine("  файл уже с прозрачностью — вырезка не нужна");
+            }
 
             // ---- 1а. карта насыщенности, слегка сглаженная ----
             // Фон нейтрально-серый, персонаж всегда хоть немного цветной —
@@ -99,6 +110,11 @@ public static class CutoutSheet
             // растушёвка и частичная прозрачность. Заливка останавливается
             // на hi, поэтому внутрь тела не заходит.
             byte[] alpha = new byte[W*H];
+            if (alreadyCut) {
+                for (int y = 0; y < H; y++)
+                    for (int x = 0; x < W; x++)
+                        alpha[y*W + x] = px[y*stride + x*4 + 3];
+            } else {
             for (int i = 0; i < alpha.Length; i++) alpha[i] = 255;
             bool[] seen = new bool[W*H];
             Queue<int> q = new Queue<int>();
@@ -130,6 +146,7 @@ public static class CutoutSheet
                 if (y < H-1) Push(q, seen, x, y+1, W);
             }
             sb.AppendLine(string.Format("  backdrop {0:N0} px, soft edge {1:N0} px", cleared, soft));
+            }
 
             bool[] inside = new bool[W*H];
             for (int i = 0; i < inside.Length; i++) inside[i] = alpha[i] >= 128;
@@ -180,15 +197,24 @@ public static class CutoutSheet
             // рваным. Силуэт при этом гладкий, а рвань мелкая, поэтому
             // замыкание (расширить, затем сжать) её убирает, не трогая
             // настоящие впадины — они шире раз в пять.
-            CloseGaps(alpha, W, H, closeRadius);
+            // Всё это чинит нашу вырезку. Если прозрачность пришла из файла,
+            // трогать её нельзя — там край нарисован автором и уже правильный.
+            if (!alreadyCut) {
+                CloseGaps(alpha, W, H, closeRadius);
 
-            // ---- 5а. одно мягкое размытие, чтобы не осталось лесенки ----
-            Smooth(alpha, W, H);
+                // ---- 5а. одно мягкое размытие, чтобы не осталось лесенки ----
+                Smooth(alpha, W, H);
+            }
 
             // ---- 6. pull edge colour from inside so no grey halo remains ----
-            bool[] core = new bool[W*H];
-            for (int i = 0; i < core.Length; i++) core[i] = alpha[i] >= 250;
-            byte[] outPx = DeFringe(px, stride, core, alpha, W, H);
+            byte[] outPx;
+            if (alreadyCut) {
+                outPx = px;
+            } else {
+                bool[] core = new bool[W*H];
+                for (int i = 0; i < core.Length; i++) core[i] = alpha[i] >= 250;
+                outPx = DeFringe(px, stride, core, alpha, W, H);
+            }
 
             // ---- 7. lay the figures out on one shared frame ----
             List<int[]> boxes = new List<int[]>();
