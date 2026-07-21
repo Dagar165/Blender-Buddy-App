@@ -7,7 +7,15 @@ import {
   DOUBLE_POTION_MAX,
   STREAK_FREEZE_COST,
   STREAK_FREEZE_MAX,
+  getShopItem,
 } from "@/lib/shop-config";
+import {
+  clearSlot,
+  equipInSlot,
+  sanitizeEquipped,
+  seedEquippedFromInventory,
+  type Equipped,
+} from "@/game/wardrobe";
 import {
   QUIZ_GOLD_PER_CORRECT,
   QUIZ_XP_PER_CORRECT,
@@ -121,7 +129,10 @@ export interface GameState extends LevelData {
 
   xp: number;
   gold: number;
+  // Что куплено — по названиям вещей (по ним же считаются медали).
   inventory: string[];
+  // Что из купленного надето: место → id вещи. См. `@/game/wardrobe`.
+  equipped: Equipped;
   completedQuests: string[];
 
   // Local dates (YYYY-MM-DD) whose daily quests were approved by the curator.
@@ -220,6 +231,8 @@ export interface GameState extends LevelData {
 
   refreshQuestCycles: () => void;
   buyItem: (itemId: string, cost: number, itemName: string) => boolean;
+  wearItem: (itemId: string) => boolean;
+  takeOffItem: (itemId: string) => void;
   resetGame: () => void;
 
   // Отладочная панель владельца (lib/dev-config.ts) — в обычной игре
@@ -243,6 +256,7 @@ type PersistedGameState = Pick<
   | "xp"
   | "gold"
   | "inventory"
+  | "equipped"
   | "completedQuests"
   | "streakDays"
   | "frozenDays"
@@ -395,6 +409,7 @@ export const useGameState = create<GameState>()(
       xp: 0,
       gold: 0,
       inventory: [],
+      equipped: {},
       completedQuests: [],
       streakDays: [],
       frozenDays: [],
@@ -948,8 +963,12 @@ export const useGameState = create<GameState>()(
         queueCloudSave(get);
       },
 
-      buyItem: (_itemId, cost, itemName) => {
+      // Купленная вещь сразу надевается: ребёнок платит, чтобы УВИДЕТЬ обновку,
+      // а не чтобы положить её в шкаф. Если место занято, прежняя вещь
+      // снимается сама — снять и переодеться можно в магазине.
+      buyItem: (itemId, cost, itemName) => {
         const state = get();
+        const item = getShopItem(itemId);
 
         if (state.gold >= cost && !state.inventory.includes(itemName)) {
           triggerRewardConfetti();
@@ -957,6 +976,7 @@ export const useGameState = create<GameState>()(
           set({
             gold: state.gold - cost,
             inventory: [...state.inventory, itemName],
+            equipped: item ? equipInSlot(state.equipped, item) : state.equipped,
             stats: {
               ...state.stats,
               goldSpent: state.stats.goldSpent + cost,
@@ -970,6 +990,30 @@ export const useGameState = create<GameState>()(
         return false;
       },
 
+      wearItem: (itemId) => {
+        const state = get();
+        const item = getShopItem(itemId);
+
+        if (!item) return false;
+        if (!state.inventory.includes(item.name)) return false;
+
+        set({ equipped: equipInSlot(state.equipped, item) });
+        queueCloudSave(get);
+
+        return true;
+      },
+
+      takeOffItem: (itemId) => {
+        const state = get();
+        const item = getShopItem(itemId);
+
+        if (!item) return;
+        if (state.equipped[item.slot] !== item.id) return;
+
+        set({ equipped: clearSlot(state.equipped, item.slot) });
+        queueCloudSave(get);
+      },
+
       resetGame: () => {
         set((state) => ({
           username: state.username,
@@ -981,6 +1025,7 @@ export const useGameState = create<GameState>()(
           xp: 0,
           gold: 0,
           inventory: [],
+          equipped: {},
           completedQuests: [],
           streakDays: [],
           frozenDays: [],
@@ -1081,6 +1126,19 @@ export const useGameState = create<GameState>()(
           const nextXp = cloudState?.progress?.xp ?? state.xp;
           const nextGold = cloudState?.progress?.gold ?? state.gold;
           const nextInventory = cloudState?.progress?.inventory ?? state.inventory;
+          // Надетое идёт следом за покупками: облако главнее, как с голдой.
+          // Чистка убирает вещи, которых в этом инвентаре нет — иначе после
+          // сброса на другом устройстве призрак остался бы в чужой шляпе.
+          // Если в облаке лежит запись старого образца (покупки есть, надетого
+          // нет) — одеваем призрака по покупкам, чтобы он не разделся сам.
+          const localEquipped =
+            Object.keys(state.equipped).length > 0
+              ? state.equipped
+              : seedEquippedFromInventory(nextInventory);
+          const nextEquipped = sanitizeEquipped(
+            cloudState?.progress?.equipped ?? localEquipped,
+            nextInventory
+          );
           const nextCompletedQuests =
             cloudState?.completed?.completedQuests ?? state.completedQuests;
           const nextDailyProgress =
@@ -1182,6 +1240,7 @@ export const useGameState = create<GameState>()(
             xp: nextXp,
             gold: nextGold,
             inventory: nextInventory,
+            equipped: nextEquipped,
             completedQuests: nextCompletedQuests,
             streakDays: nextStreakDays,
             frozenDays: nextFrozenDays,
@@ -1245,6 +1304,7 @@ export const useGameState = create<GameState>()(
         xp: state.xp,
         gold: state.gold,
         inventory: state.inventory,
+        equipped: state.equipped,
         completedQuests: state.completedQuests,
         streakDays: state.streakDays,
         frozenDays: state.frozenDays,
@@ -1276,9 +1336,18 @@ export const useGameState = create<GameState>()(
         const typedState = (persistedState as Partial<PersistedGameState>) || {};
         const xp = typedState.xp ?? currentState.xp;
 
+        const inventory = typedState.inventory ?? currentState.inventory;
+
         const mergedState: GameState = {
           ...currentState,
           ...typedState,
+          // Гардероб чистится при каждом запуске: вещь могли убрать из магазина
+          // или переселить на другое место, и тогда её id повис бы мёртвым
+          // грузом на занятом слоте. А если поля ещё нет совсем — это первый
+          // запуск после обновления, и надетое собирается из старых покупок.
+          equipped: typedState.equipped
+            ? sanitizeEquipped(typedState.equipped, inventory)
+            : seedEquippedFromInventory(inventory),
           ...getLevelData(xp),
         };
 

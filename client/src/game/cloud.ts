@@ -4,6 +4,7 @@ import type {
   RecurringQuestProgress,
 } from "@/hooks/use-game-state";
 import type { CareNeedId } from "@/lib/care-config";
+import type { Equipped } from "@/game/wardrobe";
 
 /**
  * Хранилище Telegram: чтение и запись прогресса в облако мини-аппа.
@@ -43,6 +44,9 @@ type CloudProgressData = {
   xp: number;
   gold: number;
   inventory: string[];
+  // Что надето: место → id вещи. Едет рядом с покупками, потому что без них
+  // не имеет смысла — чистится при слиянии по инвентарю.
+  equipped?: Equipped;
   streakFreezes?: number;
   doublePotions?: number;
   potionActive?: boolean;
@@ -210,6 +214,7 @@ export const buildCloudPayloads = (state: Pick<
   | "xp"
   | "gold"
   | "inventory"
+  | "equipped"
   | "dailyProgress"
   | "weeklyProgress"
   | "completedQuests"
@@ -236,6 +241,7 @@ export const buildCloudPayloads = (state: Pick<
     xp: state.xp,
     gold: state.gold,
     inventory: state.inventory,
+    equipped: state.equipped,
     streakFreezes: state.streakFreezes,
     doublePotions: state.doublePotions,
     potionActive: state.potionActive,

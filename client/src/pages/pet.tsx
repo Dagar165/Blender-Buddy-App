@@ -29,7 +29,8 @@ import {
   type PetMood,
 } from "@/lib/pet-config";
 import { Ghost } from "@/components/ghost";
-import { SHOP_ITEMS } from "@/lib/shop-config";
+import { SHOP_ITEMS, getClothingSlot } from "@/lib/shop-config";
+import { getWornOverlays, isItemWorn } from "@/game/wardrobe";
 import { TIP_VISIBLE_MS } from "@/lib/tips-config";
 
 const getPetMood = (input: {
@@ -79,6 +80,7 @@ export default function PetPage() {
   const {
     level,
     inventory,
+    equipped,
     streakDays,
     frozenDays,
     pendingClaims,
@@ -191,6 +193,12 @@ export default function PetPage() {
 
   const ownedItems = SHOP_ITEMS.filter((item) =>
     inventory.includes(item.name)
+  );
+
+  // Картинки надетых вещей: в порядке слоёв и с поправкой размера под стадию.
+  const wornOverlays = useMemo(
+    () => getWornOverlays(equipped, stage),
+    [equipped, stage]
   );
 
   // Что делать прямо сейчас. Тестировщики говорили: «непонятно, куда тыкать
@@ -396,9 +404,7 @@ export default function PetPage() {
                       stage={stage}
                       mood={mood}
                       size={240}
-                      overlays={ownedItems
-                        .map((item) => item.overlay)
-                        .filter((src): src is string => Boolean(src))}
+                      overlays={wornOverlays}
                     />
                   </motion.div>
                 </motion.div>
@@ -514,15 +520,26 @@ export default function PetPage() {
             {nextStage && <span>· эволюция на {nextStage.fromLevel} ур. ✨</span>}
           </div>
 
+          {/* Гардероб одной строкой: надетое — в цвете и с ободком, остальное
+              лежит бледным. Пока картинок одежды нет, это единственное место,
+              где видно, что именно сейчас на призраке. Переодеться — в магазине. */}
           {ownedItems.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1.5 mb-4 max-w-xs">
               {ownedItems.map((item) => {
                 const Icon = item.icon;
+                const worn = isItemWorn(equipped, item);
+
                 return (
                   <div
                     key={item.id}
-                    title={item.name}
-                    className={`w-8 h-8 rounded-lg ${item.bg} ${item.color} flex items-center justify-center`}
+                    title={`${item.name} · ${getClothingSlot(item.slot).name}${
+                      worn ? " · надето" : ""
+                    }`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      worn
+                        ? `${item.bg} ${item.color} ring-2 ring-secondary`
+                        : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500 opacity-70"
+                    }`}
                   >
                     <Icon className="w-4 h-4" />
                   </div>

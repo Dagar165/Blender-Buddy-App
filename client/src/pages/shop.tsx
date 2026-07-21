@@ -12,7 +12,10 @@ import {
   STREAK_FREEZE_MAX,
   DOUBLE_POTION_COST,
   DOUBLE_POTION_MAX,
+  getClothingSlot,
+  type ShopItem,
 } from "@/lib/shop-config";
+import { getWornItems, isItemWorn } from "@/game/wardrobe";
 
 type ShopTab = "supplies" | "clothes" | "help";
 
@@ -25,7 +28,7 @@ const SHOP_TABS: { id: ShopTab; label: string; hint: string }[] = [
   {
     id: "clothes",
     label: "Одежда",
-    hint: "Покупается один раз и остаётся у призрака навсегда",
+    hint: "Покупается один раз, надевается и снимается сколько угодно",
   },
   {
     id: "help",
@@ -38,11 +41,14 @@ export default function ShopPage() {
   const {
     gold,
     inventory,
+    equipped,
     supplies,
     streakFreezes,
     doublePotions,
     potionActive,
     buyItem,
+    wearItem,
+    takeOffItem,
     buySupply,
     buyStreakFreeze,
     buyDoublePotion,
@@ -59,17 +65,44 @@ export default function ShopPage() {
     });
   };
 
-  const handleBuy = (id: string, cost: number, name: string) => {
-    const success = buyItem(id, cost, name);
+  const handleBuy = (item: ShopItem) => {
+    const success = buyItem(item.id, item.cost, item.name);
     if (success) {
       hapticSuccess();
       toast({
-        title: "Товар куплен! 🎉",
-        description: `${name} добавлен в твой инвентарь.`,
+        title: "Куплено! 🎉",
+        description: `${item.name} — сразу на призраке. Посмотри на главном экране.`,
       });
     } else {
       showNoGoldToast();
     }
+  };
+
+  // Надеть: место освобождается само. Ученику про это говорим вслух, иначе
+  // «наушники надел — шляпа пропала» читается как потеря покупки.
+  const handleWear = (item: ShopItem) => {
+    const replaced = getWornItems(equipped).find(
+      (worn) => worn.slot === item.slot && worn.id !== item.id
+    );
+
+    if (!wearItem(item.id)) return;
+
+    hapticSuccess();
+    toast({
+      title: `Надето: ${item.name}`,
+      description: replaced
+        ? `${replaced.name} — обратно в шкаф: на одном месте помещается одна вещь.`
+        : "Посмотри на призрака на главном экране.",
+    });
+  };
+
+  const handleTakeOff = (item: ShopItem) => {
+    takeOffItem(item.id);
+    hapticSelect();
+    toast({
+      title: `Снято: ${item.name}`,
+      description: "Вещь никуда не делась — надень её снова когда захочешь.",
+    });
   };
 
   const handleBuySupply = (supplyId: string, name: string) => {
@@ -321,8 +354,10 @@ export default function ShopPage() {
         <div className={activeTab === "clothes" ? "grid grid-cols-2 gap-4" : "hidden"}>
           {SHOP_ITEMS.map((item, i) => {
             const isOwned = inventory.includes(item.name);
+            const isWorn = isItemWorn(equipped, item);
             const canAfford = gold >= item.cost;
             const Icon = item.icon;
+            const slot = getClothingSlot(item.slot);
 
             return (
               <motion.div
@@ -342,21 +377,38 @@ export default function ShopPage() {
                   </span>
                 )}
 
-                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-3 h-10 flex items-center">{item.name}</h3>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-1 h-10 flex items-center">{item.name}</h3>
 
+                {/* Место вещи: без него непонятно, почему шляпа снялась,
+                    когда надели наушники */}
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {slot.name}
+                </p>
+
+                {/* Куплено — не значит надето. Купленная вещь остаётся в шкафу
+                    и ждёт своей очереди на место. */}
                 <button
-                  onClick={() => !isOwned && handleBuy(item.id, item.cost, item.name)}
-                  disabled={isOwned || (!canAfford && !isOwned)}
+                  onClick={() => {
+                    if (!isOwned) return handleBuy(item);
+                    return isWorn ? handleTakeOff(item) : handleWear(item);
+                  }}
+                  disabled={!isOwned && !canAfford}
                   className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
-                    isOwned
+                    isWorn
                       ? "bg-green-50 text-green-600 border border-green-200 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/30"
-                      : canAfford
-                        ? "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30"
-                        : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
+                      : isOwned
+                        ? "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-muted dark:text-slate-200 dark:border-border"
+                        : canAfford
+                          ? "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30"
+                          : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
                   }`}
                 >
                   {isOwned ? (
-                    "Надето ✓"
+                    isWorn ? (
+                      "Снять ✓"
+                    ) : (
+                      "Надеть"
+                    )
                   ) : (
                     <>
                       {item.cost}{" "}
