@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { PetMood, PetStage } from "@/lib/pet-config";
-import { GHOST_LAYER } from "@/lib/shop-config";
+import { CLOTHING_FRAME, GHOST_LAYER } from "@/lib/shop-config";
 import type { WornOverlay } from "@/game/wardrobe";
 
 // The mascot is a transparent-background image with clothing overlays drawn
@@ -11,11 +11,17 @@ import type { WornOverlay } from "@/game/wardrobe";
 // Новые файлы перед подключением прогонять через tools/cutout-mascot.ps1 —
 // тогда никакого CSS-зума не нужно (зум ломал нажатие на iOS).
 
-// Одежда лежит на том же квадрате, что и призрак, и различается только слоем
-// (`layer` в shop-config). Сам призрак стоит на слое GHOST_LAYER — то, что
-// ниже, рисуется ЗА ним: так ранец оказывается за спиной, а не поверх груди.
-// z-index тут обязателен: без него любая абсолютная картинка всплывает над
-// обычной, и «за спиной» не получилось бы в принципе.
+// Одежда различается только слоем (`layer` в shop-config): шляпа поверх
+// наушников, наушники поверх очков. Сам призрак стоит на слое GHOST_LAYER —
+// то, что ниже, рисуется ЗА ним, так ранец оказывается за спиной, а не поверх
+// груди. z-index тут обязателен: без него любая абсолютная картинка всплывает
+// над обычной, и «за спиной» не получилось бы в принципе.
+//
+// Холст одежды ШИРЕ квадрата призрака (CLOTHING_FRAME) и прижат к его низу:
+// над макушкой у картинок призрака всего 12% высоты, а шляпе нужен запас.
+// Поэтому вещи и позиционируются от НИЗА, а не через inset-0.
+const OVERLAY_WIDTH = `${CLOTHING_FRAME * 100}%`;
+const OVERLAY_LEFT = `${((1 - CLOTHING_FRAME) / 2) * 100}%`;
 
 export function Ghost({
   stage,
@@ -35,8 +41,11 @@ export function Ghost({
           key={overlay.itemId}
           src={overlay.src}
           draggable={false}
-          className="absolute inset-0 w-full h-auto select-none pointer-events-none"
+          className="absolute h-auto select-none pointer-events-none"
           style={{
+            width: OVERLAY_WIDTH,
+            left: OVERLAY_LEFT,
+            bottom: 0,
             zIndex: overlay.layer,
             transform: overlay.scale === 1 ? undefined : `scale(${overlay.scale})`,
             transformOrigin: overlay.transformOrigin,

@@ -1,3 +1,5 @@
+import glassesOverlay from "@/assets/mascot/item-glasses.webp";
+import hatOverlay from "@/assets/mascot/item-hat.webp";
 import {
   Crown,
   Gamepad2,
@@ -38,18 +40,30 @@ export const DOUBLE_POTION_COST = 100; // зелье ×2
 export const DOUBLE_POTION_MAX = 3; // лимит запаса зелий
 
 /**
- * МЕСТА ДЛЯ ОДЕЖДЫ.
+ * МЕСТА ДЛЯ ОДЕЖДЫ и ПОРЯДОК СЛОЁВ.
  *
- * На одном месте живёт ровно одна вещь: надел наушники — шапка снялась сама.
- * Без этого шапка и наушники рисовались бы друг поверх друга, и на голове
- * получалась каша. Владелец просил свести их в одно место «голова» — вот оно.
+ * На одном месте живёт ровно одна вещь: надел одну шляпу — прежняя снялась.
+ * Но РАЗНЫЕ места надеваются одновременно, и это главное: на референсе
+ * владельца призрак носит шляпу, наушники и очки разом.
  *
- * layer — что поверх чего. Меньше числа рисуется раньше (ниже).
- * Слой 1 — сам призрак, поэтому у ранца за спиной слой 0: он ЗА призраком.
+ * Порядок слоёв — его решение, проверено на картинке:
+ * **шляпа перекрывает всё, наушники под ней, очки в самом низу.**
+ * Меньше число — рисуется раньше, то есть ниже. Слой 1 — сам призрак,
+ * поэтому у ранца за спиной слой 0: он ЗА призраком.
  */
-export type ClothingSlot = "back" | "hand" | "face" | "head";
+export type ClothingSlot = "back" | "hand" | "face" | "ears" | "head";
 
 export const GHOST_LAYER = 1;
+
+/**
+ * Одежда рисуется на холсте ШИРЕ призрака, снизу вровень с ним.
+ *
+ * Над макушкой у картинок призрака всего 12% высоты, а шляпе нужно вдвое
+ * больше — без запаса её пришлось бы уменьшить до размера чепчика. Число
+ * жёстко связано со спрайтами: они нарезаны именно под 1.18, поменяешь
+ * здесь — все вещи съедут.
+ */
+export const CLOTHING_FRAME = 1.18;
 
 export const CLOTHING_SLOTS: {
   id: ClothingSlot;
@@ -59,8 +73,9 @@ export const CLOTHING_SLOTS: {
 }[] = [
   { id: "back", name: "За спиной", layer: 0 },
   { id: "hand", name: "В руке", layer: 2 },
-  { id: "face", name: "На лице", layer: 3 },
-  { id: "head", name: "На голове", layer: 4 },
+  { id: "face", name: "На глазах", layer: 3 },
+  { id: "ears", name: "На ушах", layer: 4 },
+  { id: "head", name: "На голове", layer: 5 },
 ];
 
 export const getClothingSlot = (slot: ClothingSlot) =>
@@ -75,10 +90,11 @@ export type ShopItem = {
   bg: string;
   // Куда вещь надевается. На одно место — одна вещь.
   slot: ClothingSlot;
-  // Картинка-одежда, надеваемая на призрака (рисуется на том же шаблоне-холсте,
-  // что и сам призрак — см. «JKids_Bot_промпты_картинок.md»).
+  // Картинка-одежда. Рисуется на холсте CLOTHING_FRAME (см. выше), снизу
+  // вровень с призраком, поэтому вещь уже стоит на своём месте и никаких
+  // отступов в коде не нужно. Как готовить файл — tools/README-mascot.md.
   // Как подключить: import hatOverlay from "@/assets/mascot/item-hat.webp";
-  // и сюда overlay: hatOverlay. Пока картинок нет — поле пустое:
+  // и сюда overlay: hatOverlay. Пока картинки нет — поле пустое:
   // вещь покупается и надевается, просто пока не видна на призраке.
   overlay?: string;
   // Дорогая вещь «на потом»: помечается в магазине и стоит заметно больше.
@@ -89,9 +105,9 @@ export type ShopItem = {
 // legendary — вещи «на потом»: их специально не успеть купить к 30 уровню,
 // чтобы после максимума оставалось к чему стремиться.
 export const SHOP_ITEMS: ShopItem[] = [
-  { id: "item5", name: "Стильные очки", cost: 80, slot: "face", icon: Glasses, color: "text-sky-500", bg: "bg-sky-100" },
-  { id: "item1", name: "Волшебная шляпа", cost: 150, slot: "head", icon: Crown, color: "text-purple-500", bg: "bg-purple-100" },
-  { id: "item6", name: "Наушники", cost: 220, slot: "head", icon: Headphones, color: "text-emerald-500", bg: "bg-emerald-100" },
+  { id: "item5", name: "Стильные очки", cost: 80, slot: "face", overlay: glassesOverlay, icon: Glasses, color: "text-sky-500", bg: "bg-sky-100" },
+  { id: "item1", name: "Волшебная шляпа", cost: 150, slot: "head", overlay: hatOverlay, icon: Crown, color: "text-purple-500", bg: "bg-purple-100" },
+  { id: "item6", name: "Наушники", cost: 220, slot: "ears", icon: Headphones, color: "text-emerald-500", bg: "bg-emerald-100" },
   { id: "item2", name: "Зелье скорости", cost: 300, slot: "hand", icon: Zap, color: "text-blue-500", bg: "bg-blue-100" },
   { id: "item7", name: "Палитра художника", cost: 380, slot: "hand", icon: Palette, color: "text-pink-500", bg: "bg-pink-100" },
   { id: "item3", name: "Золотая клавиатура", cost: 480, slot: "hand", icon: Keyboard, color: "text-yellow-500", bg: "bg-yellow-100" },

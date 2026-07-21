@@ -1,4 +1,5 @@
 import {
+  CLOTHING_FRAME,
   SHOP_ITEMS,
   getClothingSlot,
   getShopItem,
@@ -42,13 +43,25 @@ export const HEAD_SCALE_BY_STAGE: Record<number, number> = {
   30: 0.92,
 };
 
+// Всё, что сидит на голове, ужимается вместе: шляпа, наушники и очки должны
+// съезжать одинаково, иначе на старших стадиях очки разъедутся со шляпой.
+const HEAD_SLOTS: ClothingSlot[] = ["head", "ears", "face"];
+
 /**
  * Точка, вокруг которой ужимается вещь головы.
  *
- * Не центр картинки, а середина головы — она на 26% высоты холста. Ужми
- * относительно центра, и шапка уедет вниз со лба на глаза.
+ * Не центр картинки, а середина головы — она на 26% высоты КАРТИНКИ ПРИЗРАКА.
+ * Ужми относительно центра — и шапка уедет со лба на глаза.
+ *
+ * Холст одежды выше призрака (CLOTHING_FRAME) и выровнен по низу, поэтому
+ * те же 26% в его координатах лежат ниже — пересчитываем, а не вписываем
+ * число руками: поменяется рамка, поедет и точка.
  */
-const HEAD_ORIGIN = "50% 26%";
+const HEAD_Y_ON_GHOST = 0.26;
+const HEAD_ORIGIN = `50% ${(
+  ((CLOTHING_FRAME - 1 + HEAD_Y_ON_GHOST) / CLOTHING_FRAME) *
+  100
+).toFixed(1)}%`;
 
 export type WornOverlay = {
   itemId: string;
@@ -141,12 +154,15 @@ export const getWornOverlays = (
 ): WornOverlay[] =>
   getWornItems(equipped)
     .filter((item): item is ShopItem & { overlay: string } => Boolean(item.overlay))
-    .map((item) => ({
-      itemId: item.id,
-      src: item.overlay,
-      layer: getClothingSlot(item.slot).layer,
-      scale:
-        item.slot === "head" ? HEAD_SCALE_BY_STAGE[stage.fromLevel] ?? 1 : 1,
-      transformOrigin: item.slot === "head" ? HEAD_ORIGIN : "50% 50%",
-    }))
+    .map((item) => {
+      const onHead = HEAD_SLOTS.includes(item.slot);
+
+      return {
+        itemId: item.id,
+        src: item.overlay,
+        layer: getClothingSlot(item.slot).layer,
+        scale: onHead ? HEAD_SCALE_BY_STAGE[stage.fromLevel] ?? 1 : 1,
+        transformOrigin: onHead ? HEAD_ORIGIN : "50% 50%",
+      };
+    })
     .sort((a, b) => a.layer - b.layer);
