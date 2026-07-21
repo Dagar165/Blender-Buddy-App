@@ -11,6 +11,13 @@ import { hapticTap } from "@/lib/haptics";
 import { Link } from "wouter";
 import { CheckCircle, ChevronRight, Clock, Scroll } from "lucide-react";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
+import { CarePanel } from "@/components/care-panel";
+import {
+  CARE_NEEDS,
+  getCarePhrase,
+  getNeedLevel,
+  type CareNeedId,
+} from "@/lib/care-config";
 import {
   PET_PHRASES,
   RETURN_AFTER_DAYS,
@@ -46,11 +53,12 @@ const MOOD_ANIMATION: Record<PetMood, { y: number[]; duration: number }> = {
 // Плавающее сердечко после поглаживания
 type Heart = { id: number; x: number; withXp: boolean };
 
-// Гизмо осей из угла 3D-окна Blender — просто украшение-отсылка
+// Гизмо осей из угла 3D-окна Blender. Отсылка — но нажимаемая: под ней
+// прячется маленький урок про X, Y и Z, который пригодится в самом Blender.
 function AxisGizmo() {
   return (
     <svg
-      className="absolute top-2.5 right-2.5 opacity-90 pointer-events-none"
+      className="opacity-90 pointer-events-none"
       width="40"
       height="40"
       viewBox="0 0 46 46"
@@ -80,11 +88,14 @@ export default function PetPage() {
     requiredForNextLevel,
     xpToNextLevel,
     xpProgress,
+    care,
     petGhost,
     markVisit,
   } = useGameState();
 
   const [hearts, setHearts] = useState<Heart[]>([]);
+  // Подсказки в комнате: что за ступень пути и что за оси в углу.
+  const [hint, setHint] = useState<"stage" | "axes" | null>(null);
   // Совет по Blender вытесняет обычную фразу на несколько секунд.
   const [tip, setTip] = useState<string | null>(null);
   // Встреча после паузы — показывается один раз за визит.
@@ -109,6 +120,11 @@ export default function PetPage() {
   const tilt = useTransform(swing, [-140, 140], [7, -7]);
   // Чтобы бросок пальцем не засчитался как поглаживание.
   const draggingRef = useRef(false);
+
+  const openHint = (which: "stage" | "axes") => {
+    hapticTap();
+    setHint((current) => (current === which ? null : which));
+  };
 
   const handlePet = () => {
     if (draggingRef.current) return;
@@ -146,8 +162,26 @@ export default function PetPage() {
     return phrases[Math.floor(Math.random() * phrases.length)];
   }, [mood]);
 
-  // Что призрак говорит прямо сейчас: совет важнее встречи, встреча — фразы.
-  const phrase = tip ?? greeting ?? moodPhrase;
+  // Как призрак себя чувствует: считается от времени последнего ухода.
+  const careLevels = useMemo(() => {
+    const levels = {} as Record<CareNeedId, number>;
+
+    for (const need of CARE_NEEDS) {
+      levels[need.id] = getNeedLevel(care[need.id] ?? null, need.decayHours);
+    }
+
+    return levels;
+  }, [care]);
+
+  const carePhrase = useMemo(
+    () => getCarePhrase(careLevels, Date.now() / 60000),
+    [careLevels]
+  );
+
+  // Что призрак говорит прямо сейчас. Порядок важен: свежий совет по Blender
+  // важнее всего, потом встреча после паузы, потом просьба поесть или
+  // прибраться, и только потом дежурная фраза настроения.
+  const phrase = tip ?? greeting ?? carePhrase ?? moodPhrase;
 
   const stage = getPetStage(level);
   const nextStage = getNextPetStage(level);
@@ -229,12 +263,27 @@ export default function PetPage() {
           {/* Комната призрака — отсылка к 3D-окну Blender:
               сетка пола, гизмо осей, а призрак «выделен» оранжевым */}
           <div className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10">
-            {/* Угол HUD, как в Blender: имя активного объекта */}
-            <span className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/85 dark:bg-slate-900/70 border border-orange-200 dark:border-orange-500/40 rounded-full px-2.5 py-1 text-[10px] font-bold text-orange-600 dark:text-orange-300 select-none">
+            {/* Угол HUD, как в Blender: имя активного объекта.
+                Нажимается — объясняет, что это за ступень пути */}
+            <button
+              onClick={() => openHint("stage")}
+              className={`absolute top-3 left-3 z-20 flex items-center gap-1.5 bg-white/85 dark:bg-slate-900/70 border rounded-full px-2.5 py-1 text-[10px] font-bold text-orange-600 dark:text-orange-300 select-none transition-transform active:scale-95 ${
+                hint === "stage"
+                  ? "border-orange-400 dark:border-orange-400"
+                  : "border-orange-200 dark:border-orange-500/40"
+              }`}
+            >
               <span className="w-2 h-2 rounded-[3px] bg-orange-500 shrink-0" />
               {stage.name}
-            </span>
-            <AxisGizmo />
+            </button>
+
+            <button
+              onClick={() => openHint("axes")}
+              className="absolute top-2.5 right-2.5 z-20 rounded-full transition-transform active:scale-95"
+              aria-label="Что это за оси"
+            >
+              <AxisGizmo />
+            </button>
 
             {/* Пол-сетка в перспективе */}
             <div
@@ -352,7 +401,78 @@ export default function PetPage() {
               </span>
             </div>
 
+            {/* Подсказки поверх комнаты: тап мимо — закрыть */}
+            <AnimatePresence>
+              {hint && (
+                <motion.div
+                  key={hint}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  onClick={() => setHint(null)}
+                  className="absolute inset-0 z-30 flex items-center justify-center px-4 bg-slate-900/45 backdrop-blur-[2px]"
+                >
+                  <motion.div
+                    initial={{ scale: 0.92, y: 8 }}
+                    animate={{ scale: 1, y: 0 }}
+                    exit={{ scale: 0.95 }}
+                    transition={{ type: "spring", bounce: 0.3, duration: 0.4 }}
+                    className="w-full max-w-[17rem] rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-border shadow-xl p-4"
+                  >
+                    {hint === "stage" ? (
+                      <>
+                        <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-secondary mb-1">
+                          Ступень {stageNumber} из {PET_STAGES.length} · путь творца
+                        </p>
+                        <h4 className="font-display font-bold text-slate-800 dark:text-slate-100 mb-1.5">
+                          {stage.name}
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          {stage.about}
+                        </p>
+                        <p className="mt-2.5 text-xs font-bold text-slate-400 dark:text-slate-500">
+                          {nextStage
+                            ? `Дальше: ${nextStage.name} на ${nextStage.fromLevel} уровне`
+                            : "Это последняя ступень — выше некуда"}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-mono text-[10px] font-bold uppercase tracking-wide text-primary mb-1.5">
+                          Оси координат
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-2.5">
+                          Такой значок висит в углу окна Blender и показывает,
+                          куда смотрит сцена. Три оси — три направления:
+                        </p>
+                        <ul className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                          <li className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#e3402e] shrink-0" />
+                            <b className="font-mono">X</b> — вправо и влево
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#6fa21c] shrink-0" />
+                            <b className="font-mono">Y</b> — вперёд и назад
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#3b83bd] shrink-0" />
+                            <b className="font-mono">Z</b> — вверх и вниз
+                          </li>
+                        </ul>
+                        <p className="mt-2.5 text-xs font-bold text-slate-400 dark:text-slate-500 leading-snug">
+                          В Blender нажми G, а потом X, Y или Z — объект поедет
+                          строго вдоль этой оси и никуда не съедет.
+                        </p>
+                      </>
+                    )}
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
+          <CarePanel />
 
           {/* Единственная оранжевая кнопка главного экрана */}
           <Link

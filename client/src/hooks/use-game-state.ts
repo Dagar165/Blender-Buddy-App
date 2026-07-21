@@ -13,6 +13,15 @@ import {
   QUIZ_XP_PER_CORRECT,
 } from "@/lib/quiz-config";
 import { TIP_MAX_TAPS, TIP_MIN_TAPS, pickTip } from "@/lib/tips-config";
+import {
+  CARE_GOLD,
+  CARE_NEEDS,
+  CARE_PAY_BELOW,
+  getCareNeed,
+  getNeedLevel,
+  type CareNeedId,
+} from "@/lib/care-config";
+import { PET_STAGES, getPetStage } from "@/lib/pet-config";
 
 /**
  * Кривая опыта (пересчитана 19.07.2026 по решению владельца).
@@ -176,7 +185,9 @@ type CloudStatsData = {
   stats: GameStats;
   seenAchievements: string[];
   celebratedStageLevel?: number;
+  celebratedStages?: number[];
   celebratedLevel?: number;
+  care?: Partial<Record<CareNeedId, string | null>>;
 };
 
 type LoadedCloudState = {
@@ -213,7 +224,20 @@ export interface GameState extends LevelData {
 
   stats: GameStats;
   seenAchievements: string[];
-  // fromLevel of the last pet-evolution stage celebrated with the modal.
+  /**
+   * Стадии (их fromLevel), превращение в которые уже отпраздновали.
+   *
+   * Раньше тут лежало одно число — «докуда дошли», и стадия считалась
+   * показанной, если её fromLevel не больше него. Это молча съедало эволюцию
+   * каждый раз, когда в pet-config менялись уровни стадий: после переезда
+   * 1/3/5/7/10 → 1/5/12/20/30 у того, кто когда-то праздновал старую стадию 5,
+   * новая стадия 5 («Ученик») уже считалась виденной и анимация не играла.
+   * Список конкретных стадий такого не допускает, а при слиянии облака просто
+   * объединяется — как медали.
+   */
+  celebratedStages: number[];
+  // Осталось от прежней версии: нужно, чтобы понять, что праздновал ученик,
+  // который ещё не обновлялся. Само по себе больше ничего не решает.
   celebratedStageLevel: number;
   // Последний обычный уровень, для которого уже показали поздравление.
   celebratedLevel: number;
@@ -230,6 +254,12 @@ export interface GameState extends LevelData {
 
   // Когда ученик последний раз открывал приложение (для встречи после паузы).
   lastSeenDate: string;
+
+  // Уход: когда в последний раз закрывали каждую потребность (ISO-время).
+  // Храним именно МОМЕНТ, а не уровень: уровень считается от него на лету,
+  // поэтому шкалы честно тают при закрытом приложении, а слияние облака
+  // «кто позже» не ломает ничего (время только растёт).
+  care: Record<CareNeedId, string | null>;
 
   // Викторина дня: на какие вопросы уже отвечено сегодня.
   quizDate: string;
@@ -264,6 +294,7 @@ export interface GameState extends LevelData {
   markEvolutionSeen: (stageLevel: number) => void;
   markLevelUpSeen: (level: number) => void;
   markVisit: () => number;
+  careFor: (needId: CareNeedId) => { goldGranted: number };
   petGhost: () => { granted: boolean; tip: string | null };
   answerQuizQuestion: (questionId: string, correct: boolean) => boolean;
   openDailyChest: () => number | null;
@@ -295,12 +326,14 @@ type PersistedGameState = Pick<
   | "stats"
   | "seenAchievements"
   | "celebratedStageLevel"
+  | "celebratedStages"
   | "celebratedLevel"
   | "pettingDate"
   | "petTapsTotal"
   | "nextTipAt"
   | "tipCursor"
   | "lastSeenDate"
+  | "care"
   | "pettingCount"
   | "quizDate"
   | "quizAnswered"
@@ -526,6 +559,43 @@ export const getStreakInfo = (
   };
 };
 
+// Новый ученик встречает призрака сытым и довольным: шкалы начинают таять
+// с этой минуты, а не с эпохи Unix.
+// Стадии, которые ученик точно уже прошёл: все, что ниже текущей.
+const seedCelebratedStages = (totalXp: number): number[] => {
+  const current = getPetStage(getLevelData(totalXp).level);
+
+  return PET_STAGES.filter((stage) => stage.fromLevel < current.fromLevel).map(
+    (stage) => stage.fromLevel
+  );
+};
+
+const createFreshCare = (): Record<CareNeedId, string | null> => {
+  const now = new Date().toISOString();
+  return { feed: now, clean: now, play: now };
+};
+
+// Слияние с облаком: у каждой потребности побеждает более позднее время —
+// значит, где-то за призраком ухаживали, и это уже случилось.
+const mergeCare = (
+  local: Record<CareNeedId, string | null>,
+  cloud: Partial<Record<CareNeedId, string | null>> | undefined
+): Record<CareNeedId, string | null> => {
+  const merged = { ...local };
+
+  for (const need of CARE_NEEDS) {
+    const cloudValue = cloud?.[need.id] ?? null;
+    const localValue = local[need.id] ?? null;
+
+    if (!cloudValue) continue;
+    if (!localValue || cloudValue > localValue) {
+      merged[need.id] = cloudValue;
+    }
+  }
+
+  return merged;
+};
+
 const createDailyProgress = (): RecurringQuestProgress => ({
   cycleKey: getDailyCycleKey(),
   completedIds: [],
@@ -696,7 +766,9 @@ const buildCloudPayloads = (state: Pick<
   | "stats"
   | "seenAchievements"
   | "celebratedStageLevel"
+  | "celebratedStages"
   | "celebratedLevel"
+  | "care"
 >) => {
   const profilePayload: CloudProfileData = {
     username: state.username,
@@ -730,7 +802,9 @@ const buildCloudPayloads = (state: Pick<
     stats: state.stats,
     seenAchievements: state.seenAchievements,
     celebratedStageLevel: state.celebratedStageLevel,
+    celebratedStages: state.celebratedStages,
     celebratedLevel: state.celebratedLevel,
+    care: state.care,
   };
 
   return {
@@ -762,7 +836,9 @@ const writeCloudState = async (
     | "stats"
     | "seenAchievements"
     | "celebratedStageLevel"
+    | "celebratedStages"
     | "celebratedLevel"
+    | "care"
   >
 ): Promise<boolean> => {
   if (!getTelegramCloudStorage()) {
@@ -829,6 +905,7 @@ export const useGameState = create<GameState>()(
       potionActive: false,
       stats: createDefaultStats(),
       seenAchievements: [],
+      celebratedStages: [],
       celebratedStageLevel: 1,
       celebratedLevel: 1,
       pettingDate: "",
@@ -836,6 +913,7 @@ export const useGameState = create<GameState>()(
       nextTipAt: randomTipInterval(),
       tipCursor: Math.floor(Math.random() * 40),
       lastSeenDate: "",
+      care: createFreshCare(),
       pettingCount: 0,
       quizDate: "",
       quizAnswered: [],
@@ -1151,9 +1229,12 @@ export const useGameState = create<GameState>()(
       markEvolutionSeen: (stageLevel) => {
         const state = get();
 
-        if (stageLevel <= state.celebratedStageLevel) return;
+        if (state.celebratedStages.includes(stageLevel)) return;
 
-        set({ celebratedStageLevel: stageLevel });
+        set({
+          celebratedStages: [...state.celebratedStages, stageLevel],
+          celebratedStageLevel: Math.max(state.celebratedStageLevel, stageLevel),
+        });
         queueCloudSave(get);
       },
 
@@ -1185,6 +1266,25 @@ export const useGameState = create<GameState>()(
 
         set({ celebratedLevel: level });
         queueCloudSave(get);
+      },
+
+      // Уход: пополняем потребность до максимума. Голда идёт только за
+      // настоящую заботу — если шкала и так была почти полной, кнопка
+      // работает, но не платит. Опыт не даём принципиально: он за практику.
+      careFor: (needId) => {
+        const state = get();
+        const need = getCareNeed(needId);
+        const level = getNeedLevel(state.care[needId] ?? null, need.decayHours);
+        const goldGranted = level < CARE_PAY_BELOW ? CARE_GOLD : 0;
+
+        set({
+          care: { ...state.care, [needId]: new Date().toISOString() },
+          gold: state.gold + goldGranted,
+        });
+
+        queueCloudSave(get);
+
+        return { goldGranted };
       },
 
       petGhost: () => {
@@ -1325,6 +1425,7 @@ export const useGameState = create<GameState>()(
           potionActive: false,
           stats: createDefaultStats(),
           seenAchievements: [],
+          celebratedStages: [],
           celebratedStageLevel: 1,
           celebratedLevel: 1,
           pettingDate: "",
@@ -1336,6 +1437,7 @@ export const useGameState = create<GameState>()(
           nextTipAt: randomTipInterval(),
           tipCursor: 0,
           lastSeenDate: formatLocalDate(new Date()),
+          care: createFreshCare(),
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
           pendingClaims: [],
@@ -1427,6 +1529,23 @@ export const useGameState = create<GameState>()(
             cloudState?.statsData?.celebratedStageLevel ?? 1
           );
 
+          const cloudStages = cloudState?.statsData?.celebratedStages;
+          const knownStages = Array.from(
+            new Set([
+              ...state.celebratedStages,
+              ...(Array.isArray(cloudStages) ? cloudStages : []),
+            ])
+          );
+          // Первый запуск после обновления: списка ещё нет, зато есть старое
+          // «докуда дошли». Считаем виденными стадии НИЖЕ текущей — их ученик
+          // точно проходил, — а ту, на которой он стоит, нарочно оставляем
+          // непразднованной. Если её проглотил прежний способ счёта, анимация
+          // один раз доиграет; если нет — она и так уже была показана.
+          const nextCelebratedStages =
+            knownStages.length > 0 ? knownStages : seedCelebratedStages(nextXp);
+
+          const nextCare = mergeCare(state.care, cloudState?.statsData?.care);
+
           // Поздравления с уровнем — тоже только вперёд.
           const nextCelebratedLevel = Math.max(
             state.celebratedLevel,
@@ -1452,8 +1571,10 @@ export const useGameState = create<GameState>()(
             potionActive: nextPotionActive,
             stats: nextStats,
             seenAchievements: nextSeenAchievements,
+            celebratedStages: nextCelebratedStages,
             celebratedStageLevel: nextCelebratedStageLevel,
             celebratedLevel: nextCelebratedLevel,
+            care: nextCare,
             dailyProgress: nextDailyProgress,
             weeklyProgress: nextWeeklyProgress,
             ...getLevelData(nextXp),
@@ -1512,7 +1633,9 @@ export const useGameState = create<GameState>()(
         stats: state.stats,
         seenAchievements: state.seenAchievements,
         celebratedStageLevel: state.celebratedStageLevel,
+        celebratedStages: state.celebratedStages,
         celebratedLevel: state.celebratedLevel,
+        care: state.care,
         pettingDate: state.pettingDate,
         pettingCount: state.pettingCount,
         quizDate: state.quizDate,

@@ -13,7 +13,7 @@ import {
 import { AchievementUnlock } from "@/components/achievement-unlock";
 import { PetEvolution, type PetEvolutionEvent } from "@/components/pet-evolution";
 import { LevelUp } from "@/components/level-up";
-import { getPetStage } from "@/lib/pet-config";
+import { getPetStage, getPreviousPetStage } from "@/lib/pet-config";
 import { refreshTheme } from "@/lib/theme";
 
 // Components & Pages
@@ -62,9 +62,7 @@ function AppContent() {
     (state) => state.bootstrapTelegramCloud
   );
   const level = useGameState((state) => state.level);
-  const celebratedStageLevel = useGameState(
-    (state) => state.celebratedStageLevel
-  );
+  const celebratedStages = useGameState((state) => state.celebratedStages);
   const markEvolutionSeen = useGameState((state) => state.markEvolutionSeen);
   const celebratedLevel = useGameState((state) => state.celebratedLevel);
   const markLevelUpSeen = useGameState((state) => state.markLevelUpSeen);
@@ -72,11 +70,14 @@ function AppContent() {
     AchievementDefinition[]
   >([]);
 
-  // The pet evolved past the last celebrated stage — play the transformation.
+  // Превращение играем, если эту стадию ещё не праздновали. Сравнивать
+  // «докуда дошли» одним числом нельзя: стоит поменять уровни стадий
+  // в pet-config — и эволюция молча пропадает (так и случилось с «Учеником»).
   const currentStage = getPetStage(level);
+  const previousStage = getPreviousPetStage(currentStage);
   const evolution: PetEvolutionEvent | null =
-    currentStage.fromLevel > celebratedStageLevel
-      ? { from: getPetStage(celebratedStageLevel), to: currentStage }
+    previousStage && !celebratedStages.includes(currentStage.fromLevel)
+      ? { from: previousStage, to: currentStage }
       : null;
 
   // Обычный уровень: показываем плашку, но не поверх эволюции.
