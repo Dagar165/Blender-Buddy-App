@@ -5,11 +5,21 @@
 # рисует общий кадр для проверки ГЛАЗАМИ и, если попросить, сохраняет готовый
 # спрайт уже на своём месте.
 #
-# Пример — так стоят шляпа и очки сейчас:
-#   powershell -File tools\fit-clothing.ps1 -Ghost <stage-2.png> `
+# ТОЧКА ОТСЧЁТА (решение владельца 22.07): шляпа и очки выверены, всё
+# остальное ставится относительно них. Числа, которые стоят сейчас:
+#
+#   очки       w=40   cx=54     cy=28
+#   наушники   w=48   cx=50.5   cy=27
+#   шляпа      w=59   cx=51.5   cy=8
+#
+# Команда целиком:
+#   powershell -File tools\fit-clothing.ps1 -Ghost <ghost-stage-2.png> `
 #     -SpriteDir <папка с вырезанным> -Out preview.png -Frame 1.18 `
 #     -SaveDir <куда спрайты> `
-#     -Items "file=item-06.png;w=38;cx=54.5;cy=27;as=glasses|file=item-02.png;w=56;cx=50;cy=8;as=hat"
+#     -Items "file=item-06.png;w=40;cx=54;cy=28;as=glasses|file=headphones.png;w=48;cx=50.5;cy=27;as=headphones|file=item-02.png;w=59;cx=51.5;cy=8;as=hat"
+#
+# Порядок в -Items = порядок рисования снизу вверх, он же порядок слоёв
+# в shop-config: очки → наушники → шляпа.
 #
 # ВАЖНО: -Frame обязан совпадать с CLOTHING_FRAME в
 # client/src/lib/shop-config.ts, иначе в приложении вещь окажется не там, где
