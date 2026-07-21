@@ -41,7 +41,11 @@ export function Ghost({
           key={overlay.itemId}
           src={overlay.src}
           draggable={false}
-          className="absolute h-auto select-none pointer-events-none"
+          // max-w-none обязателен: Tailwind по умолчанию ставит картинкам
+          // max-width:100%, и холст одежды (118%) молча ужимался до ширины
+          // призрака. Вещи выходили меньше и ниже линии глаз — владелец
+          // увидел это сразу, а в коде всё выглядело правильно.
+          className="absolute h-auto max-w-none select-none pointer-events-none"
           style={{
             width: OVERLAY_WIDTH,
             left: OVERLAY_LEFT,
