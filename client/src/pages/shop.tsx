@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Coins, Snowflake, FlaskConical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { hapticSuccess, hapticWarn } from "@/lib/haptics";
+import { CARE_SUPPLIES, SUPPLY_MAX, getCareNeed } from "@/lib/care-config";
 import {
   SHOP_ITEMS,
   STREAK_FREEZE_COST,
@@ -16,10 +17,12 @@ export default function ShopPage() {
   const {
     gold,
     inventory,
+    supplies,
     streakFreezes,
     doublePotions,
     potionActive,
     buyItem,
+    buySupply,
     buyStreakFreeze,
     buyDoublePotion,
   } = useGameState();
@@ -41,6 +44,18 @@ export default function ShopPage() {
       toast({
         title: "Товар куплен! 🎉",
         description: `${name} добавлен в твой инвентарь.`,
+      });
+    } else {
+      showNoGoldToast();
+    }
+  };
+
+  const handleBuySupply = (supplyId: string, name: string) => {
+    if (buySupply(supplyId)) {
+      hapticSuccess();
+      toast({
+        title: "Куплено! 🎉",
+        description: `${name} лежит в запасе — используй на главном экране.`,
       });
     } else {
       showNoGoldToast();
@@ -129,7 +144,80 @@ export default function ShopPage() {
           Голду дают за задания. Всё, что купишь, достанется призраку!
         </p>
 
-        <h2 className="mb-3 text-lg font-display font-bold text-slate-800 dark:text-slate-100">Припасы</h2>
+        {/* Припасы призрака идут первыми: это то, что нужно каждый день */}
+        <h2 className="mb-1 text-lg font-display font-bold text-slate-800 dark:text-slate-100">
+          Припасы для призрака
+        </h2>
+        <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+          Еда, чистота и развлечения. Тратятся, когда ухаживаешь за призраком
+          на главном экране.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          {CARE_SUPPLIES.map((supply, i) => {
+            const owned = supplies[supply.id] ?? 0;
+            const atCap = owned >= SUPPLY_MAX;
+            const canAfford = gold >= supply.cost;
+            const need = getCareNeed(supply.need);
+
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                key={supply.id}
+                className="bg-white dark:bg-card p-3 rounded-3xl shadow-md shadow-slate-200/50 dark:shadow-black/30 border border-transparent dark:border-border flex flex-col"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-2xl leading-none">{supply.emoji}</span>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">
+                      {supply.name}
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                      {need.title} +{supply.restores}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug flex-1 mb-2">
+                  {supply.description}
+                </p>
+
+                <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-2">
+                  В запасе: {owned} из {SUPPLY_MAX}
+                </p>
+
+                <button
+                  onClick={() => handleBuySupply(supply.id, supply.name)}
+                  disabled={atCap || !canAfford}
+                  className={`w-full py-2 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+                    atCap
+                      ? "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
+                      : canAfford
+                        ? "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30"
+                        : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
+                  }`}
+                >
+                  {atCap ? (
+                    "Полный запас"
+                  ) : (
+                    <>
+                      {supply.cost}{" "}
+                      <Coins
+                        className={`w-4 h-4 ${canAfford ? "" : "text-amber-400"}`}
+                      />
+                    </>
+                  )}
+                </button>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <h2 className="mb-3 text-lg font-display font-bold text-slate-800 dark:text-slate-100">
+          Помощь в заданиях
+        </h2>
 
         <div className="space-y-3 mb-8">
           {consumables.map((item, i) => {

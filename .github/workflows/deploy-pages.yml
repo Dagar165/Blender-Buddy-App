@@ -30,6 +30,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # Vite собирает, не проверяя типы: ошибка вроде опечатки в имени поля
+      # молча доезжала до ученика и падала уже в браузере. Проверяем до сборки —
+      # тогда сломанный код просто не выкладывается, а на сайте остаётся
+      # предыдущая рабочая версия.
+      - name: Check types
+        run: npx tsc --noEmit
+
       - name: Build site
         run: npx vite build
 

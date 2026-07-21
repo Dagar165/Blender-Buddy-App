@@ -14,11 +14,12 @@ import {
 } from "@/lib/quiz-config";
 import { TIP_MAX_TAPS, TIP_MIN_TAPS, pickTip } from "@/lib/tips-config";
 import {
-  CARE_GOLD,
   CARE_NEEDS,
-  CARE_PAY_BELOW,
+  STARTER_SUPPLIES,
+  SUPPLY_MAX,
+  applyRestore,
   getCareNeed,
-  getNeedLevel,
+  getCareSupply,
   type CareNeedId,
 } from "@/lib/care-config";
 import { PET_STAGES, getPetStage } from "@/lib/pet-config";
@@ -188,6 +189,8 @@ type CloudStatsData = {
   celebratedStages?: number[];
   celebratedLevel?: number;
   care?: Partial<Record<CareNeedId, string | null>>;
+  supplies?: Record<string, number>;
+  starterSuppliesGiven?: boolean;
 };
 
 type LoadedCloudState = {
@@ -261,6 +264,12 @@ export interface GameState extends LevelData {
   // «кто позже» не ломает ничего (время только растёт).
   care: Record<CareNeedId, string | null>;
 
+  // Припасы на складе: id припаса → сколько штук. Тратятся при уходе,
+  // покупаются в магазине. Считаются как голда — облако главнее.
+  supplies: Record<string, number>;
+  // Стартовый набор выдаётся один раз, флаг не даёт выдать его снова.
+  starterSuppliesGiven: boolean;
+
   // Викторина дня: на какие вопросы уже отвечено сегодня.
   quizDate: string;
   quizAnswered: string[];
@@ -294,7 +303,8 @@ export interface GameState extends LevelData {
   markEvolutionSeen: (stageLevel: number) => void;
   markLevelUpSeen: (level: number) => void;
   markVisit: () => number;
-  careFor: (needId: CareNeedId) => { goldGranted: number };
+  careFor: (needId: CareNeedId, supplyId: string) => boolean;
+  buySupply: (supplyId: string) => boolean;
   petGhost: () => { granted: boolean; tip: string | null };
   answerQuizQuestion: (questionId: string, correct: boolean) => boolean;
   openDailyChest: () => number | null;
@@ -334,6 +344,8 @@ type PersistedGameState = Pick<
   | "tipCursor"
   | "lastSeenDate"
   | "care"
+  | "supplies"
+  | "starterSuppliesGiven"
   | "pettingCount"
   | "quizDate"
   | "quizAnswered"
@@ -769,6 +781,8 @@ const buildCloudPayloads = (state: Pick<
   | "celebratedStages"
   | "celebratedLevel"
   | "care"
+  | "supplies"
+  | "starterSuppliesGiven"
 >) => {
   const profilePayload: CloudProfileData = {
     username: state.username,
@@ -805,6 +819,8 @@ const buildCloudPayloads = (state: Pick<
     celebratedStages: state.celebratedStages,
     celebratedLevel: state.celebratedLevel,
     care: state.care,
+    supplies: state.supplies,
+    starterSuppliesGiven: state.starterSuppliesGiven,
   };
 
   return {
@@ -839,6 +855,8 @@ const writeCloudState = async (
     | "celebratedStages"
     | "celebratedLevel"
     | "care"
+    | "supplies"
+    | "starterSuppliesGiven"
   >
 ): Promise<boolean> => {
   if (!getTelegramCloudStorage()) {
@@ -914,6 +932,8 @@ export const useGameState = create<GameState>()(
       tipCursor: Math.floor(Math.random() * 40),
       lastSeenDate: "",
       care: createFreshCare(),
+      supplies: { ...STARTER_SUPPLIES },
+      starterSuppliesGiven: false,
       pettingCount: 0,
       quizDate: "",
       quizAnswered: [],
@@ -1268,23 +1288,60 @@ export const useGameState = create<GameState>()(
         queueCloudSave(get);
       },
 
-      // Уход: пополняем потребность до максимума. Голда идёт только за
-      // настоящую заботу — если шкала и так была почти полной, кнопка
-      // работает, но не платит. Опыт не даём принципиально: он за практику.
-      careFor: (needId) => {
+      // Уход тратит припас со склада и поднимает шкалу. Голду НЕ приносит:
+      // иначе получается бесконечный фарм пальцем — см. care-config.ts.
+      careFor: (needId, supplyId) => {
         const state = get();
+        const supply = getCareSupply(supplyId);
+
+        if (!supply || supply.need !== needId) return false;
+        if ((state.supplies[supplyId] ?? 0) <= 0) return false;
+
         const need = getCareNeed(needId);
-        const level = getNeedLevel(state.care[needId] ?? null, need.decayHours);
-        const goldGranted = level < CARE_PAY_BELOW ? CARE_GOLD : 0;
 
         set({
-          care: { ...state.care, [needId]: new Date().toISOString() },
-          gold: state.gold + goldGranted,
+          supplies: {
+            ...state.supplies,
+            [supplyId]: state.supplies[supplyId] - 1,
+          },
+          care: {
+            ...state.care,
+            [needId]: applyRestore(
+              state.care[needId] ?? null,
+              need.decayHours,
+              supply.restores
+            ),
+          },
         });
 
         queueCloudSave(get);
 
-        return { goldGranted };
+        return true;
+      },
+
+      buySupply: (supplyId) => {
+        const state = get();
+        const supply = getCareSupply(supplyId);
+
+        if (!supply) return false;
+        if (state.gold < supply.cost) return false;
+        if ((state.supplies[supplyId] ?? 0) >= SUPPLY_MAX) return false;
+
+        set({
+          gold: state.gold - supply.cost,
+          supplies: {
+            ...state.supplies,
+            [supplyId]: (state.supplies[supplyId] ?? 0) + 1,
+          },
+          stats: {
+            ...state.stats,
+            goldSpent: state.stats.goldSpent + supply.cost,
+          },
+        });
+
+        queueCloudSave(get);
+
+        return true;
       },
 
       petGhost: () => {
@@ -1438,6 +1495,8 @@ export const useGameState = create<GameState>()(
           tipCursor: 0,
           lastSeenDate: formatLocalDate(new Date()),
           care: createFreshCare(),
+          supplies: { ...STARTER_SUPPLIES },
+          starterSuppliesGiven: true,
           dailyProgress: createDailyProgress(),
           weeklyProgress: createWeeklyProgress(),
           pendingClaims: [],
@@ -1546,6 +1605,18 @@ export const useGameState = create<GameState>()(
 
           const nextCare = mergeCare(state.care, cloudState?.statsData?.care);
 
+          // Припасы тратятся, поэтому «максимум» тут нельзя — воскресит
+          // съеденное. Ведём себя как с голдой: облако главнее.
+          const cloudSupplies = cloudState?.statsData?.supplies;
+          const starterGiven =
+            cloudState?.statsData?.starterSuppliesGiven ??
+            state.starterSuppliesGiven;
+          const suppliesFromCloud = cloudSupplies ?? state.supplies;
+          // Стартовый набор — один раз за жизнь аккаунта.
+          const nextSupplies = starterGiven
+            ? suppliesFromCloud
+            : { ...STARTER_SUPPLIES, ...suppliesFromCloud };
+
           // Поздравления с уровнем — тоже только вперёд.
           const nextCelebratedLevel = Math.max(
             state.celebratedLevel,
@@ -1575,6 +1646,8 @@ export const useGameState = create<GameState>()(
             celebratedStageLevel: nextCelebratedStageLevel,
             celebratedLevel: nextCelebratedLevel,
             care: nextCare,
+            supplies: nextSupplies,
+            starterSuppliesGiven: true,
             dailyProgress: nextDailyProgress,
             weeklyProgress: nextWeeklyProgress,
             ...getLevelData(nextXp),
@@ -1636,6 +1709,8 @@ export const useGameState = create<GameState>()(
         celebratedStages: state.celebratedStages,
         celebratedLevel: state.celebratedLevel,
         care: state.care,
+        supplies: state.supplies,
+        starterSuppliesGiven: state.starterSuppliesGiven,
         pettingDate: state.pettingDate,
         pettingCount: state.pettingCount,
         quizDate: state.quizDate,
