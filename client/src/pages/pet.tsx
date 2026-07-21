@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
+import { useGameState } from "@/hooks/use-game-state";
+import { getStreakInfo } from "@/game/streak";
 import { TopBar } from "@/components/top-bar";
 import {
   motion,

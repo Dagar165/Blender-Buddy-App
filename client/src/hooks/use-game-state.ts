@@ -23,65 +23,47 @@ import {
   type CareNeedId,
 } from "@/lib/care-config";
 import { PET_STAGES, getPetStage } from "@/lib/pet-config";
+import { getLevelData, type LevelData } from "@/game/level";
+import {
+  dateFromDailyCycleKey,
+  formatLocalDate,
+  getDailyCycleKey,
+  getWeeklyCycleKey,
+  parseLocalDate,
+  previousDayString,
+} from "@/game/dates";
+import {
+  STREAK_BONUS_CAP,
+  chainLengthEndingAt,
+  findFreezeGapDay,
+  getPendingDailyDays,
+  getStreakBonusPercent,
+  getStreakInfo,
+  mergeStreakDays,
+} from "@/game/streak";
+import {
+  flushCloudSave,
+  getTelegramCloudStorage,
+  getTelegramDisplayName,
+  getTelegramUser,
+  queueCloudSave,
+  readCloudState,
+  writeCloudState,
+} from "@/game/cloud";
 
 /**
- * Кривая опыта (пересчитана 19.07.2026 по решению владельца).
+ * Игровой стейт: всё, что помнит приложение про ученика.
  *
- * Считали так: идеальный будний день = шаг проекта недели (150 XP)
- * + разминка (40) + квиз (20) + поглаживания (10) + доля самого проекта
- * (400 XP за неделю ≈ 57) ≈ 277 XP, плюс бонус серии до +50% и зелье ×2 →
- * около 540–570 XP в день у отличника. 30-й уровень стоит ~23 000 XP, то есть
- * берётся примерно за 43 дня — полтора месяца при соблюдении ВСЕХ критериев,
- * как и просил владелец (20.07: разминка добавила ~40 XP в день, срок
- * сдвинулся с 50 дней к 43 — это ещё внутри «полтора-два месяца»).
+ * Что вынесено в отдельные файлы и сюда НЕ возвращать:
+ * - `@/game/level`  — кривая опыта и расчёт уровня;
+ * - `@/game/dates`  — местные даты, ключи дня и недели;
+ * - `@/game/streak` — арифметика серии дней и заморозок;
+ * - `@/game/cloud`  — чтение и запись в облако Telegram.
  *
- * Если будешь менять награды за шаги (projects-config.ts) — пересчитай и это.
- *
- * Форма кривой: цена уровня растёт линейно (120 XP за 2-й, +48 XP за каждый
- * следующий). Первые уровни намеренно быстрые — новичок должен сразу увидеть
- * движение; растянута середина и верх.
- *
- * Если менять — держи в голове обе стороны: и отличника с зельями (~460 XP/день),
- * и обычного ребёнка с одним заданием (~80 XP/день).
+ * Здесь остались сам стор и действия. Порядок действий в файле — по механикам:
+ * задания и награды → покупки → медали и праздники → уход → питомец →
+ * квиз и сундук → сохранение и облако.
  */
-export const LEVEL_THRESHOLDS = [
-  0,     // level 1
-  120,   // level 2
-  290,   // level 3
-  500,   // level 4
-  770,   // level 5
-  1080,  // level 6
-  1440,  // level 7
-  1850,  // level 8
-  2300,  // level 9
-  2800,  // level 10
-  3360,  // level 11
-  3960,  // level 12
-  4600,  // level 13
-  5300,  // level 14
-  6050,  // level 15
-  6840,  // level 16
-  7680,  // level 17
-  8570,  // level 18
-  9500,  // level 19
-  10490, // level 20
-  11520, // level 21
-  12600, // level 22
-  13730, // level 23
-  14900, // level 24
-  16130, // level 25
-  17400, // level 26
-  18720, // level 27
-  20090, // level 28
-  21500, // level 29
-  22970, // level 30
-];
-
-// Streak: a day counts once a daily quest SUBMITTED that day is approved.
-// Crediting by submission date keeps curator review lag from burning streaks.
-export const STREAK_BONUS_PER_DAY = 5;
-export const STREAK_BONUS_CAP = 50;
-const STREAK_DAYS_KEPT = 120;
 
 // Petting the ghost grants a tiny XP treat, capped per day so the real
 // progress still comes from quests.
@@ -91,15 +73,6 @@ export const PETTING_DAILY_LIMIT = 10;
 const randomTipInterval = () =>
   TIP_MIN_TAPS + Math.floor(Math.random() * (TIP_MAX_TAPS - TIP_MIN_TAPS + 1));
 
-type LevelData = {
-  level: number;
-  currentLevelStartXp: number;
-  nextLevelXp: number;
-  progressInLevel: number;
-  requiredForNextLevel: number;
-  xpToNextLevel: number;
-  xpProgress: number;
-};
 
 type RecurringQuestProgress = {
   cycleKey: string;
@@ -136,71 +109,6 @@ export type PendingClaim = {
   createdAt: string;
 };
 
-type TelegramUserData = {
-  id?: number;
-  username?: string;
-  first_name?: string;
-};
-
-type TelegramCloudStorage = {
-  setItem: (
-    key: string,
-    value: string,
-    callback?: (error: unknown, stored?: boolean) => void
-  ) => void;
-  getItems: (
-    keys: string[],
-    callback: (error: unknown, values?: Record<string, string>) => void
-  ) => void;
-};
-
-type CloudProfileData = {
-  username: string;
-  isUsernameCustomized: boolean;
-};
-
-type CloudProgressData = {
-  xp: number;
-  gold: number;
-  inventory: string[];
-  streakFreezes?: number;
-  doublePotions?: number;
-  potionActive?: boolean;
-};
-
-type CloudRecurringData = {
-  dailyProgress: RecurringQuestProgress;
-  weeklyProgress: RecurringQuestProgress;
-};
-
-type CloudCompletedData = {
-  completedQuests: string[];
-};
-
-type CloudStreakData = {
-  streakDays: string[];
-  frozenDays?: string[];
-};
-
-type CloudStatsData = {
-  stats: GameStats;
-  seenAchievements: string[];
-  celebratedStageLevel?: number;
-  celebratedStages?: number[];
-  celebratedLevel?: number;
-  care?: Partial<Record<CareNeedId, string | null>>;
-  supplies?: Record<string, number>;
-  starterSuppliesGiven?: boolean;
-};
-
-type LoadedCloudState = {
-  profile?: Partial<CloudProfileData>;
-  progress?: Partial<CloudProgressData>;
-  recurring?: Partial<CloudRecurringData>;
-  completed?: Partial<CloudCompletedData>;
-  streak?: Partial<CloudStreakData>;
-  statsData?: Partial<CloudStatsData>;
-};
 
 export interface GameState extends LevelData {
   username: string;
@@ -355,58 +263,6 @@ type PersistedGameState = Pick<
   | "pendingClaims"
 >;
 
-const CLOUD_PROFILE_KEY = "bb_profile_v1";
-const CLOUD_PROGRESS_KEY = "bb_progress_v1";
-const CLOUD_RECURRING_KEY = "bb_recurring_v1";
-const CLOUD_COMPLETED_KEY = "bb_completed_v1";
-const CLOUD_STREAK_KEY = "bb_streak_v1";
-const CLOUD_STATS_KEY = "bb_stats_v1";
-
-let cloudSaveTimer: ReturnType<typeof setTimeout> | null = null;
-
-const getLevelData = (totalXp: number): LevelData => {
-  let level = 1;
-
-  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (totalXp >= LEVEL_THRESHOLDS[i]) {
-      level = i + 1;
-      break;
-    }
-  }
-
-  const currentLevelStartXp = LEVEL_THRESHOLDS[level - 1];
-  const nextLevelXp = LEVEL_THRESHOLDS[level] ?? currentLevelStartXp;
-
-  if (level >= LEVEL_THRESHOLDS.length) {
-    return {
-      level,
-      currentLevelStartXp,
-      nextLevelXp: currentLevelStartXp,
-      progressInLevel: totalXp - currentLevelStartXp,
-      requiredForNextLevel: 0,
-      xpToNextLevel: 0,
-      xpProgress: 100,
-    };
-  }
-
-  const progressInLevel = totalXp - currentLevelStartXp;
-  const requiredForNextLevel = nextLevelXp - currentLevelStartXp;
-  const xpToNextLevel = nextLevelXp - totalXp;
-  const xpProgress =
-    requiredForNextLevel > 0
-      ? Math.min(100, (progressInLevel / requiredForNextLevel) * 100)
-      : 100;
-
-  return {
-    level,
-    currentLevelStartXp,
-    nextLevelXp,
-    progressInLevel,
-    requiredForNextLevel,
-    xpToNextLevel,
-    xpProgress,
-  };
-};
 
 // Short celebratory burst — long confetti rain hides the whole screen.
 const triggerRewardConfetti = () => {
@@ -438,138 +294,7 @@ const triggerRewardConfetti = () => {
   frame();
 };
 
-const pad2 = (value: number) => String(value).padStart(2, "0");
 
-const formatLocalDate = (date: Date) => {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-};
-
-const getDailyCycleKey = (date = new Date()) => {
-  return `daily-${formatLocalDate(date)}`;
-};
-
-const getStartOfWeek = (date = new Date()) => {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-
-  const day = result.getDay(); // 0 = Sunday, 1 = Monday, ...
-  const diffFromMonday = day === 0 ? 6 : day - 1;
-
-  result.setDate(result.getDate() - diffFromMonday);
-  return result;
-};
-
-const getWeeklyCycleKey = (date = new Date()) => {
-  return `weekly-${formatLocalDate(getStartOfWeek(date))}`;
-};
-
-const previousDayString = (day: string) => {
-  const [year, month, date] = day.split("-").map(Number);
-  const parsed = new Date(year, (month || 1) - 1, date || 1);
-  parsed.setDate(parsed.getDate() - 1);
-  return formatLocalDate(parsed);
-};
-
-const dateFromDailyCycleKey = (cycleKey: string) => {
-  return cycleKey.startsWith("daily-") ? cycleKey.slice("daily-".length) : null;
-};
-
-// «2026-07-20» → локальная полночь. Через new Date(строка) нельзя: такая
-// строка читается как UTC и западнее Гринвича съезжает на день назад.
-const parseLocalDate = (day: string) => {
-  const [year, month, date] = day.split("-").map(Number);
-  return new Date(year, (month || 1) - 1, date || 1);
-};
-
-const chainLengthEndingAt = (coveredDays: Set<string>, day: string) => {
-  let length = 0;
-  let cursor = day;
-
-  while (coveredDays.has(cursor)) {
-    length += 1;
-    cursor = previousDayString(cursor);
-  }
-
-  return length;
-};
-
-const getStreakBonusPercent = (streak: number) => {
-  return Math.min(STREAK_BONUS_CAP, Math.max(0, (streak - 1) * STREAK_BONUS_PER_DAY));
-};
-
-const mergeStreakDays = (base: string[], extra: string[]) => {
-  return Array.from(new Set([...base, ...extra])).sort().slice(-STREAK_DAYS_KEPT);
-};
-
-// A freeze can only patch YESTERDAY: it must reconnect a real chain (there was
-// a streak the day before), and only when no pending claim already covers it —
-// a claim awaiting review is not a missed day.
-const findFreezeGapDay = (
-  confirmedDays: Set<string>,
-  pendingDays: Set<string>
-) => {
-  const yesterday = previousDayString(formatLocalDate(new Date()));
-
-  if (confirmedDays.has(yesterday) || pendingDays.has(yesterday)) return null;
-  if (chainLengthEndingAt(confirmedDays, previousDayString(yesterday)) === 0) {
-    return null;
-  }
-
-  return yesterday;
-};
-
-const getPendingDailyDays = (pendingClaims: PendingClaim[]) => {
-  const days = new Set<string>();
-
-  for (const claim of pendingClaims) {
-    if (claim.questType !== "daily") continue;
-    const day = dateFromDailyCycleKey(claim.cycleKey);
-    if (day) days.add(day);
-  }
-
-  return days;
-};
-
-// True the day after a freeze saved the streak — the UI can tell the student.
-export const wasYesterdaySavedByFreeze = (frozenDays: string[]) => {
-  return frozenDays.includes(previousDayString(formatLocalDate(new Date())));
-};
-
-export type StreakInfo = {
-  current: number;
-  todayCounted: boolean;
-  atRisk: boolean;
-  bonusPercent: number;
-};
-
-// Pending (not yet reviewed) daily claims light the flame right away; if the
-// curator rejects them, the claim disappears and the day is uncovered again.
-export const getStreakInfo = (
-  streakDays: string[],
-  pendingClaims: PendingClaim[],
-  frozenDays: string[] = []
-): StreakInfo => {
-  const covered = new Set([...streakDays, ...frozenDays]);
-
-  for (const claim of pendingClaims) {
-    if (claim.questType !== "daily") continue;
-    const day = dateFromDailyCycleKey(claim.cycleKey);
-    if (day) covered.add(day);
-  }
-
-  const today = formatLocalDate(new Date());
-  const todayCounted = covered.has(today);
-  const current = todayCounted
-    ? chainLengthEndingAt(covered, today)
-    : chainLengthEndingAt(covered, previousDayString(today));
-
-  return {
-    current,
-    todayCounted,
-    atRisk: !todayCounted && current > 0,
-    bonusPercent: getStreakBonusPercent(current),
-  };
-};
 
 // Новый ученик встречает призрака сытым и довольным: шкалы начинают таять
 // с этой минуты, а не с эпохи Unix.
@@ -648,259 +373,6 @@ const getRecurringProgressPatch = (
   return hasChanges ? patch : null;
 };
 
-const getTelegramWebApp = () => {
-  if (typeof window === "undefined") return null;
-  return (window as any).Telegram?.WebApp ?? null;
-};
-
-const getTelegramCloudStorage = (): TelegramCloudStorage | null => {
-  const webApp = getTelegramWebApp();
-  const cloudStorage = webApp?.CloudStorage;
-
-  if (!cloudStorage) return null;
-  if (typeof cloudStorage.getItems !== "function") return null;
-  if (typeof cloudStorage.setItem !== "function") return null;
-
-  return cloudStorage as TelegramCloudStorage;
-};
-
-const getTelegramUser = (): TelegramUserData | null => {
-  const webApp = getTelegramWebApp();
-  return webApp?.initDataUnsafe?.user ?? null;
-};
-
-const getTelegramDisplayName = (user: TelegramUserData | null) => {
-  if (!user) return "";
-  if (user.first_name?.trim()) return user.first_name.trim();
-  if (user.username?.trim()) return user.username.trim();
-  return "";
-};
-
-const safeParseJson = <T>(value?: string | null): T | null => {
-  if (!value) return null;
-
-  try {
-    return JSON.parse(value) as T;
-  } catch (error) {
-    console.warn("Failed to parse cloud payload", error);
-    return null;
-  }
-};
-
-const cloudSetItem = (key: string, value: string): Promise<boolean> => {
-  const cloudStorage = getTelegramCloudStorage();
-
-  if (!cloudStorage) {
-    return Promise.resolve(false);
-  }
-
-  return new Promise((resolve) => {
-    cloudStorage.setItem(key, value, (error, stored) => {
-      if (error) {
-        console.warn(`CloudStorage setItem failed for key "${key}"`, error);
-        resolve(false);
-        return;
-      }
-
-      resolve(Boolean(stored));
-    });
-  });
-};
-
-const readCloudState = async (): Promise<LoadedCloudState | null> => {
-  const cloudStorage = getTelegramCloudStorage();
-
-  if (!cloudStorage) {
-    return null;
-  }
-
-  return new Promise((resolve) => {
-    cloudStorage.getItems(
-      [
-        CLOUD_PROFILE_KEY,
-        CLOUD_PROGRESS_KEY,
-        CLOUD_RECURRING_KEY,
-        CLOUD_COMPLETED_KEY,
-        CLOUD_STREAK_KEY,
-        CLOUD_STATS_KEY,
-      ],
-      (error, values) => {
-        if (error) {
-          console.warn("CloudStorage getItems failed", error);
-          resolve(null);
-          return;
-        }
-
-        const profile = safeParseJson<CloudProfileData>(values?.[CLOUD_PROFILE_KEY]);
-        const progress = safeParseJson<CloudProgressData>(values?.[CLOUD_PROGRESS_KEY]);
-        const recurring = safeParseJson<CloudRecurringData>(values?.[CLOUD_RECURRING_KEY]);
-        const completed = safeParseJson<CloudCompletedData>(values?.[CLOUD_COMPLETED_KEY]);
-        const streak = safeParseJson<CloudStreakData>(values?.[CLOUD_STREAK_KEY]);
-        const statsData = safeParseJson<CloudStatsData>(values?.[CLOUD_STATS_KEY]);
-
-        const hasAnyData = Boolean(
-          profile || progress || recurring || completed || streak || statsData
-        );
-
-        if (!hasAnyData) {
-          resolve(null);
-          return;
-        }
-
-        resolve({
-          profile: profile ?? undefined,
-          progress: progress ?? undefined,
-          recurring: recurring ?? undefined,
-          completed: completed ?? undefined,
-          streak: streak ?? undefined,
-          statsData: statsData ?? undefined,
-        });
-      }
-    );
-  });
-};
-
-const buildCloudPayloads = (state: Pick<
-  GameState,
-  | "username"
-  | "isUsernameCustomized"
-  | "xp"
-  | "gold"
-  | "inventory"
-  | "dailyProgress"
-  | "weeklyProgress"
-  | "completedQuests"
-  | "streakDays"
-  | "frozenDays"
-  | "streakFreezes"
-  | "doublePotions"
-  | "potionActive"
-  | "stats"
-  | "seenAchievements"
-  | "celebratedStageLevel"
-  | "celebratedStages"
-  | "celebratedLevel"
-  | "care"
-  | "supplies"
-  | "starterSuppliesGiven"
->) => {
-  const profilePayload: CloudProfileData = {
-    username: state.username,
-    isUsernameCustomized: state.isUsernameCustomized,
-  };
-
-  const progressPayload: CloudProgressData = {
-    xp: state.xp,
-    gold: state.gold,
-    inventory: state.inventory,
-    streakFreezes: state.streakFreezes,
-    doublePotions: state.doublePotions,
-    potionActive: state.potionActive,
-  };
-
-  const recurringPayload: CloudRecurringData = {
-    dailyProgress: state.dailyProgress,
-    weeklyProgress: state.weeklyProgress,
-  };
-
-  const completedPayload: CloudCompletedData = {
-    completedQuests: state.completedQuests,
-  };
-
-  const streakPayload: CloudStreakData = {
-    streakDays: state.streakDays,
-    frozenDays: state.frozenDays,
-  };
-
-  const statsPayload: CloudStatsData = {
-    stats: state.stats,
-    seenAchievements: state.seenAchievements,
-    celebratedStageLevel: state.celebratedStageLevel,
-    celebratedStages: state.celebratedStages,
-    celebratedLevel: state.celebratedLevel,
-    care: state.care,
-    supplies: state.supplies,
-    starterSuppliesGiven: state.starterSuppliesGiven,
-  };
-
-  return {
-    profilePayload,
-    progressPayload,
-    recurringPayload,
-    completedPayload,
-    streakPayload,
-    statsPayload,
-  };
-};
-
-const writeCloudState = async (
-  state: Pick<
-    GameState,
-    | "username"
-    | "isUsernameCustomized"
-    | "xp"
-    | "gold"
-    | "inventory"
-    | "dailyProgress"
-    | "weeklyProgress"
-    | "completedQuests"
-    | "streakDays"
-    | "frozenDays"
-    | "streakFreezes"
-    | "doublePotions"
-    | "potionActive"
-    | "stats"
-    | "seenAchievements"
-    | "celebratedStageLevel"
-    | "celebratedStages"
-    | "celebratedLevel"
-    | "care"
-    | "supplies"
-    | "starterSuppliesGiven"
-  >
-): Promise<boolean> => {
-  if (!getTelegramCloudStorage()) {
-    return false;
-  }
-
-  const {
-    profilePayload,
-    progressPayload,
-    recurringPayload,
-    completedPayload,
-    streakPayload,
-    statsPayload,
-  } = buildCloudPayloads(state);
-
-  const results = await Promise.all([
-    cloudSetItem(CLOUD_PROFILE_KEY, JSON.stringify(profilePayload)),
-    cloudSetItem(CLOUD_PROGRESS_KEY, JSON.stringify(progressPayload)),
-    cloudSetItem(CLOUD_RECURRING_KEY, JSON.stringify(recurringPayload)),
-    cloudSetItem(CLOUD_COMPLETED_KEY, JSON.stringify(completedPayload)),
-    cloudSetItem(CLOUD_STREAK_KEY, JSON.stringify(streakPayload)),
-    cloudSetItem(CLOUD_STATS_KEY, JSON.stringify(statsPayload)),
-  ]);
-
-  return results.every(Boolean);
-};
-
-const queueCloudSave = (getState: () => GameState) => {
-  if (cloudSaveTimer) {
-    clearTimeout(cloudSaveTimer);
-  }
-
-  cloudSaveTimer = setTimeout(() => {
-    cloudSaveTimer = null;
-
-    const state = getState();
-
-    if (!state.cloudSyncAvailable) {
-      return;
-    }
-
-    void writeCloudState(state);
-  }, 700);
-};
 
 export const useGameState = create<GameState>()(
   persist(
@@ -1506,11 +978,7 @@ export const useGameState = create<GameState>()(
         // Сброс обязан немедленно перезаписать облако Telegram: отложенное
         // сохранение может не успеть до закрытия приложения, и тогда старые
         // данные «воскреснут» при следующем запуске из-за max/union-слияния.
-        if (cloudSaveTimer) {
-          clearTimeout(cloudSaveTimer);
-          cloudSaveTimer = null;
-        }
-        void writeCloudState(get());
+        void flushCloudSave(get());
       },
 
       bootstrapTelegramCloud: async () => {

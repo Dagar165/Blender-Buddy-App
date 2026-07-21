@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useGameState, getStreakInfo } from "@/hooks/use-game-state";
+import { useGameState } from "@/hooks/use-game-state";
+import { getStreakInfo } from "@/game/streak";
 import { Coins, Flame, Snowflake } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { hapticSelect } from "@/lib/haptics";

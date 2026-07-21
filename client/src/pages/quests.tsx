@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  useGameState,
-  getStreakInfo,
-  wasYesterdaySavedByFreeze,
-} from "@/hooks/use-game-state";
+import { useGameState } from "@/hooks/use-game-state";
+import { getStreakInfo, wasYesterdaySavedByFreeze } from "@/game/streak";
 import { TopBar } from "@/components/top-bar";
 import { motion, AnimatePresence } from "framer-motion";
 import {
