@@ -23,25 +23,39 @@ import type { PetStage } from "@/lib/pet-config";
 export type Equipped = Partial<Record<ClothingSlot, string>>;
 
 /**
- * Поправка размера вещей ГОЛОВЫ по стадиям.
+ * Поправка вещей ГОЛОВЫ по стадиям: размер И сдвиг.
  *
- * Мерки сняты линейкой по готовым картинкам (таблица — в документе
- * «JKids_Bot_промпты_картинок.md»): макушки всех стадий стоят на одной высоте,
- * рост и центр совпадают, но голова на 5-м уровне ШИРЕ остальных примерно
- * на 8%. Одежда рисуется на призраке 5-го уровня, поэтому на старших стадиях
- * её нужно чуть ужать — иначе шапка будет висеть по бокам головы.
+ * Одного множителя размера не хватило — владелец увидел это первым: на малыше
+ * вещи сидели совсем криво. Причина в том, что у стадий разная не только
+ * ширина головы, но и её ВЫСОТА в кадре: у малыша голова ниже и меньше,
+ * глаза на 37% высоты холста вместо 27%.
  *
- * Ключ — fromLevel стадии. Тела и рук это не касается: они совпадают.
- * У 1-й стадии (малыш из первой генерации) мерок нет — оставлен 1,
- * поправить, когда под неё будет что мерить.
+ * Мерки сняты линейкой по тем самым картинкам, что стоят в приложении
+ * (не по исходникам из папок — они бывают другой версии):
+ *
+ *   стадия      ширина головы   центр глаз (x, y)
+ *   1 малыш        36%           53,5 / 37
+ *   5 (базовая)    42%           55,5 / 27,5
+ *   12             39,3%         55   / 27
+ *   20             38,8%         54,5 / 27
+ *   30             38,7%         54,5 / 27
+ *
+ * Отсюда: масштаб = ширина головы стадии / 42, сдвиг = разница центров глаз
+ * после масштабирования. Всё в процентах квадрата призрака.
+ *
+ * Ключ — fromLevel стадии. Тела и рук это не касается.
  */
-export const HEAD_SCALE_BY_STAGE: Record<number, number> = {
-  1: 1,
-  5: 1,
-  12: 0.93,
-  20: 0.92,
-  30: 0.92,
+export type HeadFit = { scale: number; dx: number; dy: number };
+
+export const HEAD_FIT_BY_STAGE: Record<number, HeadFit> = {
+  1: { scale: 0.86, dx: -1.2, dy: 10.1 },
+  5: { scale: 1, dx: 0, dy: 0 },
+  12: { scale: 0.93, dx: 0, dy: 0 },
+  20: { scale: 0.92, dx: 0, dy: 0 },
+  30: { scale: 0.92, dx: 0, dy: 0 },
 };
+
+const NO_FIT: HeadFit = { scale: 1, dx: 0, dy: 0 };
 
 // Всё, что сидит на голове, ужимается вместе: шляпа, наушники и очки должны
 // съезжать одинаково, иначе на старших стадиях очки разъедутся со шляпой.
@@ -68,6 +82,10 @@ export type WornOverlay = {
   src: string;
   layer: number;
   scale: number;
+  // Сдвиг в процентах САМОЙ КАРТИНКИ одежды — CSS-проценты в translate
+  // считаются от размера элемента, а он в CLOTHING_FRAME раз больше призрака.
+  dxPercent: number;
+  dyPercent: number;
   transformOrigin: string;
 };
 
@@ -156,12 +174,15 @@ export const getWornOverlays = (
     .filter((item): item is ShopItem & { overlay: string } => Boolean(item.overlay))
     .map((item) => {
       const onHead = HEAD_SLOTS.includes(item.slot);
+      const fit = onHead ? HEAD_FIT_BY_STAGE[stage.fromLevel] ?? NO_FIT : NO_FIT;
 
       return {
         itemId: item.id,
         src: item.overlay,
         layer: getClothingSlot(item.slot).layer,
-        scale: onHead ? HEAD_SCALE_BY_STAGE[stage.fromLevel] ?? 1 : 1,
+        scale: fit.scale,
+        dxPercent: fit.dx / CLOTHING_FRAME,
+        dyPercent: fit.dy / CLOTHING_FRAME,
         transformOrigin: onHead ? HEAD_ORIGIN : "50% 50%",
       };
     })

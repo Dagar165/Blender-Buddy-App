@@ -47,7 +47,10 @@ export function Ghost({
             left: OVERLAY_LEFT,
             bottom: 0,
             zIndex: overlay.layer,
-            transform: overlay.scale === 1 ? undefined : `scale(${overlay.scale})`,
+            // Сначала масштаб вокруг середины головы, потом сдвиг — CSS читает
+            // список справа налево, а сдвиг мерится в исходном размере
+            // элемента, поэтому масштаб на него не влияет.
+            transform: `translate(${overlay.dxPercent}%, ${overlay.dyPercent}%) scale(${overlay.scale})`,
             transformOrigin: overlay.transformOrigin,
           }}
         />
