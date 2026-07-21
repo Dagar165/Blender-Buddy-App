@@ -35,17 +35,10 @@ jobs:
       # тогда сломанный код просто не выкладывается, а на сайте остаётся
       # предыдущая рабочая версия.
       - name: Check types
-        id: typecheck
-        continue-on-error: true
-        run: npx tsc --noEmit 2>&1 | tee typecheck.txt
+        run: npx tsc --noEmit
 
       - name: Build site
         run: npx vite build
-
-      # Отчёт кладётся рядом с сайтом: логи сборки закрыты, а так ошибки
-      # видно по адресу /typecheck.txt. Временно, снять после разбора.
-      - name: Publish typecheck report
-        run: cp typecheck.txt dist/public/typecheck.txt || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
