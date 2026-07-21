@@ -336,6 +336,12 @@ export default function ShopPage() {
                   <Icon className="w-8 h-8" />
                 </div>
 
+                {item.legendary && (
+                  <span className="mb-1 rounded-full bg-amber-100 dark:bg-amber-500/15 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-300">
+                    Легендарная
+                  </span>
+                )}
+
                 <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-3 h-10 flex items-center">{item.name}</h3>
 
                 <button

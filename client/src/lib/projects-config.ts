@@ -41,11 +41,11 @@ export type WeeklyProject = {
 // Награда за шаг дня. Шаг теперь единственное задание буднего дня, поэтому
 // он стоит дороже прежних мелких дейликов — см. кривую в use-game-state.ts.
 const STEP_XP = 150;
-const STEP_GOLD = 60;
+const STEP_GOLD = 40;
 
 // Награда за сам проект — приходит, когда ученик сдаёт его целиком.
 const PROJECT_XP = 400;
-const PROJECT_GOLD = 200;
+const PROJECT_GOLD = 120;
 
 const step = (
   id: string,
@@ -345,7 +345,7 @@ export function getPaceIndex(dateKey: string): number {
   return Math.min(4, Math.max(0, weekday - 1));
 }
 
-export type StepState = "done" | "pending" | "next" | "locked";
+export type StepState = "done" | "pending" | "next" | "soon" | "locked";
 
 /**
  * Состояние каждого шага для карточки недели.
@@ -362,17 +362,20 @@ export type StepState = "done" | "pending" | "next" | "locked";
 export function getStepStates(
   project: WeeklyProject,
   doneIds: string[],
-  pendingIds: string[]
+  pendingIds: string[],
+  // Докуда открыл календарь: дальше сегодня не уйти (см. getPaceIndex).
+  openUpTo: number = project.steps.length - 1
 ): StepState[] {
   let nextFound = false;
 
-  return project.steps.map((step) => {
+  return project.steps.map((step, index) => {
     if (doneIds.includes(step.id)) return "done";
     if (pendingIds.includes(step.id)) return "pending";
 
     if (!nextFound) {
       nextFound = true;
-      return "next";
+      // Очередь дошла, а календарь — ещё нет: это «завтра», а не «сейчас».
+      return index <= openUpTo ? "next" : "soon";
     }
 
     return "locked";

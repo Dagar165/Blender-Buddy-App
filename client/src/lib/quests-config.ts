@@ -40,7 +40,7 @@ export type QuestsConfig = {
  * Каждый будний день выдаётся одна разминка; за неделю они не повторяются.
  */
 export const WARMUP_XP = 40;
-export const WARMUP_GOLD = 25;
+export const WARMUP_GOLD = 15;
 
 const warmup = (
   id: string,
@@ -142,7 +142,7 @@ export const WEEKEND_QUESTS: QuestDefinition[] = [
       "Полистай чужие 3D-работы — в нашем канале, на ArtStation или где сам смотришь. Выбери одну, которая понравилась больше всех.",
     result: "Скриншот работы и одна строчка: что именно тебя в ней зацепило.",
     xpReward: 60,
-    goldReward: 25,
+    goldReward: 20,
   },
   {
     id: "weekend-breakdown",
@@ -151,7 +151,7 @@ export const WEEKEND_QUESTS: QuestDefinition[] = [
       "Возьми любую понравившуюся 3D-работу и подумай, из каких простых форм её можно собрать. Куб, цилиндр, шар — что там в основе?",
     result: "Скриншот работы и 2–3 предложения твоего разбора.",
     xpReward: 60,
-    goldReward: 25,
+    goldReward: 20,
   },
   {
     id: "weekend-references",
@@ -160,7 +160,7 @@ export const WEEKEND_QUESTS: QuestDefinition[] = [
       "Придумай, что хочешь смоделить когда-нибудь, и накидай 5–10 картинок по теме. Пусть лежат наготове.",
     result: "Скриншот папки или доски с собранными картинками.",
     xpReward: 60,
-    goldReward: 25,
+    goldReward: 20,
   },
   {
     id: "weekend-timelapse",
@@ -169,7 +169,7 @@ export const WEEKEND_QUESTS: QuestDefinition[] = [
       "Найди таймлапс или урок, где кто-то собирает модель, и посмотри минут десять. Следи за руками, а не за результатом.",
     result: "Скриншот видео и один приём, который ты подметил.",
     xpReward: 60,
-    goldReward: 25,
+    goldReward: 20,
   },
   {
     id: "weekend-cleanup",
@@ -178,7 +178,7 @@ export const WEEKEND_QUESTS: QuestDefinition[] = [
       "Открой любой свой прошлый проект: переименуй объекты понятно, удали лишнее, сохрани заново.",
     result: "Скриншот списка объектов (Outliner) с понятными именами.",
     xpReward: 60,
-    goldReward: 25,
+    goldReward: 20,
   },
   {
     id: "weekend-show-work",
@@ -187,7 +187,7 @@ export const WEEKEND_QUESTS: QuestDefinition[] = [
       "Выложи любую свою сцену в чат школы — даже если кажется, что недоделано. Именно так и растут быстрее.",
     result: "Скриншот твоей публикации.",
     xpReward: 60,
-    goldReward: 25,
+    goldReward: 20,
   },
 ];
 

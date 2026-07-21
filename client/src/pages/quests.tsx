@@ -197,12 +197,14 @@ function WeekPath({
   project,
   doneIds,
   pendingIds,
+  openUpTo,
 }: {
   project: WeeklyProject;
   doneIds: string[];
   pendingIds: string[];
+  openUpTo: number;
 }) {
-  const states = getStepStates(project, doneIds, pendingIds);
+  const states = getStepStates(project, doneIds, pendingIds, openUpTo);
   const doneCount = states.filter((state) => state === "done").length;
 
   return (
@@ -212,7 +214,7 @@ function WeekPath({
     >
       <div className="flex items-center justify-between gap-3 mb-1">
         <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-secondary">
-          Путь недели
+          Путь создателя
         </p>
         <span className="font-mono text-[11px] font-bold text-slate-400 dark:text-slate-500">
           {doneCount} из {project.steps.length}
@@ -234,7 +236,8 @@ function WeekPath({
           const isDone = state === "done";
           const isPending = state === "pending";
           const isNext = state === "next";
-          const isLocked = state === "locked";
+          const isSoon = state === "soon";
+          const isLocked = state === "locked" || isSoon;
 
           return (
             <div
@@ -286,6 +289,11 @@ function WeekPath({
               {isNext && (
                 <span className="shrink-0 text-[11px] font-bold text-secondary">
                   сейчас
+                </span>
+              )}
+              {isSoon && (
+                <span className="shrink-0 text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                  завтра
                 </span>
               )}
               {isPending && (
@@ -877,9 +885,9 @@ export default function QuestsPage() {
                       >
                         <Lock className="w-4 h-4 mt-0.5 shrink-0 text-slate-400 dark:text-slate-500" />
                         <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
-                          Шаг на сегодня закрыт — следующий откроется завтра.
-                          Проект собирается по одному шагу в день, так у каждого
-                          куска есть время получиться.
+                          На сегодня всё — следующий шаг откроется завтра.
+                          Проект идёт по шагу в день: так он и получается
+                          аккуратным, и не съедает весь вечер.
                         </p>
                       </motion.div>
                     )}
@@ -889,6 +897,9 @@ export default function QuestsPage() {
                         project={weekProject}
                         doneIds={weekDoneIds}
                         pendingIds={weekPendingIds}
+                        openUpTo={getPaceIndex(
+                          dailyProgress.cycleKey.slice("daily-".length)
+                        )}
                       />
                     )}
 
