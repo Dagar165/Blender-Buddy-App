@@ -344,7 +344,10 @@ export default function PetPage() {
                 />
               </motion.div>
 
-              <div className="relative flex items-center justify-center mt-3">
+              {/* mt-9, а не mt-3: шляпа торчит выше макушки на 12% кадра,
+                  и на прежнем отступе её кончик со звездой уезжал под пузырь
+                  с репликой. Опускаем призрака, а не убираем пузырь. */}
+              <div className="relative flex items-center justify-center mt-9">
                 {/* Сердечки от поглаживания */}
                 <AnimatePresence>
                   {hearts.map((heart) => (
