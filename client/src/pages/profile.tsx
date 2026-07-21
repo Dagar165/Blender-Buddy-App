@@ -12,15 +12,12 @@ import {
   Sun,
   Moon,
   ExternalLink,
+  SlidersHorizontal,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { setTheme, useTheme } from "@/lib/theme";
 import { DevPanel } from "@/components/dev-panel";
-import {
-  DEV_TAPS_NEEDED,
-  DEV_TAP_WINDOW_MS,
-  isDevUser,
-} from "@/lib/dev-config";
+import { isDevUser } from "@/lib/dev-config";
 import {
   HELPER_BOT,
   SOCIAL_LINKS,
@@ -40,6 +37,7 @@ export default function ProfilePage() {
     inventory,
     stats,
     telegramUserId,
+    telegramUsername,
     setUsername,
     resetGame,
   } = useGameState();
@@ -51,21 +49,8 @@ export default function ProfilePage() {
   >(null);
   const [showDevPanel, setShowDevPanel] = useState(false);
 
-  // Отладочная панель открывается семью быстрыми нажатиями по карточке
-  // со статистикой — случайно так не натыкать. Подробности в lib/dev-config.ts.
-  const devTaps = useRef<number[]>([]);
-
-  const handleStatsTap = () => {
-    const now = Date.now();
-    devTaps.current = [...devTaps.current, now].filter(
-      (stamp) => now - stamp < DEV_TAP_WINDOW_MS
-    );
-
-    if (devTaps.current.length >= DEV_TAPS_NEEDED) {
-      devTaps.current = [];
-      if (isDevUser(telegramUserId)) setShowDevPanel(true);
-    }
-  };
+  // Кнопка панели видна только владельцу — список в lib/dev-config.ts.
+  const canUseDevPanel = isDevUser(telegramUserId, telegramUsername);
 
   const achievements = evaluateAchievements(
     buildAchievementSnapshot({ stats, level, inventory })
@@ -171,10 +156,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Статистика — строки «название → значение», как панель свойств */}
-        <div
-          onClick={handleStatsTap}
-          className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-6 overflow-hidden"
-        >
+        <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-6 overflow-hidden">
           {[
             {
               label: "Заданий сделано",
@@ -372,6 +354,15 @@ export default function ProfilePage() {
             </button>
           ))}
         </div>
+
+        {canUseDevPanel && (
+          <button
+            onClick={() => setShowDevPanel(true)}
+            className="w-full mb-3 py-4 flex items-center justify-center gap-2 text-violet-600 dark:text-violet-300 font-bold bg-violet-50 dark:bg-violet-500/10 hover:bg-violet-100 dark:hover:bg-violet-500/20 rounded-2xl transition-colors"
+          >
+            <SlidersHorizontal className="w-5 h-5" /> Панель владельца
+          </button>
+        )}
 
         <button
           onClick={() => {

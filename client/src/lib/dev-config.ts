@@ -3,25 +3,36 @@
  * пересмотреть эволюцию. Нужна, чтобы смотреть, как выглядит игра на
  * разных ступенях, не проходя её заново.
  *
- * КАК ОТКРЫТЬ: на вкладке «Профиль» семь раз подряд нажать на карточку
- * со статистикой (быстро, за три секунды). Обычным нажатием не попасть.
+ * Кнопка «Панель владельца» видна на вкладке «Профиль» — но ТОЛЬКО тем,
+ * кто перечислен ниже. У остальных её нет в интерфейсе вообще.
  *
- * КОМУ ДОСТУПНА:
- * - список пуст  → панель открывается у любого, кто знает жест;
- * - список задан → только у перечисленных Telegram ID.
- *
- * Свой ID владелец видит внутри самой панели — как только он его назовёт,
- * сюда надо вписать число, и для учеников панель закроется совсем.
+ * Как добавить себе доступ: впиши свой ник в Telegram без «собаки»
+ * (регистр не важен) или числовой id. Ник надёжнее — его видно сразу,
+ * id пришлось бы где-то подсматривать.
  */
+export const DEV_USERNAMES: string[] = ["S_Fenchin"];
+
 export const DEV_USER_IDS: number[] = [];
 
-export const isDevUser = (telegramUserId: number | null): boolean => {
-  if (DEV_USER_IDS.length === 0) return true;
-  if (telegramUserId === null) return false;
+export const isDevUser = (
+  telegramUserId: number | null,
+  telegramUsername: string | null
+): boolean => {
+  // Вне Telegram (обычный браузер) панель открыта — там нет учеников,
+  // это режим разработки.
+  if (telegramUserId === null && telegramUsername === null) return true;
 
-  return DEV_USER_IDS.includes(telegramUserId);
+  if (telegramUserId !== null && DEV_USER_IDS.includes(telegramUserId)) {
+    return true;
+  }
+
+  if (telegramUsername) {
+    const normalized = telegramUsername.replace(/^@/, "").toLowerCase();
+
+    return DEV_USERNAMES.some(
+      (name) => name.replace(/^@/, "").toLowerCase() === normalized
+    );
+  }
+
+  return false;
 };
-
-// Сколько нажатий подряд и за какое время открывают панель.
-export const DEV_TAPS_NEEDED = 7;
-export const DEV_TAP_WINDOW_MS = 3000;
