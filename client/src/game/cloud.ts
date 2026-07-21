@@ -290,6 +290,7 @@ export const writeCloudState = async (
     | "xp"
     | "gold"
     | "inventory"
+    | "equipped"
     | "dailyProgress"
     | "weeklyProgress"
     | "completedQuests"
