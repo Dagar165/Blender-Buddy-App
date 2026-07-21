@@ -327,41 +327,67 @@ export function getWeekProject(weekCycleKey: string): WeeklyProject {
   return WEEKLY_PROJECTS[index];
 }
 
-// Шаг буднего дня: понедельник → шаг 1, пятница → шаг 5.
-// На выходных шага нет — там свободные задания.
-export function getStepForDate(dateKey: string): number | null {
+// Будни дают шаг проекта, выходные — свободные задания из quests-config.
+// Какой именно шаг, день недели больше не решает: см. getNextStep.
+export function isProjectDay(dateKey: string): boolean {
   const weekday = new Date(dateKey).getDay(); // 0 = воскресенье
 
-  if (weekday < 1 || weekday > 5) return null;
-
-  return weekday - 1;
+  return weekday >= 1 && weekday <= 5;
 }
 
-export const STEP_WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт"];
+// Каким по счёту шёл бы шаг, если делать по одному в будний день.
+// Нужно только для подсказки «ты идёшь с опережением / нагоняешь».
+export function getPaceIndex(dateKey: string): number {
+  const weekday = new Date(dateKey).getDay();
 
-export type StepState = "done" | "today" | "past" | "locked";
+  if (weekday === 0) return 4;
+
+  return Math.min(4, Math.max(0, weekday - 1));
+}
+
+export type StepState = "done" | "pending" | "next" | "locked";
 
 /**
  * Состояние каждого шага для карточки недели.
  *
- * Ребёнок должен видеть, что проект — итог пяти дней, а не задание, которое
- * можно сделать как попало за вечер: пройденные шаги с галочкой, сегодняшний
- * подсвечен, будущие закрыты с указанием дня, когда откроются.
+ * Шаги открываются ПО ПОРЯДКУ, а не по дням календаря. Раньше во вторник
+ * выдавался «шаг 2», и тот, кто пришёл в середине недели, не мог сделать
+ * первый — он был потерян навсегда. Теперь день недели ни на что не влияет:
+ * следующий шаг — просто первый несданный. Отстал — нагоняешь, награда та же,
+ * а за ежедневность и так платит бонус серии.
  *
- * «past» — день прошёл, а шаг не сдан: не наказываем, просто не притворяемся,
- * что он ещё сегодняшний.
+ * «pending» — отправлен куратору. Такой шаг не держит очередь: пока идёт
+ * проверка, следующий уже доступен, иначе ученик простаивал бы из-за нас.
  */
 export function getStepStates(
   project: WeeklyProject,
   doneIds: string[],
-  todayStepIndex: number | null
+  pendingIds: string[]
 ): StepState[] {
-  return project.steps.map((step, index) => {
-    if (doneIds.includes(step.id)) return "done";
-    // Выходные: будни этой недели уже позади, открывать нечего.
-    if (todayStepIndex === null) return "past";
-    if (index === todayStepIndex) return "today";
+  let nextFound = false;
 
-    return index < todayStepIndex ? "past" : "locked";
+  return project.steps.map((step) => {
+    if (doneIds.includes(step.id)) return "done";
+    if (pendingIds.includes(step.id)) return "pending";
+
+    if (!nextFound) {
+      nextFound = true;
+      return "next";
+    }
+
+    return "locked";
   });
+}
+
+// Первый шаг, который ещё не сдан и не отправлен, — то самое задание дня.
+export function getNextStep(
+  project: WeeklyProject,
+  doneIds: string[],
+  pendingIds: string[]
+) {
+  const index = project.steps.findIndex(
+    (step) => !doneIds.includes(step.id) && !pendingIds.includes(step.id)
+  );
+
+  return index === -1 ? null : { step: project.steps[index], index };
 }

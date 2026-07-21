@@ -5,7 +5,12 @@ import {
   type QuestDefinition,
   type QuestTab,
 } from "@/lib/quests-config";
-import { getStepForDate, getWeekProject } from "@/lib/projects-config";
+import {
+  getNextStep,
+  getPaceIndex,
+  getWeekProject,
+  isProjectDay,
+} from "@/lib/projects-config";
 
 function clampLimit(limit: number, poolLength: number) {
   if (poolLength <= 0) return 0;
@@ -87,7 +92,10 @@ function getWarmupForStep(stepIndex: number, weekCycleKey: string) {
 export function getActiveQuestsForTab(
   tab: QuestTab,
   cycleKey: string,
-  weekCycleKey?: string
+  weekCycleKey?: string,
+  // Шаги проекта, уже сданные и отправленные на проверку за эту неделю.
+  weekDoneIds: string[] = [],
+  weekPendingIds: string[] = []
 ): QuestDefinition[] {
   if (tab === "weekly") {
     const project = getWeekProject(cycleKey);
@@ -105,41 +113,42 @@ export function getActiveQuestsForTab(
   }
 
   const dateKey = cycleKey.replace("daily-", "");
-  const stepIndex = getStepForDate(dateKey);
 
   // Выходной — отдыхаем от моделинга: смотрим, разбираем, наводим порядок.
-  if (stepIndex === null || !weekCycleKey) {
+  if (!isProjectDay(dateKey) || !weekCycleKey) {
     return getActiveQuestsFromPool(WEEKEND_QUESTS, cycleKey, WEEKEND_LIMIT);
   }
 
   const project = getWeekProject(weekCycleKey);
-  const step = project.steps[stepIndex];
+  const next = getNextStep(project, weekDoneIds, weekPendingIds);
+  // Разминка своя на каждый будний день, поэтому считается по календарю,
+  // а не по номеру шага: иначе догоняющий получал бы одну и ту же дважды.
+  const warmup = getWarmupForStep(getPaceIndex(dateKey), weekCycleKey);
 
-  if (!step) {
-    return getActiveQuestsFromPool(WEEKEND_QUESTS, cycleKey, WEEKEND_LIMIT);
-  }
+  const warmupQuest = warmup
+    ? [
+        {
+          ...warmup,
+          stepLabel: "Разминка — на пять минут",
+          kind: "warmup" as const,
+        },
+      ]
+    : [];
 
-  const warmup = getWarmupForStep(stepIndex, weekCycleKey);
+  // Все шаги разобраны — остаётся сдать проект целиком во вкладке «Неделя».
+  if (!next) return warmupQuest;
 
   return [
     {
-      id: step.id,
-      title: step.title,
-      description: step.description,
-      result: step.result,
-      stepLabel: `Шаг ${stepIndex + 1} из ${project.steps.length} — ${project.title}`,
-      kind: "step",
-      xpReward: step.xpReward,
-      goldReward: step.goldReward,
+      id: next.step.id,
+      title: next.step.title,
+      description: next.step.description,
+      result: next.step.result,
+      stepLabel: `Шаг ${next.index + 1} из ${project.steps.length} — ${project.title}`,
+      kind: "step" as const,
+      xpReward: next.step.xpReward,
+      goldReward: next.step.goldReward,
     },
-    ...(warmup
-      ? [
-          {
-            ...warmup,
-            stepLabel: "Разминка — на пять минут",
-            kind: "warmup" as const,
-          },
-        ]
-      : []),
+    ...warmupQuest,
   ];
 }

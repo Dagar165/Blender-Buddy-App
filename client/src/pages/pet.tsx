@@ -197,10 +197,16 @@ export default function PetPage() {
   // с первого взгляда» — главный экран красивый, но немой. Одна строка-кнопка
   // отвечает на этот вопрос и уводит туда, где происходит дело.
   const todo = useMemo(() => {
+    const pendingDailyIds = pendingClaims
+      .filter((claim) => claim.questType === "daily")
+      .map((claim) => claim.questId);
+
     const quests = getActiveQuestsForTab(
       "daily",
       dailyProgress.cycleKey,
-      weeklyProgress.cycleKey
+      weeklyProgress.cycleKey,
+      weeklyProgress.weekDoneIds ?? [],
+      pendingDailyIds
     );
 
     const waiting = quests.filter((quest) => {
@@ -238,6 +244,7 @@ export default function PetPage() {
     dailyProgress.cycleKey,
     dailyProgress.completedIds,
     weeklyProgress.cycleKey,
+    weeklyProgress.weekDoneIds,
     pendingClaims,
   ]);
 

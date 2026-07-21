@@ -30,8 +30,6 @@ import {
   hapticWarn,
 } from "@/lib/haptics";
 import {
-  STEP_WEEKDAY_LABELS,
-  getStepForDate,
   getStepStates,
   getWeekProject,
   type WeeklyProject,
@@ -195,13 +193,13 @@ function QuestCard({
 function WeekPath({
   project,
   doneIds,
-  todayStepIndex,
+  pendingIds,
 }: {
   project: WeeklyProject;
   doneIds: string[];
-  todayStepIndex: number | null;
+  pendingIds: string[];
 }) {
-  const states = getStepStates(project, doneIds, todayStepIndex);
+  const states = getStepStates(project, doneIds, pendingIds);
   const doneCount = states.filter((state) => state === "done").length;
 
   return (
@@ -219,57 +217,55 @@ function WeekPath({
       </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug mb-4">
-        Каждый будний день открывается один шаг. Пройдёшь все пять — проект
-        собран.
+        Шаги открываются по очереди. Отстал — просто нагонишь, награда та же.
       </p>
 
       <div className="space-y-1.5">
         {project.steps.map((step, index) => {
           const state = states[index];
           const isDone = state === "done";
-          const isToday = state === "today";
+          const isPending = state === "pending";
+          const isNext = state === "next";
           const isLocked = state === "locked";
 
           return (
             <div
               key={step.id}
               className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 border ${
-                isToday
+                isNext
                   ? "bg-orange-50 border-orange-200 dark:bg-orange-500/10 dark:border-orange-500/30"
                   : isDone
                     ? "bg-green-50/60 border-green-100 dark:bg-green-500/10 dark:border-green-500/25"
-                    : "bg-slate-50 border-slate-100 dark:bg-muted dark:border-border"
+                    : isPending
+                      ? "bg-amber-50/60 border-amber-100 dark:bg-amber-500/10 dark:border-amber-500/25"
+                      : "bg-slate-50 border-slate-100 dark:bg-muted dark:border-border"
               }`}
             >
               <span
-                className={`shrink-0 w-9 text-center font-mono text-[11px] font-bold ${
-                  isToday
+                className={`shrink-0 w-5 text-center font-mono text-[11px] font-bold ${
+                  isNext
                     ? "text-secondary"
                     : isDone
                       ? "text-green-600 dark:text-green-400"
                       : "text-slate-400 dark:text-slate-500"
                 }`}
               >
-                {STEP_WEEKDAY_LABELS[index]}
+                {index + 1}
               </span>
 
               {isDone ? (
                 <CheckCircle className="w-4 h-4 shrink-0 text-green-500" />
+              ) : isPending ? (
+                <Clock className="w-4 h-4 shrink-0 text-amber-500" />
               ) : isLocked ? (
                 <Lock className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
               ) : (
-                <Circle
-                  className={`w-4 h-4 shrink-0 ${
-                    isToday
-                      ? "text-secondary"
-                      : "text-slate-300 dark:text-slate-600"
-                  }`}
-                />
+                <Circle className="w-4 h-4 shrink-0 text-secondary" />
               )}
 
               <span
                 className={`flex-1 min-w-0 truncate text-sm ${
-                  isToday
+                  isNext
                     ? "font-bold text-slate-800 dark:text-slate-100"
                     : isDone
                       ? "text-slate-400 dark:text-slate-500 line-through"
@@ -279,9 +275,14 @@ function WeekPath({
                 {step.title}
               </span>
 
-              {isToday && (
+              {isNext && (
                 <span className="shrink-0 text-[11px] font-bold text-secondary">
-                  сегодня
+                  сейчас
+                </span>
+              )}
+              {isPending && (
+                <span className="shrink-0 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                  на проверке
                 </span>
               )}
             </div>
@@ -344,15 +345,33 @@ export default function QuestsPage() {
     };
   }, []);
 
-  // Задание дня — шаг проекта недели, поэтому нужен и ключ недели.
+  // Шаги проекта, уже закрытые за эту неделю: сданные и ждущие куратора.
+  // От них зависит, какой шаг выдать сегодня.
+  const weekDoneIds = weeklyProgress.weekDoneIds ?? [];
+  const weekPendingIds = useMemo(
+    () =>
+      pendingClaims
+        .filter((claim) => claim.questType === "daily")
+        .map((claim) => claim.questId),
+    [pendingClaims]
+  );
+
+  // Задание дня — очередной шаг проекта недели, поэтому нужен и ключ недели.
   const dailyQuests = useMemo(
     () =>
       getActiveQuestsForTab(
         "daily",
         dailyProgress.cycleKey,
-        weeklyProgress.cycleKey
+        weeklyProgress.cycleKey,
+        weekDoneIds,
+        weekPendingIds
       ),
-    [dailyProgress.cycleKey, weeklyProgress.cycleKey]
+    [
+      dailyProgress.cycleKey,
+      weeklyProgress.cycleKey,
+      weekDoneIds,
+      weekPendingIds,
+    ]
   );
 
   const weeklyQuests = useMemo(
@@ -364,10 +383,6 @@ export default function QuestsPage() {
   const weekProject = useMemo(
     () => getWeekProject(weeklyProgress.cycleKey),
     [weeklyProgress.cycleKey]
-  );
-  const weekDoneIds = weeklyProgress.weekDoneIds ?? [];
-  const todayStepIndex = getStepForDate(
-    dailyProgress.cycleKey.slice("daily-".length)
   );
 
   const dailyTabConfig = QUESTS_CONFIG.tabs.daily;
@@ -826,7 +841,7 @@ export default function QuestsPage() {
                       <WeekPath
                         project={weekProject}
                         doneIds={weekDoneIds}
-                        todayStepIndex={todayStepIndex}
+                        pendingIds={weekPendingIds}
                       />
                     )}
 

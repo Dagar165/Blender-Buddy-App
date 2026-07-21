@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
 import { Coins, Snowflake, FlaskConical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { hapticSuccess, hapticWarn } from "@/lib/haptics";
+import { hapticSelect, hapticSuccess, hapticWarn } from "@/lib/haptics";
 import { CARE_SUPPLIES, SUPPLY_MAX, getCareNeed } from "@/lib/care-config";
 import {
   SHOP_ITEMS,
@@ -12,6 +13,26 @@ import {
   DOUBLE_POTION_COST,
   DOUBLE_POTION_MAX,
 } from "@/lib/shop-config";
+
+type ShopTab = "supplies" | "clothes" | "help";
+
+const SHOP_TABS: { id: ShopTab; label: string; hint: string }[] = [
+  {
+    id: "supplies",
+    label: "Припасы",
+    hint: "Еда, чистота и игры — тратятся при уходе за призраком",
+  },
+  {
+    id: "clothes",
+    label: "Одежда",
+    hint: "Покупается один раз и остаётся у призрака навсегда",
+  },
+  {
+    id: "help",
+    label: "Помощь",
+    hint: "Страховка серии и удвоение награды за задание",
+  },
+];
 
 export default function ShopPage() {
   const {
@@ -27,6 +48,7 @@ export default function ShopPage() {
     buyDoublePotion,
   } = useGameState();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<ShopTab>("supplies");
 
   const showNoGoldToast = () => {
     hapticWarn();
@@ -140,20 +162,38 @@ export default function ShopPage() {
       <TopBar />
 
       <div className="px-6 pb-24 overflow-y-auto">
-        <p className="mb-5 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
-          Голду дают за задания. Всё, что купишь, достанется призраку!
-        </p>
+        {/* Три раздела подряд одной простынёй читались как каша. Теперь
+            вкладки, как на экране заданий: на глазах всегда один раздел. */}
+        <div className="mb-4 rounded-3xl bg-white dark:bg-card p-2 shadow-sm border border-slate-100 dark:border-border">
+          <div className="grid grid-cols-3 gap-2">
+            {SHOP_TABS.map(({ id, label }) => {
+              const isActive = activeTab === id;
 
-        {/* Припасы призрака идут первыми: это то, что нужно каждый день */}
-        <h2 className="mb-1 text-lg font-display font-bold text-slate-800 dark:text-slate-100">
-          Припасы для призрака
-        </h2>
-        <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
-          Еда, чистота и развлечения. Тратятся, когда ухаживаешь за призраком
-          на главном экране.
-        </p>
+              return (
+                <button
+                  key={id}
+                  onClick={() => {
+                    if (!isActive) hapticSelect();
+                    setActiveTab(id);
+                  }}
+                  className={`rounded-2xl px-2 py-2.5 text-center font-display text-sm font-bold transition-all ${
+                    isActive
+                      ? "bg-secondary text-white shadow-md"
+                      : "bg-slate-50 text-slate-600 dark:bg-muted dark:text-slate-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-8">
+          <p className="mt-2 text-center text-xs font-medium text-slate-400 dark:text-slate-500">
+            {SHOP_TABS.find((tab) => tab.id === activeTab)?.hint}
+          </p>
+        </div>
+
+        <div className={activeTab === "supplies" ? "grid grid-cols-2 gap-3" : "hidden"}>
           {CARE_SUPPLIES.map((supply, i) => {
             const owned = supplies[supply.id] ?? 0;
             const atCap = owned >= SUPPLY_MAX;
@@ -215,11 +255,7 @@ export default function ShopPage() {
           })}
         </div>
 
-        <h2 className="mb-3 text-lg font-display font-bold text-slate-800 dark:text-slate-100">
-          Помощь в заданиях
-        </h2>
-
-        <div className="space-y-3 mb-8">
+        <div className={activeTab === "help" ? "space-y-3" : "hidden"}>
           {consumables.map((item, i) => {
             const Icon = item.icon;
             const buyDisabled = item.atCap || !item.canAfford;
@@ -282,11 +318,7 @@ export default function ShopPage() {
           })}
         </div>
 
-        <h2 className="mb-3 text-lg font-display font-bold text-slate-800 dark:text-slate-100">
-          Одежда для призрака
-        </h2>
-
-        <div className="grid grid-cols-2 gap-4">
+        <div className={activeTab === "clothes" ? "grid grid-cols-2 gap-4" : "hidden"}>
           {SHOP_ITEMS.map((item, i) => {
             const isOwned = inventory.includes(item.name);
             const canAfford = gold >= item.cost;
