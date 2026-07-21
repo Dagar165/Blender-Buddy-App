@@ -23,6 +23,7 @@ import {
   type CareNeedId,
 } from "@/lib/care-config";
 import { PET_STAGES, getPetStage } from "@/lib/pet-config";
+import { getWeekProject } from "@/lib/projects-config";
 import { getLevelData, type LevelData } from "@/game/level";
 import {
   dateFromDailyCycleKey,
@@ -599,6 +600,33 @@ export const useGameState = create<GameState>()(
               completedIds: [...weeklyProgress.completedIds, claim.questId],
             };
           }
+        }
+
+        /**
+         * Проект недели закрывается сам, когда одобрен последний шаг.
+         *
+         * Раньше его надо было сдавать отдельной кнопкой — но последний шаг
+         * и есть итоговый рендер, то есть ученик отправлял куратору ту же
+         * картинку второй раз и получал за неё вторую награду. Теперь награда
+         * приходит как бонус за собранный проект: лишней проверки нет,
+         * двойной оплаты за один скриншот тоже.
+         */
+        const weekProject = getWeekProject(weeklyProgress.cycleKey);
+        const weekDone = weeklyProgress.weekDoneIds ?? [];
+        const projectFinished = weekProject.steps.every((step) =>
+          weekDone.includes(step.id)
+        );
+
+        if (
+          projectFinished &&
+          !weeklyProgress.completedIds.includes(weekProject.id)
+        ) {
+          xpGain += weekProject.xpReward;
+          goldGain += weekProject.goldReward;
+          weeklyProgress = {
+            ...weeklyProgress,
+            completedIds: [...weeklyProgress.completedIds, weekProject.id],
+          };
         }
 
         if (approved.length > 0) {

@@ -97,20 +97,9 @@ export function getActiveQuestsForTab(
   weekDoneIds: string[] = [],
   weekPendingIds: string[] = []
 ): QuestDefinition[] {
-  if (tab === "weekly") {
-    const project = getWeekProject(cycleKey);
-
-    return [
-      {
-        id: project.id,
-        title: project.title,
-        description: project.why,
-        result: "Итоговый рендер проекта — то, что получилось за неделю.",
-        xpReward: project.xpReward,
-        goldReward: project.goldReward,
-      },
-    ];
-  }
+  // Во вкладке «Неделя» сдавать нечего: проект закрывается сам, когда куратор
+  // одобрит последний шаг. Там показывается только путь недели.
+  if (tab === "weekly") return [];
 
   const dateKey = cycleKey.replace("daily-", "");
 
@@ -121,6 +110,10 @@ export function getActiveQuestsForTab(
 
   const project = getWeekProject(weekCycleKey);
   const next = getNextStep(project, weekDoneIds, weekPendingIds);
+  // Календарь больше не решает, КАКОЙ шаг выдать, но остаётся потолком:
+  // отстал — нагонишь, а вперёд паровоза не убежишь. Иначе весь проект
+  // закрывался за один вечер, и неделя переставала быть неделей.
+  const openUpTo = getPaceIndex(dateKey);
   // Разминка своя на каждый будний день, поэтому считается по календарю,
   // а не по номеру шага: иначе догоняющий получал бы одну и ту же дважды.
   const warmup = getWarmupForStep(getPaceIndex(dateKey), weekCycleKey);
@@ -135,8 +128,8 @@ export function getActiveQuestsForTab(
       ]
     : [];
 
-  // Все шаги разобраны — остаётся сдать проект целиком во вкладке «Неделя».
-  if (!next) return warmupQuest;
+  // Шаги кончились или сегодняшний уже сдан — остаётся разминка.
+  if (!next || next.index > openUpTo) return warmupQuest;
 
   return [
     {

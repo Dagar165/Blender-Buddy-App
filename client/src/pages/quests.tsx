@@ -30,8 +30,11 @@ import {
   hapticWarn,
 } from "@/lib/haptics";
 import {
+  getNextStep,
+  getPaceIndex,
   getStepStates,
   getWeekProject,
+  isProjectDay,
   type WeeklyProject,
 } from "@/lib/projects-config";
 import { fetchClaimStatuses, submitQuestClaim } from "@/lib/quest-claim";
@@ -217,7 +220,12 @@ function WeekPath({
       </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug mb-4">
-        Шаги открываются по очереди. Отстал — просто нагонишь, награда та же.
+        Один шаг в день, по очереди. Отстал — нагонишь, награда та же.
+        Соберёшь все пять — проект закроется сам и принесёт{" "}
+        <b className="text-slate-600 dark:text-slate-300">
+          +{project.xpReward} XP и +{project.goldReward} голды
+        </b>
+        .
       </p>
 
       <div className="space-y-1.5">
@@ -379,11 +387,34 @@ export default function QuestsPage() {
     [weeklyProgress.cycleKey]
   );
 
-  // Путь недели: сам проект, его сданные шаги и шаг сегодняшнего дня.
+  // Путь недели: сам проект и его сданные шаги.
   const weekProject = useMemo(
     () => getWeekProject(weeklyProgress.cycleKey),
     [weeklyProgress.cycleKey]
   );
+  const weekStepsDone = weekProject.steps.filter((step) =>
+    (weeklyProgress.weekDoneIds ?? []).includes(step.id)
+  ).length;
+
+  // Сегодняшний шаг уже сдан, а следующий ещё закрыт календарём —
+  // об этом надо сказать, иначе вкладка «День» выглядит пустой и сломанной.
+  const nextStepLocked = useMemo(() => {
+    const dateKey = dailyProgress.cycleKey.slice("daily-".length);
+    if (!isProjectDay(dateKey)) return false;
+
+    const next = getNextStep(
+      weekProject,
+      weeklyProgress.weekDoneIds ?? [],
+      weekPendingIds
+    );
+
+    return Boolean(next && next.index > getPaceIndex(dateKey));
+  }, [
+    dailyProgress.cycleKey,
+    weekProject,
+    weeklyProgress.weekDoneIds,
+    weekPendingIds,
+  ]);
 
   const dailyTabConfig = QUESTS_CONFIG.tabs.daily;
   const weeklyTabConfig = QUESTS_CONFIG.tabs.weekly;
@@ -699,7 +730,9 @@ export default function QuestsPage() {
               {
                 tab: "weekly" as PageTab,
                 label: weeklyTabConfig.tabLabel,
-                count: `${weeklyCompletedCount}/${weeklyQuests.length}`,
+                // Неделя измеряется шагами проекта, а не сдачами: сдавать
+                // отдельно нечего, проект закрывается последним шагом.
+                count: `${weekStepsDone}/${weekProject.steps.length}`,
                 activeClass: "bg-secondary text-white shadow-md",
               },
               {
@@ -837,6 +870,20 @@ export default function QuestsPage() {
                 })
               : (
                   <>
+                    {isDailyTab && nextStepLocked && (
+                      <motion.div
+                        variants={item}
+                        className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card px-4 py-3"
+                      >
+                        <Lock className="w-4 h-4 mt-0.5 shrink-0 text-slate-400 dark:text-slate-500" />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
+                          Шаг на сегодня закрыт — следующий откроется завтра.
+                          Проект собирается по одному шагу в день, так у каждого
+                          куска есть время получиться.
+                        </p>
+                      </motion.div>
+                    )}
+
                     {!isDailyTab && (
                       <WeekPath
                         project={weekProject}
