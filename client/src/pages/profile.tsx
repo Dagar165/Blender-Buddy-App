@@ -13,8 +13,14 @@ import {
   Moon,
   ExternalLink,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { setTheme, useTheme } from "@/lib/theme";
+import { DevPanel } from "@/components/dev-panel";
+import {
+  DEV_TAPS_NEEDED,
+  DEV_TAP_WINDOW_MS,
+  isDevUser,
+} from "@/lib/dev-config";
 import {
   HELPER_BOT,
   SOCIAL_LINKS,
@@ -26,14 +32,40 @@ import {
 } from "@/lib/achievements-config";
 
 export default function ProfilePage() {
-  const { username, level, xp, gold, inventory, stats, setUsername, resetGame } =
-    useGameState();
+  const {
+    username,
+    level,
+    xp,
+    gold,
+    inventory,
+    stats,
+    telegramUserId,
+    setUsername,
+    resetGame,
+  } = useGameState();
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(username);
   const [selectedAchievementId, setSelectedAchievementId] = useState<
     string | null
   >(null);
+  const [showDevPanel, setShowDevPanel] = useState(false);
+
+  // Отладочная панель открывается семью быстрыми нажатиями по карточке
+  // со статистикой — случайно так не натыкать. Подробности в lib/dev-config.ts.
+  const devTaps = useRef<number[]>([]);
+
+  const handleStatsTap = () => {
+    const now = Date.now();
+    devTaps.current = [...devTaps.current, now].filter(
+      (stamp) => now - stamp < DEV_TAP_WINDOW_MS
+    );
+
+    if (devTaps.current.length >= DEV_TAPS_NEEDED) {
+      devTaps.current = [];
+      if (isDevUser(telegramUserId)) setShowDevPanel(true);
+    }
+  };
 
   const achievements = evaluateAchievements(
     buildAchievementSnapshot({ stats, level, inventory })
@@ -139,7 +171,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Статистика — строки «название → значение», как панель свойств */}
-        <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-6 overflow-hidden">
+        <div
+          onClick={handleStatsTap}
+          className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-6 overflow-hidden"
+        >
           {[
             {
               label: "Заданий сделано",
@@ -349,6 +384,8 @@ export default function ProfilePage() {
           <RotateCcw className="w-5 h-5" /> Сбросить прогресс
         </button>
       </div>
+
+      {showDevPanel && <DevPanel onClose={() => setShowDevPanel(false)} />}
     </motion.div>
   );
 }

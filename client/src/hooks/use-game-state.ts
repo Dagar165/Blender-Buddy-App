@@ -24,7 +24,7 @@ import {
 } from "@/lib/care-config";
 import { PET_STAGES, getPetStage } from "@/lib/pet-config";
 import { getWeekProject } from "@/lib/projects-config";
-import { getLevelData, type LevelData } from "@/game/level";
+import { LEVEL_THRESHOLDS, getLevelData, type LevelData } from "@/game/level";
 import {
   dateFromDailyCycleKey,
   formatLocalDate,
@@ -221,6 +221,13 @@ export interface GameState extends LevelData {
   refreshQuestCycles: () => void;
   buyItem: (itemId: string, cost: number, itemName: string) => boolean;
   resetGame: () => void;
+
+  // Отладочная панель владельца (lib/dev-config.ts) — в обычной игре
+  // не вызываются. Пишут в облако СИНХРОННО: уровень и голда могут
+  // уменьшаться, а при слиянии облачная копия побеждает.
+  devSetLevel: (level: number) => void;
+  devSetGold: (gold: number) => void;
+  devReplayEvolution: () => void;
 
   bootstrapTelegramCloud: () => Promise<void>;
   syncCloudState: () => Promise<boolean>;
@@ -1006,6 +1013,51 @@ export const useGameState = create<GameState>()(
         // Сброс обязан немедленно перезаписать облако Telegram: отложенное
         // сохранение может не успеть до закрытия приложения, и тогда старые
         // данные «воскреснут» при следующем запуске из-за max/union-слияния.
+        void flushCloudSave(get());
+      },
+
+      // Ставит опыт ровно в начало выбранного уровня. Стадии ниже и сама
+      // текущая помечаются отпразднованными, иначе на каждый сдвиг ползунка
+      // выскакивала бы анимация эволюции — для неё есть отдельная кнопка.
+      devSetLevel: (level) => {
+        const target = Math.max(
+          1,
+          Math.min(LEVEL_THRESHOLDS.length, Math.round(level))
+        );
+        const xp = LEVEL_THRESHOLDS[target - 1];
+        const stage = getPetStage(target);
+
+        set({
+          xp,
+          ...getLevelData(xp),
+          celebratedStages: PET_STAGES.filter(
+            (candidate) => candidate.fromLevel <= stage.fromLevel
+          ).map((candidate) => candidate.fromLevel),
+          celebratedStageLevel: stage.fromLevel,
+          celebratedLevel: target,
+        });
+
+        void flushCloudSave(get());
+      },
+
+      devSetGold: (gold) => {
+        set({ gold: Math.max(0, Math.round(gold)) });
+        void flushCloudSave(get());
+      },
+
+      // Забывает текущую стадию — при следующем открытии App.tsx покажет
+      // полноэкранную эволюцию в неё.
+      devReplayEvolution: () => {
+        const state = get();
+        const stage = getPetStage(state.level);
+
+        set({
+          celebratedStages: PET_STAGES.filter(
+            (candidate) => candidate.fromLevel < stage.fromLevel
+          ).map((candidate) => candidate.fromLevel),
+          celebratedStageLevel: 1,
+        });
+
         void flushCloudSave(get());
       },
 
