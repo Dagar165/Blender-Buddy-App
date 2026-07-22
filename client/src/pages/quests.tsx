@@ -40,6 +40,8 @@ import {
 import { submitQuestClaim } from "@/lib/quest-claim";
 import { syncPendingClaims } from "@/game/claims-sync";
 import { CommunityHint } from "@/components/community-hint";
+import { BeginnerHint } from "@/components/beginner-hint";
+import { isBeginner } from "@/lib/learn-config";
 import {
   EMPTY_DAY_LINES,
   PROJECT_DONE_LINES,
@@ -329,6 +331,7 @@ function getCompletedCount(quests: QuestDefinition[], completedIds: string[]) {
 export default function QuestsPage() {
   const {
     username,
+    level,
     telegramUsername,
     telegramUserId,
     dailyProgress,
@@ -760,6 +763,15 @@ export default function QuestsPage() {
                 : "Шаг к проекту недели плюс короткая разминка"}
           </p>
         </div>
+
+        {/* Новичку — раньше заданий: он должен упереться в уроки с нуля
+            прежде, чем в «собери меч из кубов». Вне AnimatePresence, чтобы
+            не мигала при переключении вкладок. */}
+        {isBeginner(level) && (
+          <div className="mb-4">
+            <BeginnerHint level={level} />
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           <motion.div

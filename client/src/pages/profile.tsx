@@ -13,6 +13,7 @@ import {
   Moon,
   ExternalLink,
   SlidersHorizontal,
+  ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
 import { setTheme, useTheme } from "@/lib/theme";
@@ -28,6 +29,7 @@ import {
   evaluateAchievements,
 } from "@/lib/achievements-config";
 import { SHOP_ITEMS } from "@/lib/shop-config";
+import { hapticTap } from "@/lib/haptics";
 
 export default function ProfilePage() {
   const {
@@ -49,6 +51,8 @@ export default function ProfilePage() {
     string | null
   >(null);
   const [showDevPanel, setShowDevPanel] = useState(false);
+  // Медали свёрнуты, пока их не попросят: профиль и без них длинный.
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
 
   // Кнопка панели видна только владельцу — список в lib/dev-config.ts.
   const canUseDevPanel = isDevUser(telegramUserId, telegramUsername);
@@ -202,14 +206,32 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        <h3 className="font-display font-bold text-slate-800 dark:text-slate-100 text-lg mb-4 flex items-center gap-2">
-          <Medal className="text-secondary" /> Достижения
+        {/* Свёрнуто по умолчанию: медалей дюжина, и раскрытым списком они
+            занимали пол-экрана профиля. Заголовок работает переключателем,
+            счёт «сколько из скольких» виден и в свёрнутом виде — ради него
+            сюда и заходят. */}
+        <button
+          onClick={() => {
+            hapticTap();
+            setAchievementsOpen((open) => !open);
+          }}
+          className="w-full mb-4 flex items-center gap-2 text-left"
+        >
+          <Medal className="text-secondary" />
+          <span className="font-display font-bold text-slate-800 dark:text-slate-100 text-lg">
+            Достижения
+          </span>
           <span className="ml-auto text-sm font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-card px-3 py-1 rounded-xl border border-slate-200 dark:border-border">
             {unlockedCount}/{achievements.length}
           </span>
-        </h3>
+          <ChevronDown
+            className={`w-5 h-5 shrink-0 text-slate-400 dark:text-slate-500 transition-transform ${
+              achievementsOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
 
-        {selectedAchievement && (
+        {achievementsOpen && selectedAchievement && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -249,7 +271,11 @@ export default function ProfilePage() {
           </motion.div>
         )}
 
-        <div className="grid grid-cols-3 gap-3 mb-8">
+        <div
+          className={`grid-cols-3 gap-3 mb-8 ${
+            achievementsOpen ? "grid" : "hidden"
+          }`}
+        >
           {achievements.map((entry) => {
             const isSelected =
               entry.definition.id === selectedAchievementId;
