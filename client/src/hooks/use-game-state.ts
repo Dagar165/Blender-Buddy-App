@@ -118,6 +118,20 @@ export type PendingClaim = {
   createdAt: string;
 };
 
+// Весть о решении куратора: что показать в плашке и чем она должна быть.
+export type ClaimNotice = {
+  tone: "approved" | "rejected";
+  // Название задания, а при нескольких сразу — сколько их.
+  title: string;
+  count: number;
+  xp: number;
+  gold: number;
+  // Приписки: бонус серии и сработавшее зелье — их видно в цифрах наверху,
+  // но без объяснения они выглядят как ошибка в подсчётах.
+  bonusPercent: number;
+  potionUsed: boolean;
+};
+
 
 export interface GameState extends LevelData {
   username: string;
@@ -200,6 +214,19 @@ export interface GameState extends LevelData {
   dailyProgress: RecurringQuestProgress;
   weeklyProgress: RecurringQuestProgress;
   pendingClaims: PendingClaim[];
+  /**
+   * Вердикт куратора, о котором ученику ещё не сказали.
+   *
+   * Раньше награда просто прилетала: цифры наверху менялись сами, и было
+   * непонятно, что произошло — владелец сказал «резко начисляется и непонятно
+   * что». Решение куратора приходит опросом в любой момент, поэтому весть
+   * о нём живёт в сторе, а не на экране заданий: показать её должно любое
+   * место, где ученик сейчас находится.
+   *
+   * НЕ сохраняется: пропущенная плашка — не потеря, награда уже начислена.
+   */
+  claimNotice: ClaimNotice | null;
+  clearClaimNotice: () => void;
 
   setUsername: (name: string) => void;
   addXpAndGold: (xp: number, gold: number) => void;
@@ -437,8 +464,11 @@ export const useGameState = create<GameState>()(
       dailyProgress: createDailyProgress(),
       weeklyProgress: createWeeklyProgress(),
       pendingClaims: [],
+      claimNotice: null,
 
       ...getLevelData(0),
+
+      clearClaimNotice: () => set({ claimNotice: null }),
 
       setUsername: (name) => {
         const nextName = name.trim() || "3D Explorer";
@@ -657,6 +687,22 @@ export const useGameState = create<GameState>()(
 
         const nextXp = state.xp + xpGain;
 
+        // Одобрение важнее отказа: если куратор разом закрыл несколько заявок,
+        // ученик должен сначала увидеть, что ему засчитали.
+        const decided = approved.length > 0 ? approved : rejected;
+        const claimNotice: ClaimNotice | null =
+          decided.length > 0
+            ? {
+                tone: approved.length > 0 ? "approved" : "rejected",
+                title: decided[0].questTitle,
+                count: decided.length,
+                xp: xpGain,
+                gold: goldGain,
+                bonusPercent,
+                potionUsed: potionClaim !== null,
+              }
+            : null;
+
         set({
           xp: nextXp,
           gold: state.gold + goldGain,
@@ -668,6 +714,7 @@ export const useGameState = create<GameState>()(
           dailyProgress,
           weeklyProgress,
           pendingClaims: remaining,
+          claimNotice,
           ...getLevelData(nextXp),
         });
 

@@ -3,7 +3,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, useState } from "react";
 import { useGameState, type GameState } from "@/hooks/use-game-state";
-import { fetchClaimStatuses } from "@/lib/quest-claim";
+import {
+  CLAIM_POLL_INTERVAL_MS,
+  syncPendingClaims,
+} from "@/game/claims-sync";
+import { ClaimNotice } from "@/components/claim-notice";
 import {
   ACHIEVEMENTS_CONFIG,
   buildAchievementSnapshot,
@@ -128,24 +132,30 @@ function AppContent() {
       console.warn("Telegram WebApp initialization failed", e);
     }
 
-    void bootstrapTelegramCloud().then(async () => {
+    void bootstrapTelegramCloud().then(() => {
       // A missed day may need patching by a streak freeze right at launch,
       // before the student even opens the quests tab.
       useGameState.getState().autoApplyStreakFreeze();
 
-      // Apply any curator decisions made while the app was closed, so rewards
-      // land even before the quests tab is opened.
-      const { pendingClaims, applyClaimResolutions } = useGameState.getState();
-      if (pendingClaims.length === 0) return;
-
-      const statuses = await fetchClaimStatuses(
-        pendingClaims.map((claim) => claim.claimId)
-      );
-      if (statuses) {
-        applyClaimResolutions(statuses);
-      }
+      // Решения, принятые пока приложение было закрыто, — сразу на старте.
+      void syncPendingClaims();
     });
   }, [bootstrapTelegramCloud]);
+
+  /**
+   * Куратор опрашивается из САМОГО приложения, а не из вкладки заданий.
+   *
+   * Пока опрос жил на экране заданий, награда приходила только если ученик
+   * там сидел, и сказать о ней было некому. Теперь ответ куратора догоняет
+   * его где угодно — и о нём говорит плашка сверху.
+   */
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void syncPendingClaims();
+    }, CLAIM_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   return (
     <WouterRouter base="/Blender-Buddy-App">
@@ -154,6 +164,7 @@ function AppContent() {
           <Router />
           <BottomNav />
           <Toaster />
+          <ClaimNotice />
           <PetEvolution
             evolution={evolution}
             onClaim={() => markEvolutionSeen(currentStage.fromLevel)}

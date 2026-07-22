@@ -10,6 +10,8 @@ import {
   getPaceIndex,
   getWeekProject,
   isProjectDay,
+  type ProjectStep,
+  type WeeklyProject,
 } from "@/lib/projects-config";
 
 function clampLimit(limit: number, poolLength: number) {
@@ -80,6 +82,25 @@ function getWarmupForStep(stepIndex: number, weekCycleKey: string) {
   return shuffled[stepIndex % shuffled.length] ?? null;
 }
 
+// Шаг проекта в виде карточки задания. Одна на всех, чтобы шаг «на проверке»
+// и шаг «делай сейчас» выглядели одинаково — это один и тот же шаг.
+function toStepQuest(
+  project: WeeklyProject,
+  step: ProjectStep,
+  index: number
+): QuestDefinition {
+  return {
+    id: step.id,
+    title: step.title,
+    description: step.description,
+    result: step.result,
+    stepLabel: `Шаг ${index + 1} из ${project.steps.length} — ${project.title}`,
+    kind: "step",
+    xpReward: step.xpReward,
+    goldReward: step.goldReward,
+  };
+}
+
 /**
  * Задания дня и недели.
  *
@@ -128,20 +149,23 @@ export function getActiveQuestsForTab(
       ]
     : [];
 
+  // Отправленный куратору шаг остаётся на виду, просто со статусом
+  // «на проверке». Раньше он исчезал: ребёнок сдавал работу и видел вместо
+  // неё пустоту — как будто её не приняли, а куратор ещё даже не смотрел.
+  // Очередь такой шаг не держит: следующий выдаётся рядом, как и раньше.
+  const pendingQuests = weekPendingIds
+    .map((id) => {
+      const index = project.steps.findIndex((step) => step.id === id);
+      return index < 0 ? null : toStepQuest(project, project.steps[index], index);
+    })
+    .filter((quest): quest is QuestDefinition => quest !== null);
+
   // Шаги кончились или сегодняшний уже сдан — остаётся разминка.
-  if (!next || next.index > openUpTo) return warmupQuest;
+  if (!next || next.index > openUpTo) return [...pendingQuests, ...warmupQuest];
 
   return [
-    {
-      id: next.step.id,
-      title: next.step.title,
-      description: next.step.description,
-      result: next.step.result,
-      stepLabel: `Шаг ${next.index + 1} из ${project.steps.length} — ${project.title}`,
-      kind: "step" as const,
-      xpReward: next.step.xpReward,
-      goldReward: next.step.goldReward,
-    },
+    ...pendingQuests,
+    toStepQuest(project, next.step, next.index),
     ...warmupQuest,
   ];
 }

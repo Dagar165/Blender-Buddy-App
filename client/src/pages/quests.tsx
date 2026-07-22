@@ -37,7 +37,8 @@ import {
   isProjectDay,
   type WeeklyProject,
 } from "@/lib/projects-config";
-import { fetchClaimStatuses, submitQuestClaim } from "@/lib/quest-claim";
+import { submitQuestClaim } from "@/lib/quest-claim";
+import { syncPendingClaims } from "@/game/claims-sync";
 import {
   QUIZ_GOLD_PER_CORRECT,
   QUIZ_PER_DAY,
@@ -47,8 +48,6 @@ import {
 } from "@/lib/quiz-config";
 
 type PageTab = QuestTab | "quiz";
-
-const CLAIM_POLL_INTERVAL_MS = 20_000;
 
 type QuestCardStatus = "available" | "sending" | "pending" | "completed";
 
@@ -104,6 +103,14 @@ function QuestCard({
         variants={item}
         className="p-4 rounded-3xl bg-white dark:bg-card border border-slate-100 dark:border-border border-l-4 border-l-amber-400"
       >
+        {/* Номер шага виден и на проверке: карточка остаётся в списке дня,
+            и без него непонятно, что именно ждёт куратора */}
+        {quest.stepLabel && (
+          <p className="font-mono text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">
+            {quest.stepLabel}
+          </p>
+        )}
+
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-100">
             {quest.title}
@@ -330,7 +337,6 @@ export default function QuestsPage() {
     quizAnswered,
     chestDate,
     addPendingClaim,
-    applyClaimResolutions,
     activateDoublePotion,
     autoApplyStreakFreeze,
     answerQuizQuestion,
@@ -448,54 +454,10 @@ export default function QuestsPage() {
     }, 4000);
   }, []);
 
-  // Poll the worker for curator decisions on pending claims and apply them.
-  const syncPendingClaims = useCallback(async () => {
-    const currentPending = useGameState.getState().pendingClaims;
-    if (currentPending.length === 0) return;
-
-    const statuses = await fetchClaimStatuses(
-      currentPending.map((claim) => claim.claimId)
-    );
-    if (!statuses) return;
-
-    const {
-      approved,
-      rejected,
-      xpGranted,
-      goldGranted,
-      bonusPercent,
-      potionUsedOn,
-    } = applyClaimResolutions(statuses);
-
-    if (approved.length > 0) {
-      hapticSuccess();
-      const bonusNote =
-        bonusPercent > 0 ? ` (с бонусом серии +${bonusPercent}%)` : "";
-      const potionNote = potionUsedOn ? " Зелье ×2 сработало! 🧪" : "";
-      showNotice(
-        approved.length === 1
-          ? `Куратор подтвердил «${approved[0].questTitle}»: +${xpGranted} XP и +${goldGranted} монет${bonusNote} 🎉${potionNote}`
-          : `Куратор подтвердил задания (${approved.length}): +${xpGranted} XP и +${goldGranted} монет${bonusNote} 🎉${potionNote}`,
-        "success"
-      );
-    } else if (rejected.length > 0) {
-      hapticWarn();
-      showNotice(
-        `Задание «${rejected[0].questTitle}» не засчитано — попробуй ещё раз и отправь заново`,
-        "info"
-      );
-    }
-  }, [applyClaimResolutions, showNotice]);
-
-  useEffect(() => {
-    void syncPendingClaims();
-
-    const interval = window.setInterval(() => {
-      void syncPendingClaims();
-    }, CLAIM_POLL_INTERVAL_MS);
-
-    return () => window.clearInterval(interval);
-  }, [syncPendingClaims]);
+  // Опрос куратора и весть о его решении переехали в App.tsx и плашку
+  // сверху: ответ должен догонять ученика на любой вкладке, а не только здесь.
+  // Тут остался один заход — сразу после отправки, на случай, когда куратор
+  // успел нажать ✅ раньше, чем мы спросили.
 
   const handleComplete = (tab: QuestTab) => async (quest: QuestDefinition) => {
     hapticTap("medium");
