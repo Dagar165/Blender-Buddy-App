@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useGameState } from "@/hooks/use-game-state";
 import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
-import { Coins, Snowflake, FlaskConical } from "lucide-react";
+import { Coins, Snowflake, FlaskConical, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { hapticSelect, hapticSuccess, hapticWarn } from "@/lib/haptics";
 import { CARE_SUPPLIES, SUPPLY_MAX, getCareNeed } from "@/lib/care-config";
@@ -40,6 +40,7 @@ const SHOP_TABS: { id: ShopTab; label: string; hint: string }[] = [
 export default function ShopPage() {
   const {
     gold,
+    level,
     inventory,
     equipped,
     supplies,
@@ -62,6 +63,17 @@ export default function ShopPage() {
       title: "Недостаточно голды!",
       description: "Выполняй больше заданий, чтобы заработать голду.",
       variant: "destructive",
+    });
+  };
+
+  // Вещь закрыта по уровню. Говорим, ЧТО откроется и КОГДА: «нельзя» без
+  // причины читается как поломка, а не как цель.
+  const showLockedToast = (item: ShopItem) => {
+    hapticWarn();
+    toast({
+      title: `${item.name} — с ${item.fromLevel} уровня`,
+      description:
+        "На маленьком призраке эта вещь сидит криво. Подрасти — и она станет твоей.",
     });
   };
 
@@ -358,6 +370,9 @@ export default function ShopPage() {
             const canAfford = gold >= item.cost;
             const Icon = item.icon;
             const slot = getClothingSlot(item.slot);
+            // Купленное раньше не отбираем: закрыт только вход в вещь.
+            const needLevel = item.fromLevel ?? 1;
+            const locked = !isOwned && level < needLevel;
 
             return (
               <motion.div
@@ -367,7 +382,13 @@ export default function ShopPage() {
                 key={item.id}
                 className="bg-white dark:bg-card p-4 rounded-3xl shadow-md shadow-slate-200/50 dark:shadow-black/30 flex flex-col items-center text-center border-2 border-transparent dark:border-border hover:border-orange-100 dark:hover:border-orange-500/30 transition-colors"
               >
-                <div className={`w-16 h-16 rounded-2xl ${item.bg} ${item.color} flex items-center justify-center mb-3`}>
+                <div
+                  className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-3 ${
+                    locked
+                      ? "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
+                      : `${item.bg} ${item.color}`
+                  }`}
+                >
                   <Icon className="w-8 h-8" />
                 </div>
 
@@ -389,21 +410,28 @@ export default function ShopPage() {
                     и ждёт своей очереди на место. */}
                 <button
                   onClick={() => {
+                    if (locked) return showLockedToast(item);
                     if (!isOwned) return handleBuy(item);
                     return isWorn ? handleTakeOff(item) : handleWear(item);
                   }}
-                  disabled={!isOwned && !canAfford}
+                  disabled={!isOwned && !canAfford && !locked}
                   className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
-                    isWorn
-                      ? "bg-green-50 text-green-600 border border-green-200 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/30"
-                      : isOwned
-                        ? "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-muted dark:text-slate-200 dark:border-border"
-                        : canAfford
-                          ? "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30"
-                          : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
+                    locked
+                      ? "bg-slate-100 text-slate-400 border border-slate-200 dark:bg-muted dark:text-slate-500 dark:border-border"
+                      : isWorn
+                        ? "bg-green-50 text-green-600 border border-green-200 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/30"
+                        : isOwned
+                          ? "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-muted dark:text-slate-200 dark:border-border"
+                          : canAfford
+                            ? "bg-gradient-to-r from-secondary to-orange-400 text-white shadow-md shadow-secondary/30"
+                            : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500"
                   }`}
                 >
-                  {isOwned ? (
+                  {locked ? (
+                    <>
+                      <Lock className="w-4 h-4" />с {needLevel} уровня
+                    </>
+                  ) : isOwned ? (
                     isWorn ? (
                       "Снять ✓"
                     ) : (

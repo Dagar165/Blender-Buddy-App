@@ -1,7 +1,6 @@
 import glassesOverlay from "@/assets/mascot/item-glasses.webp";
 import hatOverlay from "@/assets/mascot/item-hat.webp";
 import headphonesOverlay from "@/assets/mascot/item-headphones.webp";
-import headphonesBehind from "@/assets/mascot/item-headphones-back.webp";
 import {
   Crown,
   Gamepad2,
@@ -99,13 +98,27 @@ export type ShopItem = {
   // и сюда overlay: hatOverlay. Пока картинки нет — поле пустое:
   // вещь покупается и надевается, просто пока не видна на призраке.
   overlay?: string;
-  // Часть вещи, которая уходит ЗА призрака. Голова у него чуть повёрнута,
-  // поэтому дальняя чашка наушников должна прятаться за затылком, а не лежать
-  // на глазу. Картинки призрака непрозрачные, так что слой ниже него честно
-  // скрывает всё, что попало на тело.
+  // Часть вещи, которая уходит ЗА призрака: рисуется на слое 0, под ним.
+  // Картинки призрака непрозрачные, поэтому тело честно закрывает этот слой —
+  // так задумывался ранец за спиной.
+  //
+  // Наушникам это больше не нужно: владелец перерисовал их сразу вырезанными
+  // по силуэту призрака, дальняя чашка обрезана прямо в картинке. Одна картинка
+  // вместо двух половинок, и разрез не «съезжает» при подгонке под стадию.
+  // Для новой вещи сначала пробовать так же — резать пополам только если
+  // иначе никак.
   overlayBehind?: string;
   // Дорогая вещь «на потом»: помечается в магазине и стоит заметно больше.
   legendary?: boolean;
+  /**
+   * С какого уровня вещь вообще можно купить. Пусто — значит с первого.
+   *
+   * Причина не в балансе, а в картинке: у малыша (1–4 уровень) голова другой
+   * формы, и шляпа с наушниками садятся на неё криво — владелец увидел это
+   * сразу. Вещи головы открываются с 5 уровня, где силуэт уже взрослый
+   * и одинаковый до самого конца.
+   */
+  fromLevel?: number;
 };
 
 // Предметы для питомца (покупаются один раз), отсортированы по цене.
@@ -113,8 +126,8 @@ export type ShopItem = {
 // чтобы после максимума оставалось к чему стремиться.
 export const SHOP_ITEMS: ShopItem[] = [
   { id: "item5", name: "Стильные очки", cost: 80, slot: "face", overlay: glassesOverlay, icon: Glasses, color: "text-sky-500", bg: "bg-sky-100" },
-  { id: "item1", name: "Волшебная шляпа", cost: 150, slot: "head", overlay: hatOverlay, icon: Crown, color: "text-purple-500", bg: "bg-purple-100" },
-  { id: "item6", name: "Наушники", cost: 220, slot: "ears", overlay: headphonesOverlay, overlayBehind: headphonesBehind, icon: Headphones, color: "text-emerald-500", bg: "bg-emerald-100" },
+  { id: "item1", name: "Волшебная шляпа", cost: 150, slot: "head", overlay: hatOverlay, icon: Crown, color: "text-purple-500", bg: "bg-purple-100", fromLevel: 5 },
+  { id: "item6", name: "Наушники", cost: 220, slot: "ears", overlay: headphonesOverlay, icon: Headphones, color: "text-emerald-500", bg: "bg-emerald-100", fromLevel: 5 },
   { id: "item2", name: "Зелье скорости", cost: 300, slot: "hand", icon: Zap, color: "text-blue-500", bg: "bg-blue-100" },
   { id: "item7", name: "Палитра художника", cost: 380, slot: "hand", icon: Palette, color: "text-pink-500", bg: "bg-pink-100" },
   { id: "item3", name: "Золотая клавиатура", cost: 480, slot: "hand", icon: Keyboard, color: "text-yellow-500", bg: "bg-yellow-100" },

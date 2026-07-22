@@ -8,7 +8,7 @@ import {
   useMotionValue,
   useTransform,
 } from "framer-motion";
-import { hapticTap } from "@/lib/haptics";
+import { hapticSelect, hapticTap } from "@/lib/haptics";
 import { Link } from "wouter";
 import { CheckCircle, ChevronRight, Clock, Scroll } from "lucide-react";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
@@ -55,6 +55,16 @@ const MOOD_ANIMATION: Record<PetMood, { y: number[]; duration: number }> = {
 // Плавающее сердечко после поглаживания
 type Heart = { id: number; x: number; withXp: boolean };
 
+/**
+ * Номер захода на главный экран — от него зависит, что призрак скажет.
+ *
+ * Раньше фраза выбиралась по текущей МИНУТЕ: уйдёшь на другую вкладку,
+ * вернёшься через десять секунд — тот же текст. Владелец так и сказал:
+ * «не понимаю, от чего это зависит». Теперь счётчик, а не часы: каждый заход
+ * берёт следующую фразу по кругу, повторов подряд не бывает.
+ */
+let visitNumber = 0;
+
 // Гизмо осей из угла 3D-окна Blender. Отсылка — но нажимаемая: под ней
 // прячется маленький урок про X, Y и Z, который пригодится в самом Blender.
 function AxisGizmo() {
@@ -94,7 +104,13 @@ export default function PetPage() {
     care,
     petGhost,
     markVisit,
+    wearItem,
+    takeOffItem,
   } = useGameState();
+
+  // Считается один раз на заход: страница пересоздаётся при каждом
+  // переключении вкладок, значит и фраза будет новой.
+  const [visit] = useState(() => ++visitNumber);
 
   const [hearts, setHearts] = useState<Heart[]>([]);
   // Подсказки в комнате: что за ступень пути и что за оси в углу.
@@ -162,8 +178,8 @@ export default function PetPage() {
 
   const moodPhrase = useMemo(() => {
     const phrases = PET_PHRASES[mood];
-    return phrases[Math.floor(Math.random() * phrases.length)];
-  }, [mood]);
+    return phrases[visit % phrases.length];
+  }, [mood, visit]);
 
   // Как призрак себя чувствует: считается от времени последнего ухода.
   const careLevels = useMemo(() => {
@@ -177,8 +193,8 @@ export default function PetPage() {
   }, [care]);
 
   const carePhrase = useMemo(
-    () => getCarePhrase(careLevels, Date.now() / 60000),
-    [careLevels]
+    () => getCarePhrase(careLevels, visit),
+    [careLevels, visit]
   );
 
   // Что призрак говорит прямо сейчас. Порядок важен: свежий совет по Blender
@@ -524,30 +540,44 @@ export default function PetPage() {
           </div>
 
           {/* Гардероб одной строкой: надетое — в цвете и с ободком, остальное
-              лежит бледным. Пока картинок одежды нет, это единственное место,
-              где видно, что именно сейчас на призраке. Переодеться — в магазине. */}
+              лежит бледным. Нажатие переодевает прямо здесь: владелец просил
+              мерить и сравнивать, не уходя в магазин и не возвращаясь обратно
+              ради каждой вещи. */}
           {ownedItems.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-1.5 mb-4 max-w-xs">
-              {ownedItems.map((item) => {
-                const Icon = item.icon;
-                const worn = isItemWorn(equipped, item);
+            <div className="flex flex-col items-center mb-4 max-w-xs">
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {ownedItems.map((item) => {
+                  const Icon = item.icon;
+                  const worn = isItemWorn(equipped, item);
 
-                return (
-                  <div
-                    key={item.id}
-                    title={`${item.name} · ${getClothingSlot(item.slot).name}${
-                      worn ? " · надето" : ""
-                    }`}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      worn
-                        ? `${item.bg} ${item.color} ring-2 ring-secondary`
-                        : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500 opacity-70"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </div>
-                );
-              })}
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        hapticSelect();
+                        if (worn) takeOffItem(item.id);
+                        else wearItem(item.id);
+                      }}
+                      title={`${item.name} · ${getClothingSlot(item.slot).name}${
+                        worn ? " · надето" : ""
+                      }`}
+                      aria-label={`${item.name} — ${worn ? "снять" : "надеть"}`}
+                      aria-pressed={worn}
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center transition-transform active:scale-90 ${
+                        worn
+                          ? `${item.bg} ${item.color} ring-2 ring-secondary`
+                          : "bg-slate-100 text-slate-400 dark:bg-muted dark:text-slate-500 opacity-70"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <span className="mt-2 text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                Нажми на вещь — надеть или снять
+              </span>
             </div>
           )}
 

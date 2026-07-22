@@ -970,6 +970,10 @@ export const useGameState = create<GameState>()(
         const state = get();
         const item = getShopItem(itemId);
 
+        // Замок по уровню держится здесь, а не только в кнопке магазина:
+        // кнопку можно обойти, а покупку — нет.
+        if (item && state.level < (item.fromLevel ?? 1)) return false;
+
         if (state.gold >= cost && !state.inventory.includes(itemName)) {
           triggerRewardConfetti();
 

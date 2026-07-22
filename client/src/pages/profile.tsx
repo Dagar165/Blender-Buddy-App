@@ -27,6 +27,7 @@ import {
   buildAchievementSnapshot,
   evaluateAchievements,
 } from "@/lib/achievements-config";
+import { SHOP_ITEMS } from "@/lib/shop-config";
 
 export default function ProfilePage() {
   const {
@@ -305,15 +306,30 @@ export default function ProfilePage() {
             <p className="text-slate-500 dark:text-slate-400 font-medium">Твой инвентарь пуст.<br/>Посети магазин, чтобы купить крутое снаряжение!</p>
           </div>
         ) : (
+          {/* Значок у каждой вещи свой — тот же, что на главном экране.
+              Одинаковый кубок у всего подряд не давал узнать вещь в лицо.
+              Покупки хранятся по НАЗВАНИЮ, поэтому ищем по нему; если владелец
+              переименовал вещь в магазине, старая покупка останется с кубком. */}
           <div className="grid grid-cols-2 gap-3 mb-8">
-            {inventory.map((item, i) => (
-              <div key={i} className="bg-white dark:bg-card p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-border flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-50 dark:bg-muted rounded-xl flex items-center justify-center text-primary">
-                  <Trophy className="w-5 h-5" />
+            {inventory.map((item, i) => {
+              const known = SHOP_ITEMS.find((entry) => entry.name === item);
+              const Icon = known?.icon ?? Trophy;
+
+              return (
+                <div key={i} className="bg-white dark:bg-card p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-border flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      known
+                        ? `${known.bg} ${known.color}`
+                        : "bg-slate-50 dark:bg-muted text-primary"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{item}</span>
                 </div>
-                <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{item}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
