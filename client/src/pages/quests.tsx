@@ -39,6 +39,12 @@ import {
 } from "@/lib/projects-config";
 import { submitQuestClaim } from "@/lib/quest-claim";
 import { syncPendingClaims } from "@/game/claims-sync";
+import { CommunityHint } from "@/components/community-hint";
+import {
+  EMPTY_DAY_LINES,
+  PROJECT_DONE_LINES,
+  pickCommunityLine,
+} from "@/lib/community-config";
 import {
   QUIZ_GOLD_PER_CORRECT,
   QUIZ_PER_DAY,
@@ -841,28 +847,55 @@ export default function QuestsPage() {
               : (
                   <>
                     {isDailyTab && nextStepLocked && (
-                      <motion.div
-                        variants={item}
-                        className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card px-4 py-3"
-                      >
-                        <Lock className="w-4 h-4 mt-0.5 shrink-0 text-slate-400 dark:text-slate-500" />
-                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
-                          На сегодня всё — следующий шаг откроется завтра.
-                          Проект идёт по шагу в день: так он и получается
-                          аккуратным, и не съедает весь вечер.
-                        </p>
+                      <motion.div variants={item} className="space-y-2">
+                        <div className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card px-4 py-3">
+                          <Lock className="w-4 h-4 mt-0.5 shrink-0 text-slate-400 dark:text-slate-500" />
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
+                            На сегодня всё — следующий шаг откроется завтра.
+                            Проект идёт по шагу в день: так он и получается
+                            аккуратным, и не съедает весь вечер.
+                          </p>
+                        </div>
+
+                        {/* «Хочу ещё» упирается в закрытую дверь — вот вторая,
+                            открытая: там всегда что-то происходит */}
+                        {/* Число месяца как счётчик: фраза меняется день ото
+                            дня, а не повторяется одна и та же всю неделю */}
+                        <CommunityHint
+                          line={pickCommunityLine(
+                            EMPTY_DAY_LINES,
+                            Number(todayKey.slice(-2)) || 1
+                          )}
+                        />
                       </motion.div>
                     )}
 
                     {!isDailyTab && (
-                      <WeekPath
-                        project={weekProject}
-                        doneIds={weekDoneIds}
-                        pendingIds={weekPendingIds}
-                        openUpTo={getPaceIndex(
-                          dailyProgress.cycleKey.slice("daily-".length)
+                      <>
+                        <WeekPath
+                          project={weekProject}
+                          doneIds={weekDoneIds}
+                          pendingIds={weekPendingIds}
+                          openUpTo={getPaceIndex(
+                            dailyProgress.cycleKey.slice("daily-".length)
+                          )}
+                        />
+
+                        {/* Проект собран — сильнейшая точка за всю неделю:
+                            ребёнок только что сделал настоящую вещь */}
+                        {weekStepsDone === weekProject.steps.length && (
+                          <motion.div variants={item}>
+                            {/* Проекты сменяются по неделям, значит и фраза
+                                на финише будет каждую неделю другой */}
+                            <CommunityHint
+                              line={pickCommunityLine(
+                                PROJECT_DONE_LINES,
+                                weekProject.id.length
+                              )}
+                            />
+                          </motion.div>
                         )}
-                      />
+                      </>
                     )}
 
                     {visibleQuests.map((quest) => (

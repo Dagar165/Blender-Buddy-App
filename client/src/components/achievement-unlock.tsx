@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import type { AchievementDefinition } from "@/lib/achievements-config";
 import { hapticSuccess } from "@/lib/haptics";
+import { CommunityHint } from "@/components/community-hint";
+import { ACHIEVEMENT_LINES, pickCommunityLine } from "@/lib/community-config";
 
 // Full-screen "you earned a medal" moment: dark backdrop, centered card,
 // stays until the student claims it with the button.
@@ -90,6 +92,16 @@ export function AchievementUnlock({
                 …и ещё {remainingCount} 🏅
               </p>
             )}
+
+            {/* Медаль редка — потому здесь и уместно про «своих». Стоит НИЖЕ
+                кнопки: сначала ребёнок радуется, дверь предлагают потом */}
+            <CommunityHint
+              line={pickCommunityLine(
+                ACHIEVEMENT_LINES,
+                achievement.title.length
+              )}
+              className="mt-3"
+            />
           </motion.div>
         </motion.div>
       )}

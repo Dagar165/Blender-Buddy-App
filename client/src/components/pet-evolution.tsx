@@ -4,6 +4,8 @@ import confetti from "canvas-confetti";
 import type { PetStage } from "@/lib/pet-config";
 import { Ghost } from "@/components/ghost";
 import { hapticSuccess } from "@/lib/haptics";
+import { CommunityHint } from "@/components/community-hint";
+import { EVOLUTION_LINES, pickCommunityLine } from "@/lib/community-config";
 
 export type PetEvolutionEvent = {
   from: PetStage;
@@ -148,6 +150,16 @@ function EvolutionScene({
             >
               Круть! 🎉
             </button>
+
+            {/* Эволюция бывает четыре раза за всю игру — приглашение здесь
+                не примелькается, а рост как повод звучит честно */}
+            <CommunityHint
+              line={pickCommunityLine(
+                EVOLUTION_LINES,
+                evolution.to.fromLevel
+              )}
+              className="mt-3"
+            />
           </motion.div>
         ) : (
           <motion.p

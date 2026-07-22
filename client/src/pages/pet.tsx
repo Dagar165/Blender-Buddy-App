@@ -32,6 +32,13 @@ import { Ghost } from "@/components/ghost";
 import { SHOP_ITEMS, getClothingSlot } from "@/lib/shop-config";
 import { getWornOverlays, isItemWorn } from "@/game/wardrobe";
 import { TIP_VISIBLE_MS } from "@/lib/tips-config";
+import {
+  BUBBLE_EVERY,
+  BUBBLE_LINES,
+  COMMUNITY_LINK,
+  pickCommunityLine,
+} from "@/lib/community-config";
+import { openOutboundLink } from "@/lib/links-config";
 
 const getPetMood = (input: {
   todayCounted: boolean;
@@ -201,10 +208,33 @@ export default function PetPage() {
     [careLevels, visit]
   );
 
+  /**
+   * Изредка призрак вспоминает про двор — чат, разборы, голосование.
+   *
+   * Раз в BUBBLE_EVERY заходов, не чаще: это единственное упоминание движухи
+   * в рутине, остальные стоят на пиках. Native жив на контрасте — если
+   * призрак начнёт звать в чат через раз, ему перестанут верить и здесь,
+   * и в остальном.
+   */
+  const communityLine = useMemo(
+    () =>
+      visit > 0 && visit % BUBBLE_EVERY === 0
+        ? pickCommunityLine(BUBBLE_LINES, visit / BUBBLE_EVERY)
+        : null,
+    [visit]
+  );
+
   // Что призрак говорит прямо сейчас. Порядок важен: свежий совет по Blender
   // важнее всего, потом встреча после паузы, потом просьба поесть или
   // прибраться, и только потом дежурная фраза настроения.
-  const phrase = tip ?? greeting ?? carePhrase ?? moodPhrase;
+  //
+  // Про двор стоит ВЫШЕ просьбы об уходе нарочно: просьба находится почти
+  // всегда, и упоминание, поставленное ниже, не показалось бы никогда.
+  // Оно и так выпадает раз в восемнадцать заходов.
+  const phrase = tip ?? greeting ?? communityLine ?? carePhrase ?? moodPhrase;
+
+  // Позвал в чат — дай дверь. Фраза без входа остаётся пустым звуком.
+  const showCommunityDoor = Boolean(communityLine) && phrase === communityLine;
 
   const stage = getPetStage(level);
   const nextStage = getNextPetStage(level);
@@ -363,6 +393,18 @@ export default function PetPage() {
                   }`}
                 />
               </motion.div>
+
+              {showCommunityDoor && (
+                <button
+                  onClick={() => {
+                    hapticTap();
+                    openOutboundLink(COMMUNITY_LINK);
+                  }}
+                  className="z-10 mt-3 flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50/80 px-3 py-1 text-[11px] font-bold text-sky-600 transition-transform active:scale-95 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
+                >
+                  Открыть чат школы →
+                </button>
+              )}
 
               {/* mt-9, а не mt-3: шляпа торчит выше макушки на 12% кадра,
                   и на прежнем отступе её кончик со звездой уезжал под пузырь
