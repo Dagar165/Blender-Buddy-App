@@ -1,43 +1,105 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { TOUR_STEPS, TOUR_STORAGE_KEY } from "@/lib/tour-config";
+import { useEffect, useRef, useState } from "react";
+import { TOUR_STEPS, TOUR_STORAGE_KEY, type TourStep } from "@/lib/tour-config";
 import { hapticSelect, hapticTap } from "@/lib/haptics";
 
 /**
  * Обучающий тур: затемняем экран, вырезаем дырку вокруг нужного элемента
  * и объясняем, что это. Тексты и порядок — в lib/tour-config.ts.
  *
- * Как сделана подсветка: одна пустая рамка на месте элемента с ОГРОМНОЙ
- * тенью наружу. Тень и есть затемнение всего остального — поэтому дырка
- * всегда точно по элементу, без масок и второго слоя.
+ * ГЛАВНОЕ ПРАВИЛО, купленное тремя неудачными заходами:
+ * **тур НЕ ПРОКРУЧИВАЕТ экран. Никогда.**
  *
- * Карточка встаёт под элементом, а если тот в нижней половине экрана —
- * над ним, чтобы не перекрывать то, о чём рассказывает.
+ * Первая версия подвозила каждый элемент к середине экрана. Выглядело это
+ * так: экран дёргается, вокруг всё затемнено, ребёнок не понимает, куда его
+ * перенесло и о чём вообще речь. Владелец сказал прямо: «как будто экран
+ * не прокрутился… должно быть сразу понятно, о чём идёт речь».
+ *
+ * Поэтому теперь так: экран один раз ставится в начало, дальше стоит
+ * неподвижно, а шаг, элемент которого целиком не помещается в окно,
+ * ПРОПУСКАЕТСЯ. Лучше рассказать про четыре вещи, которые ребёнок видит
+ * своими глазами, чем про пять, одна из которых где-то за краем.
+ *
+ * Отсюда же следует: чем короче главный экран, тем больше шагов доживает
+ * до показа. Если однажды шагов станет мало — не возвращать прокрутку,
+ * а укорачивать экран.
  */
 
 // Отступ подсветки от самого элемента, чтобы он не касался краёв дырки.
 const HALO = 8;
 // Зазор между подсветкой и карточкой.
-const GAP = 22;
+const GAP = 18;
 // Сколько карточка обязана оставить до края экрана.
 const EDGE = 12;
-// Экран успевает нарисоваться и доехать прокруткой, прежде чем мерить.
-const SETTLE_MS = 380;
+// Столько ждём после прокрутки в начало, прежде чем мерить.
+const SETTLE_MS = 260;
+// Ниже этой высоты окна тур не показываем совсем: карточке негде встать.
+const MIN_VIEWPORT = 420;
 
 type Rect = { top: number; left: number; width: number; height: number };
+type Spot = { step: TourStep; rect: Rect };
 
 function findTarget(target: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-tour="${target}"]`);
 }
 
-function measure(element: HTMLElement): Rect {
-  const box = element.getBoundingClientRect();
+// Ставим страницу в начало: тур ничего не прокручивает, значит показывать
+// он будет ровно то, что видно сверху.
+function scrollAppToTop() {
+  const anchor = findTarget("pet-room");
+  let node: HTMLElement | null = anchor?.parentElement ?? null;
 
-  return {
-    top: box.top,
-    left: box.left,
-    width: box.width,
-    height: box.height,
-  };
+  while (node) {
+    const overflow = window.getComputedStyle(node).overflowY;
+
+    if (overflow === "auto" || overflow === "scroll") {
+      node.scrollTop = 0;
+      return;
+    }
+
+    node = node.parentElement;
+  }
+
+  window.scrollTo(0, 0);
+}
+
+/**
+ * Что из шагов реально видно на экране прямо сейчас.
+ *
+ * Элемент считается видимым, если он помещается ЦЕЛИКОМ и занимает разумное
+ * место: наполовину уехавшую за край карточку подсвечивать нельзя — рамка
+ * обрежется краем экрана и превратится в непонятную оранжевую полосу
+ * (владелец увидел ровно это и назвал «странно подсвечивается»).
+ */
+function collectSpots(viewportHeight: number): Spot[] {
+  const spots: Spot[] = [];
+
+  for (const step of TOUR_STEPS) {
+    const element = findTarget(step.target);
+    if (!element) continue;
+
+    const box = element.getBoundingClientRect();
+    if (box.width <= 0 || box.height <= 0) continue;
+
+    const fitsTop = box.top >= EDGE;
+    const fitsBottom = box.bottom <= viewportHeight - EDGE;
+    // Элементу нужно оставить место под карточку хотя бы с одной стороны.
+    const roomAround =
+      box.top - GAP > 120 || viewportHeight - box.bottom - GAP > 120;
+
+    if (!fitsTop || !fitsBottom || !roomAround) continue;
+
+    spots.push({
+      step,
+      rect: {
+        top: box.top,
+        left: box.left,
+        width: box.width,
+        height: box.height,
+      },
+    });
+  }
+
+  return spots;
 }
 
 export function hasSeenTour(): boolean {
@@ -67,89 +129,51 @@ export function forgetTour() {
 }
 
 export function Tour() {
+  const [spots, setSpots] = useState<Spot[] | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
-  const [rect, setRect] = useState<Rect | null>(null);
-  const [running, setRunning] = useState(false);
-  // Высоту карточки узнаём после отрисовки: без неё нельзя понять, влезает
-  // ли она под элементом. Раньше она просто прижималась к низу — и на
-  // высоком экране кнопки «Пропустить» и «Дальше» уезжали за край.
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [cardHeight, setCardHeight] = useState(0);
 
-  const step = TOUR_STEPS[stepIndex] ?? null;
-
-  // Запускаем не сразу: на первом кадре картинки ещё не встали на места,
-  // и подсветка легла бы мимо.
+  /**
+   * Один-единственный замер, на старте. Дальше ничего не пересчитывается:
+   * ни на прокрутку (её нет), ни на что-то ещё. Именно постоянный пересчёт
+   * давал рывки — каждое событие перерисовывало весь затемняющий слой.
+   */
   useEffect(() => {
     if (hasSeenTour() || TOUR_STEPS.length === 0) return;
 
-    const timer = window.setTimeout(() => setRunning(true), 700);
+    // Даём экрану дорисоваться: картинка призрака встаёт не на первом кадре.
+    const start = window.setTimeout(() => {
+      scrollAppToTop();
 
-    return () => window.clearTimeout(timer);
+      const finish = window.setTimeout(() => {
+        const height = window.innerHeight;
+
+        if (height < MIN_VIEWPORT) {
+          markTourSeen();
+          return;
+        }
+
+        const found = collectSpots(height);
+
+        // Показывать нечего — молча закрываем и не мучаем ребёнка.
+        if (found.length === 0) {
+          markTourSeen();
+          return;
+        }
+
+        setSpots(found);
+      }, SETTLE_MS);
+
+      return () => window.clearTimeout(finish);
+    }, 650);
+
+    return () => window.clearTimeout(start);
   }, []);
 
-  const updateRect = useCallback(() => {
-    if (!step) return;
-
-    const element = findTarget(step.target);
-
-    // Метки нет — покажем шаг без подсветки, посреди экрана.
-    setRect(element ? measure(element) : null);
-  }, [step]);
-
-  /**
-   * Довозим элемент до середины экрана и только потом мерим.
-   *
-   * Прокрутка МГНОВЕННАЯ, не плавная, и это важно. Плавная ехала под
-   * затемнением почти полсекунды, всё это время подсветка стояла на старом
-   * месте, а перемер на каждое движение прокрутки перерисовывал весь слой
-   * десятки раз в секунду — отсюда и были рывки. Теперь экран уже стоит,
-   * когда ребёнок видит подсветку.
-   */
+  // Высота карточки нужна, чтобы понять, влезает ли она под элементом.
   useEffect(() => {
-    if (!running || !step) return;
-
-    const element = findTarget(step.target);
-    element?.scrollIntoView({ block: "center", behavior: "auto" });
-
-    const timer = window.setTimeout(updateRect, SETTLE_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [running, step, updateRect]);
-
-  /**
-   * Слушаем ТОЛЬКО поворот экрана. Слушателя прокрутки здесь нарочно нет:
-   * пока идёт тур, ребёнок ничего прокрутить не может — экран накрыт целиком, —
-   * а свою единственную прокрутку мы меряем строкой выше. Раньше слушатель
-   * был, и он же был причиной заторов.
-   */
-  useEffect(() => {
-    if (!running) return;
-
-    window.addEventListener("resize", updateRect);
-
-    return () => window.removeEventListener("resize", updateRect);
-  }, [running, updateRect]);
-
-  const finish = () => {
-    hapticTap();
-    markTourSeen();
-    setRunning(false);
-  };
-
-  const next = () => {
-    if (stepIndex >= TOUR_STEPS.length - 1) {
-      finish();
-      return;
-    }
-
-    hapticSelect();
-    setStepIndex((index) => index + 1);
-  };
-
-  // Меряем карточку после каждой смены шага: тексты разной длины.
-  useEffect(() => {
-    if (!running) return;
+    if (!spots) return;
 
     const measureCard = () => {
       const height = cardRef.current?.offsetHeight ?? 0;
@@ -158,120 +182,112 @@ export function Tour() {
 
     measureCard();
 
-    const timer = window.setTimeout(measureCard, 60);
+    const timer = window.setTimeout(measureCard, 50);
 
     return () => window.clearTimeout(timer);
-  }, [running, stepIndex, rect]);
+  }, [spots, stepIndex]);
 
-  if (!running || !step) return null;
+  if (!spots) return null;
 
+  const current = spots[stepIndex];
+  if (!current) return null;
+
+  const { rect, step } = current;
   const viewportHeight = window.innerHeight;
-  const isLast = stepIndex === TOUR_STEPS.length - 1;
+  const viewportWidth = window.innerWidth;
+  const isLast = stepIndex === spots.length - 1;
 
-  /**
-   * Куда поставить карточку. Правило простое: она должна ПОМЕЩАТЬСЯ целиком.
-   * Сначала пробуем под элементом, потом над ним, и только если не влезает
-   * ни туда, ни туда — ставим по центру экрана поверх затемнения.
-   * Раньше карточка всегда шла вниз и на длинном тексте обрезалась.
-   */
-  const spaceBelow = rect ? viewportHeight - (rect.top + rect.height) - GAP : 0;
-  const spaceAbove = rect ? rect.top - GAP : 0;
+  const finish = () => {
+    hapticTap();
+    markTourSeen();
+    setSpots(null);
+  };
+
+  const next = () => {
+    if (isLast) {
+      finish();
+      return;
+    }
+
+    hapticSelect();
+    setStepIndex((index) => index + 1);
+  };
+
+  // Рамка подсветки, прижатая к границам окна: за край она не выходит,
+  // поэтому обрезанной полосы, которую видел владелец, больше не будет.
+  const spot = {
+    top: Math.max(EDGE / 2, rect.top - HALO),
+    left: Math.max(EDGE / 2, rect.left - HALO),
+    right: Math.min(viewportWidth - EDGE / 2, rect.left + rect.width + HALO),
+    bottom: Math.min(viewportHeight - EDGE / 2, rect.top + rect.height + HALO),
+  };
+
+  // Карточка встаёт туда, где помещается целиком: под элементом или над ним.
+  const spaceBelow = viewportHeight - spot.bottom - GAP - EDGE;
+  const spaceAbove = spot.top - GAP - EDGE;
   const known = cardHeight > 0;
 
-  const placement: "below" | "above" | "center" = !rect
-    ? "center"
-    : !known || cardHeight <= spaceBelow - EDGE
-      ? "below"
-      : cardHeight <= spaceAbove - EDGE
-        ? "above"
-        : "center";
-
-  const cardTop =
-    rect && placement === "below"
-      ? rect.top + rect.height + GAP
-      : rect && placement === "above"
-        ? rect.top - GAP - cardHeight
-        : Math.max(EDGE, (viewportHeight - cardHeight) / 2);
+  const below = !known || cardHeight <= spaceBelow || spaceBelow >= spaceAbove;
+  const cardTop = below
+    ? spot.bottom + GAP
+    : Math.max(EDGE, spot.top - GAP - cardHeight);
 
   return (
     <div className="fixed inset-0 z-[60]">
-      {rect ? (
-        /**
-         * Подсветка ставится СРАЗУ на место, без плавного переезда. Оба
-         * способа плавности здесь уже подвели, и оба одинаково:
-         * анимация библиотеки застревала на первом кадре, а плавный переход
-         * CSS ехал из левого верхнего угла — React переиспользует этот же
-         * прямоугольник под затемнение, и переход стартовал от него.
-         * В обоих случаях ребёнок видел рамку не на том месте.
-         * Мгновенный перескок читается не хуже и сломаться не может.
-         */
-        <>
-          {/* Затемнение — ЧЕТЫРЕ обычные шторки вокруг дырки, по краям
-              экрана. Раньше здесь была одна рамка с тенью в 9999 пикселей
-              во все стороны: приём известный, но телефон рисует такую тень
-              заметно дороже четырёх прямоугольников, а перерисовывалась она
-              на каждое движение прокрутки. Отсюда шли рывки. */}
-          <div
-            className="pointer-events-none absolute left-0 right-0 top-0 bg-slate-950/75"
-            style={{ height: Math.max(0, rect.top - HALO) }}
-          />
-          <div
-            className="pointer-events-none absolute left-0 right-0 bottom-0 bg-slate-950/75"
-            style={{ top: rect.top + rect.height + HALO }}
-          />
-          <div
-            className="pointer-events-none absolute left-0 bg-slate-950/75"
-            style={{
-              top: rect.top - HALO,
-              width: Math.max(0, rect.left - HALO),
-              height: rect.height + HALO * 2,
-            }}
-          />
-          <div
-            className="pointer-events-none absolute right-0 bg-slate-950/75"
-            style={{
-              top: rect.top - HALO,
-              left: rect.left + rect.width + HALO,
-              height: rect.height + HALO * 2,
-            }}
-          />
+      {/* Затемнение — четыре обычные шторки вокруг дырки. Одна рамка
+          с тенью в 9999 пикселей телефону обходится заметно дороже. */}
+      <div
+        className="pointer-events-none absolute left-0 right-0 top-0 bg-slate-950/78"
+        style={{ height: Math.max(0, spot.top) }}
+      />
+      <div
+        className="pointer-events-none absolute left-0 right-0 bottom-0 bg-slate-950/78"
+        style={{ top: spot.bottom }}
+      />
+      <div
+        className="pointer-events-none absolute left-0 bg-slate-950/78"
+        style={{
+          top: spot.top,
+          width: Math.max(0, spot.left),
+          height: Math.max(0, spot.bottom - spot.top),
+        }}
+      />
+      <div
+        className="pointer-events-none absolute right-0 bg-slate-950/78"
+        style={{
+          top: spot.top,
+          left: spot.right,
+          height: Math.max(0, spot.bottom - spot.top),
+        }}
+      />
 
-          {/* Сама рамка — только ободок, без заливки и без тени. */}
-          <div
-            className="pointer-events-none absolute rounded-3xl ring-2 ring-secondary/70"
-            style={{
-              top: rect.top - HALO,
-              left: rect.left - HALO,
-              width: rect.width + HALO * 2,
-              height: rect.height + HALO * 2,
-            }}
-          />
-        </>
-      ) : (
-        // Метка не нашлась — просто затемняем всё.
-        <div key="tour-dim" className="absolute inset-0 bg-slate-950/74" />
-      )}
+      <div
+        className="pointer-events-none absolute rounded-3xl ring-2 ring-secondary/70"
+        style={{
+          top: spot.top,
+          left: spot.left,
+          width: Math.max(0, spot.right - spot.left),
+          height: Math.max(0, spot.bottom - spot.top),
+        }}
+      />
 
-      {/* Внешний слой держит положение, внутренний — сама карточка. */}
+      {/* Карточка без анимации появления. Анимация, которую считает
+          библиотека, идёт по кадрам, а окну без кадров их не дают —
+          карточка застревала прозрачной поверх тёмного экрана. */}
       <div
         className="absolute left-0 right-0 flex justify-center px-5"
         style={{ top: cardTop }}
       >
-      {/* Карточка нарочно БЕЗ анимации появления. Любая анимация, которую
-          считает библиотека, идёт по кадрам, а окну без кадров их не дают:
-          карточка застряла бы прозрачной, и ребёнок смотрел бы в тёмный
-          экран. Переход между шагами читается по едущей подсветке. */}
         <div
           ref={cardRef}
-          className="w-full max-w-[21rem] rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-border dark:bg-card"
+          className="w-full max-w-[21rem] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-border dark:bg-card"
         >
-          {/* Точки: сколько всего шагов и где мы сейчас — видно, что это
-              короткая история с концом, а не бесконечные всплывашки */}
-          <div className="mb-3 flex items-center gap-1.5">
-            {TOUR_STEPS.map((entry, index) => (
+          {/* Точки: видно, что это короткая история с концом */}
+          <div className="mb-2.5 flex items-center gap-1.5">
+            {spots.map((entry, index) => (
               <span
-                key={entry.target}
-                className={`h-1.5 rounded-full transition-all ${
+                key={entry.step.target}
+                className={`h-1.5 rounded-full ${
                   index === stepIndex
                     ? "w-6 bg-secondary"
                     : "w-1.5 bg-slate-200 dark:bg-slate-700"
@@ -280,17 +296,17 @@ export function Tour() {
             ))}
           </div>
 
-          <h3 className="font-display text-lg font-bold text-slate-800 dark:text-slate-100">
+          <h3 className="font-display text-base font-bold text-slate-800 dark:text-slate-100">
             {step.title}
           </h3>
 
-          <p className="mt-1.5 text-sm leading-snug text-slate-600 dark:text-slate-300">
+          <p className="mt-1 text-sm leading-snug text-slate-600 dark:text-slate-300">
             {step.text}
           </p>
 
-          <div className="mt-4 flex items-center gap-3">
-            {/* «Пропустить» есть на каждом шаге: тот, кто уже разобрался,
-                не должен пролистывать всё до конца, чтобы начать играть */}
+          <div className="mt-3 flex items-center gap-3">
+            {/* «Пропустить» на каждом шаге: тот, кто уже разобрался,
+                не должен пролистывать всё, чтобы начать играть */}
             <button
               onClick={finish}
               className="text-sm font-bold text-slate-400 transition-transform active:scale-95 dark:text-slate-500"
