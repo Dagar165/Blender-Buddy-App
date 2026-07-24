@@ -33,6 +33,7 @@ import {
   getNextStep,
   getPaceIndex,
   getStepStates,
+  getWaitingStep,
   getWeekProject,
   isProjectDay,
   type WeeklyProject,
@@ -432,6 +433,25 @@ export default function QuestsPage() {
     );
 
     return Boolean(next && next.index > getPaceIndex(dateKey));
+  }, [
+    dailyProgress.cycleKey,
+    weekProject,
+    weeklyProgress.weekDoneIds,
+    weekPendingIds,
+  ]);
+
+  // Шаг ушёл куратору и держит очередь. Это ДРУГАЯ причина, чем «календарь
+  // закрыл», и ребёнку надо сказать именно её: ждём не завтрашнего дня,
+  // а ответа — который может прийти и через десять минут.
+  const waitingStep = useMemo(() => {
+    const dateKey = dailyProgress.cycleKey.slice("daily-".length);
+    if (!isProjectDay(dateKey)) return null;
+
+    return getWaitingStep(
+      weekProject,
+      weeklyProgress.weekDoneIds ?? [],
+      weekPendingIds
+    );
   }, [
     dailyProgress.cycleKey,
     weekProject,
@@ -858,6 +878,27 @@ export default function QuestsPage() {
                 })
               : (
                   <>
+                    {/* Шаг у куратора. Следующий нарочно не выдаём: шаги
+                        строятся друг на друге, и красить клинок поверх
+                        непринятой заточки — работа поверх, может быть, брака */}
+                    {isDailyTab && waitingStep && (
+                      <motion.div
+                        variants={item}
+                        className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10"
+                      >
+                        <Clock className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+                        <p className="text-xs leading-snug text-slate-600 dark:text-slate-300">
+                          <b className="text-slate-700 dark:text-slate-200">
+                            Шаг {waitingStep.index + 1} у куратора.
+                          </b>{" "}
+                          Следующий откроется, когда он ответит: каждый шаг
+                          строится на прошлом, и делать новый поверх
+                          непроверенного — рисковать всей работой. Пока —
+                          разминка ниже, квиз или призрак.
+                        </p>
+                      </motion.div>
+                    )}
+
                     {isDailyTab && nextStepLocked && (
                       <motion.div variants={item} className="space-y-2">
                         <div className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card px-4 py-3">

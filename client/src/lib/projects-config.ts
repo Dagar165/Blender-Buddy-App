@@ -356,8 +356,11 @@ export type StepState = "done" | "pending" | "next" | "soon" | "locked";
  * следующий шаг — просто первый несданный. Отстал — нагоняешь, награда та же,
  * а за ежедневность и так платит бонус серии.
  *
- * «pending» — отправлен куратору. Такой шаг не держит очередь: пока идёт
- * проверка, следующий уже доступен, иначе ученик простаивал бы из-за нас.
+ * «pending» — отправлен куратору и ДЕРЖИТ ОЧЕРЕДЬ: пока шаг не проверен,
+ * следующий не открывается. Раньше было наоборот, чтобы ученик не простаивал,
+ * и это оказалось ошибкой: шаги строятся друг на друге. «Покрась клинок»
+ * поверх заточки, которую куратор ещё не принял, — это работа поверх, может
+ * быть, брака. Замечание владельца 23.07.
  */
 export function getStepStates(
   project: WeeklyProject,
@@ -366,31 +369,56 @@ export function getStepStates(
   // Докуда открыл календарь: дальше сегодня не уйти (см. getPaceIndex).
   openUpTo: number = project.steps.length - 1
 ): StepState[] {
-  let nextFound = false;
+  let blocked = false;
 
   return project.steps.map((step, index) => {
     if (doneIds.includes(step.id)) return "done";
-    if (pendingIds.includes(step.id)) return "pending";
 
-    if (!nextFound) {
-      nextFound = true;
-      // Очередь дошла, а календарь — ещё нет: это «завтра», а не «сейчас».
-      return index <= openUpTo ? "next" : "soon";
+    if (pendingIds.includes(step.id)) {
+      // Шаг у куратора — всё, что за ним, ждёт его ответа.
+      blocked = true;
+      return "pending";
     }
 
-    return "locked";
+    if (blocked) return "locked";
+
+    blocked = true;
+
+    // Очередь дошла, а календарь — ещё нет: это «завтра», а не «сейчас».
+    return index <= openUpTo ? "next" : "soon";
   });
 }
 
-// Первый шаг, который ещё не сдан и не отправлен, — то самое задание дня.
+/**
+ * Шаг, который делаем сейчас: первый несданный — но только если перед ним
+ * никто не ждёт проверки. Ждёт — значит сегодня делать нечего, см. getWaitingStep.
+ */
 export function getNextStep(
   project: WeeklyProject,
   doneIds: string[],
   pendingIds: string[]
 ) {
-  const index = project.steps.findIndex(
-    (step) => !doneIds.includes(step.id) && !pendingIds.includes(step.id)
-  );
+  const index = project.steps.findIndex((step) => !doneIds.includes(step.id));
 
-  return index === -1 ? null : { step: project.steps[index], index };
+  if (index === -1) return null;
+  if (pendingIds.includes(project.steps[index].id)) return null;
+
+  return { step: project.steps[index], index };
+}
+
+/**
+ * Шаг, который стоит у куратора и держит очередь. Нужен экрану, чтобы сказать
+ * ребёнку правду: не «на сегодня всё», а «жду ответа по шагу N».
+ */
+export function getWaitingStep(
+  project: WeeklyProject,
+  doneIds: string[],
+  pendingIds: string[]
+) {
+  const index = project.steps.findIndex((step) => !doneIds.includes(step.id));
+
+  if (index === -1) return null;
+  if (!pendingIds.includes(project.steps[index].id)) return null;
+
+  return { step: project.steps[index], index };
 }
