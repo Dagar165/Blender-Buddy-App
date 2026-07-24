@@ -100,6 +100,31 @@
   }
 }
 
+/**
+ * Кубики на фоне комнаты призрака (см. components/room-cubes.tsx).
+ * Двигаются ТОЛЬКО transform и opacity — то, что браузер считает на
+ * видеокарте, не пересчитывая вёрстку. Никакого JavaScript.
+ */
+@keyframes room-cube-drift {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.35; }
+  50%  { transform: translate3d(0, -18px, 0) rotate(var(--cube-spin, 20deg)); opacity: 0.9; }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.35; }
+}
+
+.room-cube {
+  animation-name: room-cube-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+/* Если в телефоне включено «уменьшить движение» — кубики просто стоят. */
+@media (prefers-reduced-motion: reduce) {
+  .room-cube {
+    animation: none;
+  }
+}
+
 @layer utilities {
   .text-shadow-sm {
     text-shadow: 0 2px 4px rgba(0,0,0,0.1);

@@ -13,6 +13,7 @@ import { Link } from "wouter";
 import { CheckCircle, ChevronRight, Clock, Scroll } from "lucide-react";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
 import { CarePanel } from "@/components/care-panel";
+import { RoomCubes } from "@/components/room-cubes";
 import {
   CARE_NEEDS,
   getCarePhrase,
@@ -332,6 +333,11 @@ export default function PetPage() {
             data-tour="pet-room"
             className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10"
           >
+            {/* Каркасные кубики на фоне — как на лендинге школы. Стоят
+                ПЕРВЫМИ в разметке, поэтому рисуются под всем остальным
+                и призрак остаётся главным. */}
+            <RoomCubes />
+
             {/* Угол HUD, как в Blender: имя активного объекта.
                 Нажимается — объясняет, что это за ступень пути */}
             <button
