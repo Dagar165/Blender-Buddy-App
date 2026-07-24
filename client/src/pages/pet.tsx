@@ -77,6 +77,10 @@ type Heart = { id: number; x: number; withXp: boolean };
  */
 let visitNumber = Math.floor(Math.random() * 1000);
 
+// Сколько раз надо погладить призрака, чтобы подсказка «нажми — погладь»
+// ушла навсегда. Три — это уже не случайное касание, а понятое действие.
+const PETTING_HINT_TAPS = 3;
+
 // Гизмо осей из угла 3D-окна Blender. Отсылка — но нажимаемая: под ней
 // прячется маленький урок про X, Y и Z, который пригодится в самом Blender.
 function AxisGizmo() {
@@ -114,6 +118,7 @@ export default function PetPage() {
     xpToNextLevel,
     xpProgress,
     care,
+    petTapsTotal,
     petGhost,
     markVisit,
     wearItem,
@@ -484,9 +489,14 @@ export default function PetPage() {
                 </motion.div>
               </div>
 
-              <span className="absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/70 rounded-full px-4 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-300 shadow-sm select-none">
-                Нажми — погладь · потяни — покрути
-              </span>
+              {/* Подсказка исчезает, как только ребёнок погладил призрака
+                  хоть раз: она нужна ровно до первого касания, а дальше
+                  занимает строку в комнате и повторяет очевидное. */}
+              {petTapsTotal < PETTING_HINT_TAPS && (
+                <span className="absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/70 rounded-full px-4 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-300 shadow-sm select-none">
+                  Нажми — погладь · потяни — покрути
+                </span>
+              )}
             </div>
 
             {/* Подсказки поверх комнаты: тап мимо — закрыть */}
@@ -590,10 +600,10 @@ export default function PetPage() {
             <ChevronRight className="w-5 h-5 shrink-0 opacity-70" />
           </Link>
 
-          <div className="flex items-center gap-2 mt-4 mb-4 text-xs font-bold text-slate-400 dark:text-slate-500">
-            <span>Стадия {stageNumber} из {PET_STAGES.length}</span>
-            {nextStage && <span>· эволюция на {nextStage.fromLevel} ур. ✨</span>}
-          </div>
+          {/* Строка «Стадия N из 5 · эволюция на N ур.» здесь была и удалена:
+              то же самое, слово в слово, рассказывает плашка стадии в углу
+              комнаты, если по ней нажать — там и номер ступени, и что дальше.
+              Два раза одно и то же на экране, который принадлежит призраку. */}
 
           {/* Гардероб одной строкой: надетое — в цвете и с ободком, остальное
               лежит бледным. Нажатие переодевает прямо здесь: владелец просил

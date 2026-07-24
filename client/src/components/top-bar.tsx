@@ -47,38 +47,43 @@ export function TopBar() {
       ? "text-amber-400"
       : "text-slate-300 dark:text-slate-600";
 
+  /**
+   * Панель нарочно НИЗКАЯ. Раньше три крупные плашки съедали около
+   * девяноста точек высоты — на экране, который принадлежит призраку,
+   * это непозволительно много под три числа. Слова «Уровень» и «Голда»
+   * убраны: их объясняет тур и подсказка по нажатию, а цифра со значком
+   * читается и без подписи.
+   */
   const pill =
-    "flex items-center gap-2 bg-white/80 dark:bg-card/80 backdrop-blur px-4 py-2 rounded-2xl shadow-sm border transition-colors active:scale-95";
+    "flex items-center gap-1.5 bg-white/80 dark:bg-card/80 backdrop-blur px-3 py-1.5 rounded-xl shadow-sm border transition-colors active:scale-95";
   const pillIdle = "border-slate-100 dark:border-border";
   const pillOpen = "border-primary/50 dark:border-primary/60";
 
   return (
     <div data-tour="top-bar" className="relative z-40">
-      <div className="flex justify-between items-center px-6 py-4 pt-6 bg-transparent">
+      <div className="flex justify-between items-center gap-2 px-5 py-2.5 bg-transparent">
         <button
           onClick={() => toggle("level")}
           className={`${pill} ${open === "level" ? pillOpen : pillIdle}`}
         >
-          <div className="bg-primary text-white w-8 h-8 rounded-full flex items-center justify-center font-display font-bold shadow-md shadow-primary/30">
+          <div className="bg-primary text-white w-6 h-6 rounded-full flex items-center justify-center font-display text-xs font-bold shadow-sm shadow-primary/30">
             {level}
           </div>
-          <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">
-            Уровень
+          <span className="font-bold text-slate-500 dark:text-slate-400 text-xs">
+            ур.
           </span>
         </button>
 
         <button
           onClick={() => toggle("streak")}
-          className={`${pill} !px-3 !gap-1 ${
-            open === "streak" ? pillOpen : pillIdle
-          }`}
+          className={`${pill} ${open === "streak" ? pillOpen : pillIdle}`}
         >
           <Flame
-            className={`w-6 h-6 drop-shadow-sm ${flameColor}`}
+            className={`w-5 h-5 drop-shadow-sm ${flameColor}`}
             fill="currentColor"
           />
           <span
-            className={`font-bold ${
+            className={`font-bold text-sm ${
               streak.current > 0
                 ? "text-slate-700 dark:text-slate-200"
                 : "text-slate-400 dark:text-slate-500"
@@ -92,14 +97,11 @@ export function TopBar() {
           onClick={() => toggle("gold")}
           className={`${pill} ${open === "gold" ? pillOpen : pillIdle}`}
         >
-          <span className="font-bold text-slate-700 dark:text-slate-200">
+          <span className="font-bold text-sm text-slate-700 dark:text-slate-200">
             {gold}
           </span>
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-            Голда
-          </span>
           <Coins
-            className="w-6 h-6 text-yellow-500 drop-shadow-sm"
+            className="w-5 h-5 text-yellow-500 drop-shadow-sm"
             fill="currentColor"
           />
         </button>
