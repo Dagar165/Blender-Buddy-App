@@ -52,9 +52,9 @@ export function CarePanel() {
     window.setTimeout(() => setUsedEmoji(null), 1200);
   };
 
+  // Отступ сверху НЕ здесь: расстояния между блоками главного экрана
+  // задаёт колонка в pet.tsx (см. там комментарий про gap-4).
   return (
-    {/* Отступ сверху НЕ здесь: расстояния между блоками главного экрана
-        задаёт колонка в pet.tsx (см. комментарий про gap-4). */}
     <div data-tour="care" className="relative w-full max-w-sm">
       <div className="grid grid-cols-3 gap-2">
         {CARE_NEEDS.map((need) => {
