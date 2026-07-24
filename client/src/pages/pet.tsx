@@ -77,9 +77,35 @@ type Heart = { id: number; x: number; withXp: boolean };
  */
 let visitNumber = Math.floor(Math.random() * 1000);
 
-// Сколько раз надо погладить призрака, чтобы подсказка «нажми — погладь»
-// ушла навсегда. Три — это уже не случайное касание, а понятое действие.
+/**
+ * Подсказка «как трогать призрака» уходит навсегда после трёх поглаживаний.
+ *
+ * Счёт живёт в памяти УСТРОЙСТВА, а не в сторе. Причина важная: в сторе есть
+ * похожее поле `petTapsTotal`, и первая версия считала по нему — оказалось
+ * неверно. **`petTapsTotal` — это «сколько погладил С ПРОШЛОГО СОВЕТА»,
+ * и он обнуляется каждый раз, когда призрак выдаёт совет по Blender.**
+ * Поэтому подсказка возвращалась после каждого совета, снова и снова.
+ * Не использовать `petTapsTotal` в смысле «уже разобрался».
+ */
 const PETTING_HINT_TAPS = 3;
+const PETTING_HINT_KEY = "bb_pet_hint_v1";
+
+function readPettingTaps(): number {
+  try {
+    return Number(window.localStorage.getItem(PETTING_HINT_KEY)) || 0;
+  } catch {
+    // Нет доступа к памяти — подсказка просто останется видимой.
+    return 0;
+  }
+}
+
+function writePettingTaps(value: number) {
+  try {
+    window.localStorage.setItem(PETTING_HINT_KEY, String(value));
+  } catch {
+    // Не записалось — не страшно, подсказка ещё повисит.
+  }
+}
 
 // Гизмо осей из угла 3D-окна Blender. Отсылка — но нажимаемая: под ней
 // прячется маленький урок про X, Y и Z, который пригодится в самом Blender.
@@ -118,7 +144,6 @@ export default function PetPage() {
     xpToNextLevel,
     xpProgress,
     care,
-    petTapsTotal,
     petGhost,
     markVisit,
     wearItem,
@@ -136,6 +161,8 @@ export default function PetPage() {
   const [tip, setTip] = useState<string | null>(null);
   // Встреча после паузы — показывается один раз за визит.
   const [greeting, setGreeting] = useState<string | null>(null);
+  // Сколько раз погладили за всё время — только ради подсказки.
+  const [pettingTaps, setPettingTaps] = useState(readPettingTaps);
 
   useEffect(() => {
     const daysAway = markVisit();
@@ -166,6 +193,13 @@ export default function PetPage() {
     if (draggingRef.current) return;
 
     hapticTap();
+
+    // Считаем поглаживания для подсказки отдельно: см. PETTING_HINT_TAPS.
+    if (pettingTaps < PETTING_HINT_TAPS) {
+      const next = pettingTaps + 1;
+      writePettingTaps(next);
+      setPettingTaps(next);
+    }
 
     const { granted, tip: freshTip } = petGhost();
     const id = Date.now() + Math.random();
@@ -504,9 +538,9 @@ export default function PetPage() {
               {/* Подсказка исчезает, как только ребёнок погладил призрака
                   хоть раз: она нужна ровно до первого касания, а дальше
                   занимает строку в комнате и повторяет очевидное. */}
-              {petTapsTotal < PETTING_HINT_TAPS && (
+              {pettingTaps < PETTING_HINT_TAPS && (
                 <span className="absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white/85 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/70 rounded-full px-4 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-300 shadow-sm select-none">
-                  Нажми — погладь · потяни — покрути
+                  Погладь · потяни вбок — покрутится
                 </span>
               )}
             </div>
