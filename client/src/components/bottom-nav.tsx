@@ -14,7 +14,10 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-card border-t border-slate-100 dark:border-border rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.6)] z-50 pb-safe">
+    <nav
+      data-tour="bottom-nav"
+      className="fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-card border-t border-slate-100 dark:border-border rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.6)] z-50 pb-safe"
+    >
       <div className="flex justify-around items-center p-3">
         {tabs.map((tab) => {
           const isActive = location === tab.path;

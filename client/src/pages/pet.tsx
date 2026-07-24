@@ -328,7 +328,10 @@ export default function PetPage() {
         <div className="flex flex-col items-center">
           {/* Комната призрака — отсылка к 3D-окну Blender:
               сетка пола, гизмо осей, а призрак «выделен» оранжевым */}
-          <div className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10">
+          <div
+            data-tour="pet-room"
+            className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10"
+          >
             {/* Угол HUD, как в Blender: имя активного объекта.
                 Нажимается — объясняет, что это за ступень пути */}
             <button
@@ -555,6 +558,7 @@ export default function PetPage() {
 
           {/* Единственная оранжевая кнопка главного экрана */}
           <Link
+            data-tour="today"
             href="/quests"
             onClick={() => hapticTap("medium")}
             className={`w-full max-w-sm mt-4 flex items-center gap-3 rounded-2xl px-4 py-3.5 border transition-all active:scale-[0.98] ${

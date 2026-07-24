@@ -53,7 +53,7 @@ export function CarePanel() {
   };
 
   return (
-    <div className="relative w-full max-w-sm mt-4">
+    <div data-tour="care" className="relative w-full max-w-sm mt-4">
       <div className="grid grid-cols-3 gap-2">
         {CARE_NEEDS.map((need) => {
           const level = getNeedLevel(care[need.id] ?? null, need.decayHours);

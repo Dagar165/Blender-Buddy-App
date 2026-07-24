@@ -53,7 +53,7 @@ export function TopBar() {
   const pillOpen = "border-primary/50 dark:border-primary/60";
 
   return (
-    <div className="relative z-40">
+    <div data-tour="top-bar" className="relative z-40">
       <div className="flex justify-between items-center px-6 py-4 pt-6 bg-transparent">
         <button
           onClick={() => toggle("level")}

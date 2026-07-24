@@ -1,4 +1,4 @@
-import { Router as WouterRouter, Switch, Route } from "wouter";
+import { Router as WouterRouter, Switch, Route, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, useState } from "react";
@@ -27,8 +27,15 @@ import QuestsPage from "@/pages/quests";
 import ShopPage from "@/pages/shop";
 import ProfilePage from "@/pages/profile";
 import NotFound from "@/pages/not-found";
+import { Tour } from "@/components/tour";
 
 function Router() {
+  // Тур живёт только на главной: все его шаги показывают то, что видно
+  // отсюда, включая нижние вкладки. Он и монтируется вместе с ней —
+  // поэтому «показать заново» из профиля срабатывает, как только ученик
+  // вернётся на главный экран.
+  const [location] = useLocation();
+
   return (
     <div className="relative w-full h-full pb-[80px]">
       <Switch>
@@ -38,6 +45,8 @@ function Router() {
         <Route path="/profile" component={ProfilePage} />
         <Route component={NotFound} />
       </Switch>
+
+      {location === "/" && <Tour />}
     </div>
   );
 }

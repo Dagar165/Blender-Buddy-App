@@ -14,8 +14,11 @@ import {
   ExternalLink,
   SlidersHorizontal,
   ChevronDown,
+  ChevronRight,
+  Compass,
 } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { setTheme, useTheme } from "@/lib/theme";
 import { DevPanel } from "@/components/dev-panel";
 import { isDevUser } from "@/lib/dev-config";
@@ -31,6 +34,7 @@ import {
 import { SHOP_ITEMS } from "@/lib/shop-config";
 import { hapticTap } from "@/lib/haptics";
 import { getTelegramPhotoUrl } from "@/game/cloud";
+import { forgetTour } from "@/components/tour";
 
 export default function ProfilePage() {
   const {
@@ -46,6 +50,7 @@ export default function ProfilePage() {
     resetGame,
   } = useGameState();
   const theme = useTheme();
+  const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(username);
   const [selectedAchievementId, setSelectedAchievementId] = useState<
@@ -184,6 +189,24 @@ export default function ProfilePage() {
             })}
           </div>
         </div>
+
+        {/* Тур проходится один раз при первом запуске. Отсюда его можно
+            позвать снова: он живёт на главном экране, поэтому сначала
+            забываем отметку «уже видел», потом уводим туда. */}
+        <button
+          onClick={() => {
+            hapticTap();
+            forgetTour();
+            setLocation("/");
+          }}
+          className="w-full mb-6 px-5 py-4 flex items-center gap-3 rounded-3xl bg-white dark:bg-card shadow-sm border border-slate-100 dark:border-border text-left active:scale-[0.99] transition-transform"
+        >
+          <Compass className="w-5 h-5 shrink-0 text-primary" />
+          <span className="flex-1 text-sm font-medium text-slate-600 dark:text-slate-300">
+            Показать подсказки заново
+          </span>
+          <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
+        </button>
 
         {/* Статистика — строки «название → значение», как панель свойств */}
         <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-6 overflow-hidden">
