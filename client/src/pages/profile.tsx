@@ -30,6 +30,7 @@ import {
 } from "@/lib/achievements-config";
 import { SHOP_ITEMS } from "@/lib/shop-config";
 import { hapticTap } from "@/lib/haptics";
+import { getTelegramPhotoUrl } from "@/game/cloud";
 
 export default function ProfilePage() {
   const {
@@ -53,6 +54,13 @@ export default function ProfilePage() {
   const [showDevPanel, setShowDevPanel] = useState(false);
   // Медали свёрнуты, пока их не попросят: профиль и без них длинный.
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+  // Инвентарь — по той же причине и тем же переключателем.
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+
+  // Аватарка спрашивается у Телеграма один раз за открытие экрана.
+  const [photoUrl] = useState(getTelegramPhotoUrl);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const initial = username.trim().charAt(0).toUpperCase();
 
   // Кнопка панели видна только владельцу — список в lib/dev-config.ts.
   const canUseDevPanel = isDevUser(telegramUserId, telegramUsername);
@@ -86,8 +94,25 @@ export default function ProfilePage() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-[100px] -z-0" />
 
           <div className="flex items-center gap-4 relative z-10">
-            <div className="w-20 h-20 bg-gradient-to-tr from-primary to-blue-300 rounded-full flex items-center justify-center text-white shadow-md border-4 border-white dark:border-slate-700">
-              <User className="w-10 h-10" />
+            {/* Лицо ученика, а не безликий значок. Телеграм отдаёт аватарку
+                не всегда (настройки приватности, способ запуска), и ссылка
+                со временем протухает — поэтому у картинки всегда есть запасной
+                вариант, и он включается сам по ошибке загрузки. */}
+            <div className="w-20 h-20 shrink-0 bg-gradient-to-tr from-primary to-blue-300 rounded-full flex items-center justify-center text-white shadow-md border-4 border-white dark:border-slate-700 overflow-hidden">
+              {photoUrl && !photoFailed ? (
+                <img
+                  src={photoUrl}
+                  alt=""
+                  onError={() => setPhotoFailed(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : initial ? (
+                <span className="font-display text-3xl font-bold leading-none">
+                  {initial}
+                </span>
+              ) : (
+                <User className="w-10 h-10" />
+              )}
             </div>
 
             <div className="flex-1">
@@ -323,11 +348,31 @@ export default function ProfilePage() {
           })}
         </div>
 
-        <h3 className="font-display font-bold text-slate-800 dark:text-slate-100 text-lg mb-4 flex items-center gap-2">
-          <Package className="text-secondary" /> Мой Инвентарь
-        </h3>
+        {/* Свёрнут так же, как достижения, и по той же причине: вещей
+            становится всё больше, а профиль владелец назвал «гигантским».
+            Счёт вещей виден и в свёрнутом виде — ради него сюда и заходят. */}
+        <button
+          onClick={() => {
+            hapticTap();
+            setInventoryOpen((open) => !open);
+          }}
+          className="w-full mb-4 flex items-center gap-2 text-left"
+        >
+          <Package className="text-secondary" />
+          <span className="font-display font-bold text-slate-800 dark:text-slate-100 text-lg">
+            Мой инвентарь
+          </span>
+          <span className="ml-auto text-sm font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-card px-3 py-1 rounded-xl border border-slate-200 dark:border-border">
+            {inventory.length}
+          </span>
+          <ChevronDown
+            className={`w-5 h-5 shrink-0 text-slate-400 dark:text-slate-500 transition-transform ${
+              inventoryOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
 
-        {inventory.length === 0 ? (
+        {!inventoryOpen ? null : inventory.length === 0 ? (
           <div className="bg-white dark:bg-card border-2 border-dashed border-slate-200 dark:border-border rounded-3xl p-8 text-center mb-8">
             <p className="text-slate-500 dark:text-slate-400 font-medium">Твой инвентарь пуст.<br/>Посети магазин, чтобы купить крутое снаряжение!</p>
           </div>

@@ -21,6 +21,10 @@ type TelegramUserData = {
   id?: number;
   username?: string;
   first_name?: string;
+  // Аватарка из Телеграма. Приходит НЕ всегда — зависит от настроек приватности
+  // и от того, чем открыт мини-апп. Поэтому нигде не сохраняется и всегда
+  // имеет запасной вариант, см. getTelegramPhotoUrl.
+  photo_url?: string;
 };
 
 type TelegramCloudStorage = {
@@ -114,6 +118,20 @@ export const getTelegramCloudStorage = (): TelegramCloudStorage | null => {
 export const getTelegramUser = (): TelegramUserData | null => {
   const webApp = getTelegramWebApp();
   return webApp?.initDataUnsafe?.user ?? null;
+};
+
+/**
+ * Аватарка ученика из Телеграма.
+ *
+ * Нарочно НЕ кладётся ни в стор, ни в облако: ссылка живёт недолго и протухает,
+ * а сохранённая протухшая ссылка — это пустой квадрат вместо лица. Спрашиваем
+ * Телеграм заново при каждом открытии профиля, а если он не ответил —
+ * рисуем букву имени (см. профиль).
+ */
+export const getTelegramPhotoUrl = (): string | null => {
+  const url = getTelegramUser()?.photo_url?.trim();
+
+  return url ? url : null;
 };
 
 export const getTelegramDisplayName = (user: TelegramUserData | null) => {
