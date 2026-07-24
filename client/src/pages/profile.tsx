@@ -397,7 +397,7 @@ export default function ProfilePage() {
 
         {!inventoryOpen ? null : inventory.length === 0 ? (
           <div className="bg-white dark:bg-card border-2 border-dashed border-slate-200 dark:border-border rounded-3xl p-8 text-center mb-8">
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Твой инвентарь пуст.<br/>Посети магазин, чтобы купить крутое снаряжение!</p>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">Пока пусто.<br/>Всё нужное — в магазине.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 mb-8">

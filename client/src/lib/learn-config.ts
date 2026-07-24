@@ -36,7 +36,7 @@ export const BEGINNER_COURSE = {
   title: "Никогда не открывал Blender?",
   // Строка в свёрнутом виде: одна, короткая, помещается в одну линию.
   shortTitle: "Не открывал Blender? Уроки с нуля",
-  text: "Начни отсюда — короткие уроки с самого нуля. Вернёшься сюда, когда освоишься: задания никуда не денутся.",
+  text: "Начни отсюда — короткие уроки с нуля. Задания подождут.",
 
   youtube:
     "https://www.youtube.com/playlist?list=PLuwj-zVO_3iCwZ-xBdJnLBTWIrr5-Biri",

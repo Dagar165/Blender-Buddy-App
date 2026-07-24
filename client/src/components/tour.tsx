@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TOUR_STEPS, TOUR_STORAGE_KEY } from "@/lib/tour-config";
 import { hapticSelect, hapticTap } from "@/lib/haptics";
 
@@ -16,6 +16,10 @@ import { hapticSelect, hapticTap } from "@/lib/haptics";
 
 // Отступ подсветки от самого элемента, чтобы он не касался краёв дырки.
 const HALO = 8;
+// Зазор между подсветкой и карточкой.
+const GAP = 22;
+// Сколько карточка обязана оставить до края экрана.
+const EDGE = 12;
 // Экран успевает нарисоваться и доехать прокруткой, прежде чем мерить.
 const SETTLE_MS = 380;
 
@@ -66,6 +70,11 @@ export function Tour() {
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [running, setRunning] = useState(false);
+  // Высоту карточки узнаём после отрисовки: без неё нельзя понять, влезает
+  // ли она под элементом. Раньше она просто прижималась к низу — и на
+  // высоком экране кнопки «Пропустить» и «Дальше» уезжали за край.
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [cardHeight, setCardHeight] = useState(0);
 
   const step = TOUR_STEPS[stepIndex] ?? null;
 
@@ -130,12 +139,51 @@ export function Tour() {
     setStepIndex((index) => index + 1);
   };
 
+  // Меряем карточку после каждой смены шага: тексты разной длины.
+  useEffect(() => {
+    if (!running) return;
+
+    const measureCard = () => {
+      const height = cardRef.current?.offsetHeight ?? 0;
+      setCardHeight((current) => (current === height ? current : height));
+    };
+
+    measureCard();
+
+    const timer = window.setTimeout(measureCard, 60);
+
+    return () => window.clearTimeout(timer);
+  }, [running, stepIndex, rect]);
+
   if (!running || !step) return null;
 
   const viewportHeight = window.innerHeight;
-  // Элемент в нижней половине — карточку поднимаем над ним.
-  const cardBelow = rect ? rect.top + rect.height / 2 < viewportHeight / 2 : true;
   const isLast = stepIndex === TOUR_STEPS.length - 1;
+
+  /**
+   * Куда поставить карточку. Правило простое: она должна ПОМЕЩАТЬСЯ целиком.
+   * Сначала пробуем под элементом, потом над ним, и только если не влезает
+   * ни туда, ни туда — ставим по центру экрана поверх затемнения.
+   * Раньше карточка всегда шла вниз и на длинном тексте обрезалась.
+   */
+  const spaceBelow = rect ? viewportHeight - (rect.top + rect.height) - GAP : 0;
+  const spaceAbove = rect ? rect.top - GAP : 0;
+  const known = cardHeight > 0;
+
+  const placement: "below" | "above" | "center" = !rect
+    ? "center"
+    : !known || cardHeight <= spaceBelow - EDGE
+      ? "below"
+      : cardHeight <= spaceAbove - EDGE
+        ? "above"
+        : "center";
+
+  const cardTop =
+    rect && placement === "below"
+      ? rect.top + rect.height + GAP
+      : rect && placement === "above"
+        ? rect.top - GAP - cardHeight
+        : Math.max(EDGE, (viewportHeight - cardHeight) / 2);
 
   return (
     <div className="fixed inset-0 z-[60]">
@@ -165,36 +213,19 @@ export function Tour() {
         <div key="tour-dim" className="absolute inset-0 bg-slate-950/74" />
       )}
 
-      {/* Внешний слой держит положение карточки, внутренний — анимацию.
-          Вместе на одном элементе они не уживаются: сдвиг из анимации
-          затирает выравнивание по центру. */}
+      {/* Внешний слой держит положение, внутренний — сама карточка. */}
       <div
-        className={`absolute left-0 right-0 flex justify-center px-5 ${
-          rect ? "" : "-translate-y-1/2"
-        }`}
-        style={
-          rect
-            ? cardBelow
-              ? {
-                  top: Math.min(
-                    rect.top + rect.height + HALO + 14,
-                    viewportHeight - 40
-                  ),
-                }
-              : {
-                  bottom: Math.min(
-                    viewportHeight - rect.top + HALO + 14,
-                    viewportHeight - 40
-                  ),
-                }
-            : { top: "50%" }
-        }
+        className="absolute left-0 right-0 flex justify-center px-5"
+        style={{ top: cardTop }}
       >
       {/* Карточка нарочно БЕЗ анимации появления. Любая анимация, которую
           считает библиотека, идёт по кадрам, а окну без кадров их не дают:
           карточка застряла бы прозрачной, и ребёнок смотрел бы в тёмный
           экран. Переход между шагами читается по едущей подсветке. */}
-        <div className="w-full max-w-[21rem] rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-border dark:bg-card">
+        <div
+          ref={cardRef}
+          className="w-full max-w-[21rem] rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-border dark:bg-card"
+        >
           {/* Точки: сколько всего шагов и где мы сейчас — видно, что это
               короткая история с концом, а не бесконечные всплывашки */}
           <div className="mb-3 flex items-center gap-1.5">

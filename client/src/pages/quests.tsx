@@ -238,8 +238,7 @@ function WeekPath({
       </div>
 
       <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug mb-4">
-        Один шаг в день, по очереди. Отстал — нагонишь, награда та же.
-        Соберёшь все пять — проект закроется сам и принесёт{" "}
+        Шаг в день. Все пять —{" "}
         <b className="text-slate-600 dark:text-slate-300">
           +{project.xpReward} XP и +{project.goldReward} голды
         </b>
@@ -891,10 +890,7 @@ export default function QuestsPage() {
                           <b className="text-slate-700 dark:text-slate-200">
                             Шаг {waitingStep.index + 1} у куратора.
                           </b>{" "}
-                          Следующий откроется, когда он ответит: каждый шаг
-                          строится на прошлом, и делать новый поверх
-                          непроверенного — рисковать всей работой. Пока —
-                          разминка ниже, квиз или призрак.
+                          Следующий откроется, когда он ответит.
                         </p>
                       </motion.div>
                     )}
@@ -904,9 +900,7 @@ export default function QuestsPage() {
                         <div className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card px-4 py-3">
                           <Lock className="w-4 h-4 mt-0.5 shrink-0 text-slate-400 dark:text-slate-500" />
                           <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
-                            На сегодня всё — следующий шаг откроется завтра.
-                            Проект идёт по шагу в день: так он и получается
-                            аккуратным, и не съедает весь вечер.
+                            На сегодня всё. Следующий шаг — завтра.
                           </p>
                         </div>
 
