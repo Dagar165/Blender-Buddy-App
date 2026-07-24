@@ -65,10 +65,15 @@ function scrollAppToTop() {
 /**
  * Что из шагов реально видно на экране прямо сейчас.
  *
- * Элемент считается видимым, если он помещается ЦЕЛИКОМ и занимает разумное
- * место: наполовину уехавшую за край карточку подсвечивать нельзя — рамка
- * обрежется краем экрана и превратится в непонятную оранжевую полосу
- * (владелец увидел ровно это и назвал «странно подсвечивается»).
+ * Условие ровно одно: элемент помещается в окно ЦЕЛИКОМ. Наполовину
+ * уехавший подсвечивать нельзя — рамка обрежется краем и превратится
+ * в непонятную оранжевую полосу (владелец увидел именно это и назвал
+ * «странно подсвечивается»).
+ *
+ * Считаем по настоящим границам окна, БЕЗ запаса на отступ. Первая версия
+ * требовала отступ от края и из-за этого выбрасывала как раз то, что видно
+ * всегда: верхнюю панель (она в десяти точках от верха) и нижние вкладки
+ * (они прижаты к низу). Оставалось два шага из пяти.
  */
 function collectSpots(viewportHeight: number): Spot[] {
   const spots: Spot[] = [];
@@ -79,14 +84,7 @@ function collectSpots(viewportHeight: number): Spot[] {
 
     const box = element.getBoundingClientRect();
     if (box.width <= 0 || box.height <= 0) continue;
-
-    const fitsTop = box.top >= EDGE;
-    const fitsBottom = box.bottom <= viewportHeight - EDGE;
-    // Элементу нужно оставить место под карточку хотя бы с одной стороны.
-    const roomAround =
-      box.top - GAP > 120 || viewportHeight - box.bottom - GAP > 120;
-
-    if (!fitsTop || !fitsBottom || !roomAround) continue;
+    if (box.top < 0 || box.bottom > viewportHeight) continue;
 
     spots.push({
       step,
@@ -222,15 +220,25 @@ export function Tour() {
     bottom: Math.min(viewportHeight - EDGE / 2, rect.top + rect.height + HALO),
   };
 
-  // Карточка встаёт туда, где помещается целиком: под элементом или над ним.
+  /**
+   * Карточка встаёт под элементом, если влезает, иначе над ним. А если
+   * не влезает ни туда, ни туда — она всё равно ОСТАЁТСЯ НА ЭКРАНЕ целиком
+   * и просто ложится на элемент внахлёст. Рамка при этом никуда не девается,
+   * так что видно, о чём речь. Прошлая версия в этом случае честно считала
+   * место и уезжала кнопками за нижний край — именно это владелец и увидел.
+   */
   const spaceBelow = viewportHeight - spot.bottom - GAP - EDGE;
   const spaceAbove = spot.top - GAP - EDGE;
   const known = cardHeight > 0;
 
   const below = !known || cardHeight <= spaceBelow || spaceBelow >= spaceAbove;
-  const cardTop = below
-    ? spot.bottom + GAP
-    : Math.max(EDGE, spot.top - GAP - cardHeight);
+  const wanted = below ? spot.bottom + GAP : spot.top - GAP - cardHeight;
+
+  // Последнее слово всегда за краями экрана.
+  const cardTop = Math.max(
+    EDGE,
+    Math.min(wanted, viewportHeight - cardHeight - EDGE)
+  );
 
   return (
     <div className="fixed inset-0 z-[60]">
