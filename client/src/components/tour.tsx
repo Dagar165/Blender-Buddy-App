@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { TOUR_STEPS, TOUR_STORAGE_KEY } from "@/lib/tour-config";
 import { hapticSelect, hapticTap } from "@/lib/haptics";
 
@@ -141,9 +140,11 @@ export function Tour() {
   return (
     <div className="fixed inset-0 z-[60]">
       {rect ? (
-        <motion.div
-          layout
-          transition={{ type: "spring", bounce: 0.15, duration: 0.45 }}
+        // Переезд рамки между шагами — ЧИСТЫЙ CSS, без анимации на кадрах.
+        // Анимация из библиотеки здесь уже подвела: в окне, которому браузер
+        // не даёт кадров (свёрнутый Телеграм), она застревала на первом кадре,
+        // и вместо рамки по элементу оставалась узкая полоска.
+        <div
           className="pointer-events-none absolute rounded-3xl ring-2 ring-secondary/70"
           style={{
             top: rect.top - HALO,
@@ -151,6 +152,7 @@ export function Tour() {
             width: rect.width + HALO * 2,
             height: rect.height + HALO * 2,
             boxShadow: "0 0 0 9999px rgba(2, 6, 23, 0.74)",
+            transition: "top .35s ease, left .35s ease, width .35s ease, height .35s ease",
           }}
         />
       ) : (
@@ -183,15 +185,11 @@ export function Tour() {
             : { top: "50%" }
         }
       >
-      {/* Ключ по шагу: карточка пересобирается и въезжает заново. Нарочно
-          без AnimatePresence — уходящая копия ждала бы конца анимации,
-          а в свёрнутом окне Телеграма кадры не идут и шаг бы застревал. */}
-        <motion.div
-          key={step.target}
-          initial={{ opacity: 0, y: cardBelow ? -10 : 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-[21rem] rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-border dark:bg-card"
-        >
+      {/* Карточка нарочно БЕЗ анимации появления. Любая анимация, которую
+          считает библиотека, идёт по кадрам, а окну без кадров их не дают:
+          карточка застряла бы прозрачной, и ребёнок смотрел бы в тёмный
+          экран. Переход между шагами читается по едущей подсветке. */}
+        <div className="w-full max-w-[21rem] rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-border dark:bg-card">
           {/* Точки: сколько всего шагов и где мы сейчас — видно, что это
               короткая история с концом, а не бесконечные всплывашки */}
           <div className="mb-3 flex items-center gap-1.5">
@@ -232,7 +230,7 @@ export function Tour() {
               {isLast ? "Понятно!" : "Дальше"}
             </button>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
