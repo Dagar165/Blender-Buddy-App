@@ -331,7 +331,19 @@ export default function PetPage() {
       <TopBar />
 
       <div className="flex-1 overflow-y-auto px-5 pb-24">
-        <div className="flex flex-col items-center">
+        {/**
+         * Расстояния между блоками задаёт КОЛОНКА (gap-4), а не сами блоки.
+         *
+         * Раньше каждый блок нёс собственный отступ сверху, и это ломалось
+         * при первой же правке: удалили строку «Стадия N из 5» — и вещи
+         * гардероба прилипли к оранжевой кнопке. У того, кто ещё ничего
+         * не купил, к ней так же прилипала полоса опыта: гардероба нет,
+         * а его отступ и держал промежуток.
+         *
+         * С общим шагом любой блок можно убрать, скрыть или переставить —
+         * расстояния останутся ровными. НЕ возвращать отступы внутрь блоков.
+         */}
+        <div className="flex flex-col items-center gap-4">
           {/* Комната призрака — отсылка к 3D-окну Blender:
               сетка пола, гизмо осей, а призрак «выделен» оранжевым */}
           <div
@@ -577,7 +589,7 @@ export default function PetPage() {
             data-tour="today"
             href="/quests"
             onClick={() => hapticTap("medium")}
-            className={`w-full max-w-sm mt-4 flex items-center gap-3 rounded-2xl px-4 py-3.5 border transition-all active:scale-[0.98] ${
+            className={`w-full max-w-sm flex items-center gap-3 rounded-2xl px-4 py-3.5 border transition-all active:scale-[0.98] ${
               todo.tone === "action"
                 ? "bg-gradient-to-r from-secondary to-orange-400 border-transparent text-white shadow-lg shadow-secondary/30"
                 : todo.tone === "waiting"
@@ -610,7 +622,7 @@ export default function PetPage() {
               мерить и сравнивать, не уходя в магазин и не возвращаясь обратно
               ради каждой вещи. */}
           {ownedItems.length > 0 && (
-            <div className="flex flex-col items-center mb-4 max-w-xs">
+            <div className="flex flex-col items-center max-w-xs">
               <div className="flex flex-wrap justify-center gap-1.5">
                 {ownedItems.map((item) => {
                   const Icon = item.icon;
