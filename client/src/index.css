@@ -115,7 +115,9 @@
   animation-name: room-cube-drift;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
-  will-change: transform, opacity;
+  /* will-change здесь НЕ нужен: браузер и так уводит анимацию transform
+     на видеокарту, а лишняя подсказка держала бы шесть отдельных слоёв
+     в памяти телефона постоянно. */
 }
 
 /* Если в телефоне включено «уменьшить движение» — кубики просто стоят. */

@@ -97,30 +97,38 @@ export function Tour() {
     setRect(element ? measure(element) : null);
   }, [step]);
 
-  // Довозим элемент до середины экрана и только потом мерим: иначе подсветка
-  // окажется за краем, а ребёнок будет смотреть в пустоту.
+  /**
+   * Довозим элемент до середины экрана и только потом мерим.
+   *
+   * Прокрутка МГНОВЕННАЯ, не плавная, и это важно. Плавная ехала под
+   * затемнением почти полсекунды, всё это время подсветка стояла на старом
+   * месте, а перемер на каждое движение прокрутки перерисовывал весь слой
+   * десятки раз в секунду — отсюда и были рывки. Теперь экран уже стоит,
+   * когда ребёнок видит подсветку.
+   */
   useEffect(() => {
     if (!running || !step) return;
 
     const element = findTarget(step.target);
-    element?.scrollIntoView({ block: "center", behavior: "smooth" });
+    element?.scrollIntoView({ block: "center", behavior: "auto" });
 
     const timer = window.setTimeout(updateRect, SETTLE_MS);
 
     return () => window.clearTimeout(timer);
   }, [running, step, updateRect]);
 
-  // Экран мог повернуться или проехать — держим дырку на месте.
+  /**
+   * Слушаем ТОЛЬКО поворот экрана. Слушателя прокрутки здесь нарочно нет:
+   * пока идёт тур, ребёнок ничего прокрутить не может — экран накрыт целиком, —
+   * а свою единственную прокрутку мы меряем строкой выше. Раньше слушатель
+   * был, и он же был причиной заторов.
+   */
   useEffect(() => {
     if (!running) return;
 
     window.addEventListener("resize", updateRect);
-    window.addEventListener("scroll", updateRect, true);
 
-    return () => {
-      window.removeEventListener("resize", updateRect);
-      window.removeEventListener("scroll", updateRect, true);
-    };
+    return () => window.removeEventListener("resize", updateRect);
   }, [running, updateRect]);
 
   const finish = () => {
@@ -197,17 +205,48 @@ export function Tour() {
          * В обоих случаях ребёнок видел рамку не на том месте.
          * Мгновенный перескок читается не хуже и сломаться не может.
          */
-        <div
-          key="tour-spot"
-          className="pointer-events-none absolute rounded-3xl ring-2 ring-secondary/70"
-          style={{
-            top: rect.top - HALO,
-            left: rect.left - HALO,
-            width: rect.width + HALO * 2,
-            height: rect.height + HALO * 2,
-            boxShadow: "0 0 0 9999px rgba(2, 6, 23, 0.74)",
-          }}
-        />
+        <>
+          {/* Затемнение — ЧЕТЫРЕ обычные шторки вокруг дырки, по краям
+              экрана. Раньше здесь была одна рамка с тенью в 9999 пикселей
+              во все стороны: приём известный, но телефон рисует такую тень
+              заметно дороже четырёх прямоугольников, а перерисовывалась она
+              на каждое движение прокрутки. Отсюда шли рывки. */}
+          <div
+            className="pointer-events-none absolute left-0 right-0 top-0 bg-slate-950/75"
+            style={{ height: Math.max(0, rect.top - HALO) }}
+          />
+          <div
+            className="pointer-events-none absolute left-0 right-0 bottom-0 bg-slate-950/75"
+            style={{ top: rect.top + rect.height + HALO }}
+          />
+          <div
+            className="pointer-events-none absolute left-0 bg-slate-950/75"
+            style={{
+              top: rect.top - HALO,
+              width: Math.max(0, rect.left - HALO),
+              height: rect.height + HALO * 2,
+            }}
+          />
+          <div
+            className="pointer-events-none absolute right-0 bg-slate-950/75"
+            style={{
+              top: rect.top - HALO,
+              left: rect.left + rect.width + HALO,
+              height: rect.height + HALO * 2,
+            }}
+          />
+
+          {/* Сама рамка — только ободок, без заливки и без тени. */}
+          <div
+            className="pointer-events-none absolute rounded-3xl ring-2 ring-secondary/70"
+            style={{
+              top: rect.top - HALO,
+              left: rect.left - HALO,
+              width: rect.width + HALO * 2,
+              height: rect.height + HALO * 2,
+            }}
+          />
+        </>
       ) : (
         // Метка не нашлась — просто затемняем всё.
         <div key="tour-dim" className="absolute inset-0 bg-slate-950/74" />
