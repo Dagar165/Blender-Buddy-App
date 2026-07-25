@@ -16,6 +16,7 @@ import { CarePanel } from "@/components/care-panel";
 import { RoomCubes } from "@/components/room-cubes";
 import { GrowthSection } from "@/components/growth-section";
 import { FriendsSection } from "@/components/friends-section";
+import { ScreenDots } from "@/components/screen-dots";
 import {
   CARE_NEEDS,
   getCarePhrase,
@@ -181,6 +182,10 @@ export default function PetPage() {
   const tilt = useTransform(swing, [-140, 140], [7, -7]);
   // Чтобы бросок пальцем не засчитался как поглаживание.
   const draggingRef = useRef(false);
+
+  // Прокрутка трёх экранов. Нужна точкам-указателям справа: по ней они
+  // понимают, на каком экране мы сейчас, и умеют перескакивать.
+  const screensRef = useRef<HTMLDivElement>(null);
 
   /**
    * Таймер, который убирает совет из пузыря. Держим его в руке НАРОЧНО.
@@ -417,7 +422,13 @@ export default function PetPage() {
        * так устроен браузер, и это правильно. Ломаться ничего не будет,
        * но проверять новые блоки надо на 393×700.
        */}
-      <div className="flex-1 overflow-y-auto snap-y snap-mandatory">
+      <div className="relative flex-1 min-h-0">
+      <ScreenDots
+        scrollRef={screensRef}
+        count={3}
+        labels={["Призрак", "Мой рост", "Ребята"]}
+      />
+      <div ref={screensRef} className="h-full overflow-y-auto snap-y snap-mandatory">
         {/**
          * ЭКРАН 1 — ПРИЗРАК. Всё, ради чего сюда заходят каждый день.
          *
@@ -432,21 +443,31 @@ export default function PetPage() {
          * С общим шагом любой блок можно убрать, скрыть или переставить —
          * расстояния останутся ровными. НЕ возвращать отступы внутрь блоков.
          */}
-        {/* h-full, а НЕ min-h-full, как у двух других экранов. Разница
-            принципиальная: комната резиновая, и чтобы она знала, сколько
-            высоты можно занять, у экрана должна быть ТОЧНАЯ высота.
-            С `min-h-full` потолка нет — комната росла, выталкивала кнопки
-            за край, и первый свайп доскроливал вместо переключения. */}
-        <section className="snap-start h-full px-5 pb-4 flex flex-col items-center gap-4">
+        {/**
+         * ⚠️ ПРИЗРАК НА ЭТОМ ЭКРАНЕ НЕ УМЕНЬШАЕТСЯ. НИКОГДА.
+         *
+         * Прямое требование владельца 26.07, после того как первая версия
+         * сделала комнату резиновой: «капец, этот экран больше принадлежит
+         * не ему», «если появляется длинное сообщение в облаке, призрак
+         * становится ещё меньше — это фатальная ошибка, такого быть
+         * не должно». Сколько места картинка призрака занимала раньше,
+         * столько и должна занимать в любом случае.
+         *
+         * Отсюда устройство экрана: у призрака ЖЁСТКИЙ размер, и он ни
+         * от чего не зависит — ни от длины реплики, ни от высоты телефона.
+         * Растягивается облако с репликой, а не он.
+         *
+         * Плата за это: на невысоком телефоне экран может оказаться чуть
+         * выше окна, и первый свайп сначала доскроллит остаток. Так и надо:
+         * крупный призрак важнее идеального прилипания. НЕ «чинить» это,
+         * снова сделав призрака резиновым.
+         */}
+        <section className="snap-start min-h-full px-5 pb-4 flex flex-col items-center justify-center gap-3">
           {/* Комната призрака — отсылка к 3D-окну Blender:
               сетка пола, гизмо осей, а призрак «выделен» оранжевым */}
           <div
             data-tour="pet-room"
-            /* flex-1/min-h-0 — комната занимает всю высоту, что осталась
-               от кнопок ухода и оранжевой кнопки. Раньше высота была
-               жёсткой, и на невысоком телефоне низ экрана уезжал
-               за край: первый свайп доскроливал, а не переключал. */
-            className="relative w-full max-w-sm flex-1 min-h-0 flex flex-col rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10"
+            className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10"
           >
             {/* Каркасные кубики на фоне — как на лендинге школы. Стоят
                 ПЕРВЫМИ в разметке, поэтому рисуются под всем остальным
@@ -486,9 +507,8 @@ export default function PetPage() {
               }}
             />
 
-            {/* pt-12 — чтобы пузырь начинался ниже HUD слева и гизмо справа.
-                flex-1/min-h-0 — комната отдаёт всю оставшуюся высоту призраку. */}
-            <div className="relative flex-1 min-h-0 flex flex-col items-center pt-12 pb-4">
+            {/* pt-12 — чтобы пузырь начинался ниже HUD слева и гизмо справа */}
+            <div className="relative flex flex-col items-center pt-12 pb-4">
               <motion.div
                 key={phrase}
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
@@ -534,7 +554,7 @@ export default function PetPage() {
               {/* mt-9, а не mt-3: шляпа торчит выше макушки на 12% кадра,
                   и на прежнем отступе её кончик со звездой уезжал под пузырь
                   с репликой. Опускаем призрака, а не убираем пузырь. */}
-              <div className="relative flex-1 min-h-0 flex items-center justify-center mt-9">
+              <div className="relative flex items-center justify-center mt-9">
                 {/* Сердечки от поглаживания */}
                 <AnimatePresence>
                   {hearts.map((heart) => (
@@ -562,10 +582,6 @@ export default function PetPage() {
                     ease: "easeInOut",
                   }}
                   style={{ perspective: 700 }}
-                  // h-full тянется от резиновой комнаты до самого призрака:
-                  // если хоть один слой в этой цепочке не отдаст высоту,
-                  // призрак схлопнется в ноль.
-                  className="h-full"
                 >
                   <motion.div
                     drag="x"
@@ -585,7 +601,7 @@ export default function PetPage() {
                     }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handlePet}
-                    className="h-full flex items-center justify-center select-none cursor-pointer touch-pan-y"
+                    className="flex items-center justify-center select-none cursor-pointer touch-pan-y"
                     style={{
                       x: swing,
                       rotateY,
@@ -594,11 +610,17 @@ export default function PetPage() {
                       filter: "drop-shadow(0 0 2px rgba(249, 115, 22, 0.75))",
                     }}
                   >
-                    {/* fill, а не size={240}: комната резиновая, и призрак
-                        занимает ту высоту, которая осталась. На высоком
-                        телефоне он крупнее прежнего, на коротком ужимается
-                        сам — вместо того чтобы выталкивать кнопки за экран. */}
-                    <Ghost stage={stage} mood={mood} fill overlays={wornOverlays} />
+                    {/* ⚠️ Размер ЖЁСТКИЙ и таким должен остаться. Пробовали
+                        резиновый (`fill`) — призрак ужимался от длинной
+                        реплики и на невысоком телефоне, владелец назвал это
+                        фатальным. Хочешь больше места экрану — убирай другие
+                        блоки, а не уменьшай призрака. */}
+                    <Ghost
+                      stage={stage}
+                      mood={mood}
+                      size={240}
+                      overlays={wornOverlays}
+                    />
                   </motion.div>
                 </motion.div>
               </div>
@@ -722,7 +744,8 @@ export default function PetPage() {
           {/* Гардероб одной строкой: надетое — в цвете и с ободком, остальное
               лежит бледным. Нажатие переодевает прямо здесь: владелец просил
               мерить и сравнивать, не уходя в магазин и не возвращаясь обратно
-              ради каждой вещи. */}
+              ради каждой вещи. Остаётся ИМЕННО ЗДЕСЬ: примерка с главного
+              экрана — его отдельная просьба, уносить её к инвентарю нельзя. */}
           {ownedItems.length > 0 && (
             <div className="flex flex-col items-center max-w-xs">
               <div className="flex flex-wrap justify-center gap-1.5">
@@ -761,11 +784,11 @@ export default function PetPage() {
             </div>
           )}
 
-          {/* Подсказка, что экран не кончился. Без неё второй и третий
-              экраны никто не найдёт: снизу ничего не торчит, и выглядит
-              как конец страницы. Бледная и мелкая намеренно — она не должна
-              спорить с оранжевой кнопкой. */}
-          <div className="flex flex-col items-center text-slate-300 dark:text-slate-600">
+          {/* Подсказка, что экран не кончился. Стоит только на первом
+              экране: дальше про соседние экраны рассказывают точки справа,
+              а тут нужна прямая просьба — иначе с первого раза не понять,
+              что этот экран куда-то листается. */}
+          <div className="flex flex-col items-center text-slate-400 dark:text-slate-500">
             <span className="text-[11px] font-bold">Листай вверх</span>
             <ChevronDown className="w-4 h-4" />
           </div>
@@ -781,6 +804,7 @@ export default function PetPage() {
         <section className="snap-start min-h-full px-5 pt-4 pb-4">
           <FriendsSection />
         </section>
+      </div>
       </div>
     </motion.div>
   );
