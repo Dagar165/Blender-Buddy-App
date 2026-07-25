@@ -36,6 +36,7 @@ import { hapticTap } from "@/lib/haptics";
 import { getTelegramPhotoUrl } from "@/game/cloud";
 import { forgetTour } from "@/components/tour";
 import { MovementPanel } from "@/components/movement-panel";
+import { GalleryPanel } from "@/components/gallery-panel";
 
 export default function ProfilePage() {
   const {
@@ -60,6 +61,7 @@ export default function ProfilePage() {
   const [showDevPanel, setShowDevPanel] = useState(false);
   // Экран «Наши движухи» — открывается только по кнопке, сам не всплывает.
   const [showMovement, setShowMovement] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   // Медали свёрнуты, пока их не попросят: профиль и без них длинный.
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   // Инвентарь — по той же причине и тем же переключателем.
@@ -430,6 +432,28 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* Дверь в зал славы. Стоит ПЕРВОЙ из дверей: это работы таких же
+            ребят, а не рассказ про школу, — и ради этого сюда возвращаются.
+            Оранжевой не делаем, оранжевая кнопка одна и всегда про задание. */}
+        <button
+          onClick={() => {
+            hapticTap();
+            setShowGallery(true);
+          }}
+          className="w-full mb-3 p-4 rounded-3xl bg-white dark:bg-card border border-primary/30 dark:border-primary/30 shadow-sm flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+        >
+          <span className="text-2xl leading-none shrink-0">🏆</span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-display font-bold text-slate-800 dark:text-slate-100">
+              Зал славы
+            </span>
+            <span className="block text-xs text-slate-500 dark:text-slate-400 leading-snug">
+              Работы ребят из школы
+            </span>
+          </span>
+          <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
+        </button>
+
         {/* Дверь в «Наши движухи»: марафон и чат подробно.
             Стоит ПЕРЕД ссылками на каналы, потому что это про нас самих,
             а не про соцсети. Оранжевой не делаем — оранжевая кнопка
@@ -516,6 +540,7 @@ export default function ProfilePage() {
       {showMovement && (
         <MovementPanel onClose={() => setShowMovement(false)} />
       )}
+      {showGallery && <GalleryPanel onClose={() => setShowGallery(false)} />}
     </motion.div>
   );
 }
