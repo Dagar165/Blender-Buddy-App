@@ -184,6 +184,32 @@ export default function PetPage() {
   // Чтобы бросок пальцем не засчитался как поглаживание.
   const draggingRef = useRef(false);
 
+  /**
+   * Таймер, который убирает совет из пузыря. Держим его в руке НАРОЧНО.
+   *
+   * Тут была настоящая поломка (владелец 25.07: «невозможно остановиться
+   * в нужный момент, следующее нажатие в случайных случаях сбрасывает всё»).
+   * Таймер заводился на каждый совет и никогда не отменялся, а совет живёт
+   * TIP_VISIBLE_MS = 7 секунд. Ребёнок гладит призрака часто, следующий совет
+   * выпадает через 20–30 нажатий — при быстром тапанье это те же 6–8 секунд.
+   * Значит новый совет успевал появиться ДО того, как срабатывал таймер
+   * от прошлого, — и старый таймер гасил новый совет через секунду после
+   * его появления. Отсюда и «в случайных случаях»: промежуток между советами
+   * каждый раз разный.
+   *
+   * Правило: таймер, который что-то прячет, всегда отменяй перед тем,
+   * как показать это заново.
+   */
+  const tipTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (tipTimerRef.current !== null) {
+        window.clearTimeout(tipTimerRef.current);
+      }
+    };
+  }, []);
+
   const openHint = (which: "stage" | "axes") => {
     hapticTap();
     setHint((current) => (current === which ? null : which));
@@ -207,7 +233,16 @@ export default function PetPage() {
     if (freshTip) {
       setGreeting(null);
       setTip(freshTip);
-      window.setTimeout(() => setTip(null), TIP_VISIBLE_MS);
+
+      // Гасим таймер прошлого совета, иначе он снимет этот раньше срока.
+      if (tipTimerRef.current !== null) {
+        window.clearTimeout(tipTimerRef.current);
+      }
+
+      tipTimerRef.current = window.setTimeout(() => {
+        tipTimerRef.current = null;
+        setTip(null);
+      }, TIP_VISIBLE_MS);
     }
 
     setHearts((current) => [
