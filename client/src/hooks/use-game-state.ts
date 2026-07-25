@@ -261,6 +261,8 @@ export interface GameState extends LevelData {
   markLevelUpSeen: (level: number) => void;
   markVisit: () => number;
   careFor: (needId: CareNeedId, supplyId: string) => boolean;
+  // Поиграл в мини-игру — настроение полное. Припасов не тратит, наград не даёт.
+  cheerByGame: () => void;
   buySupply: (supplyId: string) => boolean;
   petGhost: () => { granted: boolean; tip: string | null };
   answerQuizQuestion: (questionId: string, correct: boolean) => boolean;
@@ -921,6 +923,32 @@ export const useGameState = create<GameState>()(
         queueCloudSave(get);
 
         return true;
+      },
+
+      /**
+       * Ребёнок поиграл с призраком — настроение до потолка.
+       *
+       * Припас НЕ тратится: настроение единственная потребность, которая
+       * закрывается игрой, а не покупкой (решение владельца 25.07, разбор —
+       * в шапке care-config.ts). Правило «уход не приносит голду» цело:
+       * игра не выдаёт ни голды, ни опыта, только настроение, поэтому
+       * фармить нечего. НЕ добавлять сюда награду.
+       *
+       * Зовётся не по открытию игры, а после нескольких настоящих ходов —
+       * иначе шкалу можно было бы поднимать, открыв и сразу закрыв.
+       */
+      cheerByGame: () => {
+        const state = get();
+        const need = getCareNeed("play");
+
+        set({
+          care: {
+            ...state.care,
+            play: applyRestore(state.care.play ?? null, need.decayHours, 100),
+          },
+        });
+
+        queueCloudSave(get);
       },
 
       /**

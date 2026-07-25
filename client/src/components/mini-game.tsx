@@ -152,7 +152,21 @@ function freshGame(): GameState {
   return { board: createBoard(), score: 0, over: false, won: false };
 }
 
-export function MiniGame({ onClose }: { onClose: () => void }) {
+/**
+ * Сколько ходов считается «поиграл» — после этого призраку поднимается
+ * настроение. Порог нужен, чтобы шкала не закрывалась открыл-и-закрыл;
+ * десять ходов — это меньше минуты, ребёнка это не мучает.
+ */
+const MOVES_FOR_MOOD = 10;
+
+export function MiniGame({
+  onClose,
+  onPlayed,
+}: {
+  onClose: () => void;
+  // Зовётся ОДИН раз за открытие, когда наиграно MOVES_FOR_MOOD ходов.
+  onPlayed?: () => void;
+}) {
   const [game, setGame] = useState<GameState>(freshGame);
   const [best, setBest] = useState<number>(readBest);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
@@ -160,6 +174,11 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
 
   // Спрашиваем один раз при открытии: клиент за игру не меняется.
   const [needsPad] = useState(() => !canOwnSwipes(getTelegramWebApp()));
+
+  // Считаем ходы до порога «поиграл». Держим в ref, а не в состоянии:
+  // на экране это число не показывается, перерисовывать из-за него нечего.
+  const movesRef = useRef(0);
+  const playedRef = useRef(false);
 
   /**
    * Совет по Blender под полем. Место освободилось от кнопок, и владелец
@@ -273,9 +292,18 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
       else if (result.gained > 0) hapticSelect();
       else hapticTap();
 
+      // Поиграл по-настоящему — призраку поднимается настроение. Один раз
+      // за открытие: дальше шкала уже полная, звать снова незачем.
+      movesRef.current += 1;
+
+      if (!playedRef.current && movesRef.current >= MOVES_FOR_MOOD) {
+        playedRef.current = true;
+        onPlayed?.();
+      }
+
       setGame({ board, score: game.score + result.gained, won, over });
     },
-    [game]
+    [game, onPlayed]
   );
 
   useEffect(() => {

@@ -6,11 +6,13 @@ import { useGameState } from "@/hooks/use-game-state";
 import {
   CARE_LOW,
   CARE_NEEDS,
+  getCareNeed,
   getNeedLevel,
   getSuppliesForNeed,
   type CareNeedId,
 } from "@/lib/care-config";
 import { hapticTap, hapticSuccess, hapticWarn } from "@/lib/haptics";
+import { MiniGame } from "@/components/mini-game";
 
 /**
  * Три кнопки ухода под комнатой призрака.
@@ -19,9 +21,32 @@ import { hapticTap, hapticSuccess, hapticWarn } from "@/lib/haptics";
  * фон повседневности. Но у просевшей потребности загорается точка, и её
  * видно краем глаза — именно она даёт повод заглянуть завтра.
  *
- * Нажатие открывает выбор припаса: ухаживать без припасов нельзя, они
- * покупаются за голду. Почему так — см. care-config.ts, правило экономики.
+ * Сытость и чистота: нажатие открывает выбор припаса, ухаживать без припасов
+ * нельзя, они покупаются за голду (правило экономики — в care-config.ts).
+ *
+ * НАСТРОЕНИЕ УСТРОЕНО ИНАЧЕ: за ним лежат мини-игры, а не припасы. Поиграл —
+ * настроение поднялось. Это и есть дверь в игры: она видна с главного экрана
+ * всегда, потому что прошлая — на вкладке заданий, за выполненным днём —
+ * оказалась для новичка недосягаемой (замечание владельца 25.07).
+ * Новые игры добавляются в MINI_GAMES ниже, экран сам покажет список.
  */
+
+type MiniGameEntry = {
+  id: string;
+  title: string;
+  subtitle: string;
+  // Значок — текстом, чтобы не тащить картинку: игры у нас 8-битные.
+  badge: string;
+};
+
+const MINI_GAMES: MiniGameEntry[] = [
+  {
+    id: "2048",
+    title: "2048",
+    subtitle: "Складывай плитки, пока есть ходы",
+    badge: "2048",
+  },
+];
 
 // Шкалы тают минутами, а не секундами — пересчёта раз в минуту хватает.
 const TICK_MS = 60_000;
@@ -30,10 +55,12 @@ export function CarePanel() {
   const care = useGameState((state) => state.care);
   const supplies = useGameState((state) => state.supplies);
   const careFor = useGameState((state) => state.careFor);
+  const cheerByGame = useGameState((state) => state.cheerByGame);
 
   const [, setTick] = useState(0);
   const [openNeed, setOpenNeed] = useState<CareNeedId | null>(null);
   const [usedEmoji, setUsedEmoji] = useState<string | null>(null);
+  const [playingGame, setPlayingGame] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setTick((n) => n + 1), TICK_MS);
@@ -105,14 +132,21 @@ export function CarePanel() {
                 />
               </div>
 
+              {/* У настроения припасов нет — там игры, и подпись про них */}
               <span
                 className={`text-[10px] font-bold ${
-                  owned > 0
-                    ? "text-slate-400 dark:text-slate-500"
-                    : "text-rose-400"
+                  need.byGame
+                    ? "text-violet-500 dark:text-violet-300"
+                    : owned > 0
+                      ? "text-slate-400 dark:text-slate-500"
+                      : "text-rose-400"
                 }`}
               >
-                {owned > 0 ? `припасов: ${owned}` : "нет припасов"}
+                {need.byGame
+                  ? "поиграть"
+                  : owned > 0
+                    ? `припасов: ${owned}`
+                    : "нет припасов"}
               </span>
             </button>
           );
@@ -130,6 +164,39 @@ export function CarePanel() {
             transition={{ duration: 0.18 }}
             className="mt-2 rounded-2xl border border-slate-200 dark:border-border bg-white dark:bg-card p-3 shadow-lg shadow-slate-200/50 dark:shadow-black/40"
           >
+            {getCareNeed(openNeed).byGame ? (
+              <div className="space-y-2">
+                {MINI_GAMES.map((game) => (
+                  <button
+                    key={game.id}
+                    onClick={() => {
+                      hapticTap();
+                      setOpenNeed(null);
+                      setPlayingGame(game.id);
+                    }}
+                    className="w-full flex items-center gap-3 rounded-xl px-3 py-2 border border-violet-200 bg-violet-50/60 dark:border-violet-500/30 dark:bg-violet-500/10 text-left transition-all active:scale-[0.98]"
+                  >
+                    <span className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-white dark:bg-card font-mono text-[10px] font-bold text-violet-600 dark:text-violet-300">
+                      {game.badge}
+                    </span>
+
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                        {game.title}
+                      </span>
+                      <span className="block text-[10px] text-slate-400 dark:text-slate-500">
+                        {game.subtitle}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+
+                <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 leading-snug">
+                  Поиграешь — призрак повеселеет
+                </p>
+              </div>
+            ) : (
+            <>
             <div className="space-y-2">
               {getSuppliesForNeed(openNeed).map((supply) => {
                 const count = supplies[supply.id] ?? 0;
@@ -181,6 +248,8 @@ export function CarePanel() {
               Купить припасы
               <Coins className="w-3.5 h-3.5 text-yellow-500" />
             </Link>
+            </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -199,6 +268,18 @@ export function CarePanel() {
           </motion.span>
         )}
       </AnimatePresence>
+
+      {/* Игра открывается поверх всего экрана. Настроение поднимается не при
+          открытии, а после нескольких настоящих ходов — см. MOVES_FOR_MOOD. */}
+      {playingGame === "2048" && (
+        <MiniGame
+          onClose={() => setPlayingGame(null)}
+          onPlayed={() => {
+            cheerByGame();
+            hapticSuccess();
+          }}
+        />
+      )}
     </div>
   );
 }

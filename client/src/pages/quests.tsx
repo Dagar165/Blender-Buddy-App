@@ -7,7 +7,6 @@ import {
   Brain,
   Camera,
   CheckCircle,
-  ChevronRight,
   Circle,
   Clock,
   Coins,
@@ -41,7 +40,6 @@ import {
 import { submitQuestClaim } from "@/lib/quest-claim";
 import { syncPendingClaims } from "@/game/claims-sync";
 import { CommunityHint } from "@/components/community-hint";
-import { MiniGame } from "@/components/mini-game";
 import { BeginnerHint } from "@/components/beginner-hint";
 import { isBeginner } from "@/lib/learn-config";
 import {
@@ -362,9 +360,6 @@ export default function QuestsPage() {
   const [sendingQuestIds, setSendingQuestIds] = useState<string[]>([]);
   // Что выбрал ученик в квизе в этой сессии (для подсветки своего ответа)
   const [quizPicks, setQuizPicks] = useState<Record<string, number>>({});
-  // Мини-игра открывается поверх экрана, отдельной вкладки для неё нет:
-  // вкладок четыре, пятая меняет всю навигацию (решение владельца).
-  const [showGame, setShowGame] = useState(false);
   const rewardTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -603,18 +598,6 @@ export default function QuestsPage() {
     return isPending ? "pending" : "available";
   };
 
-  /**
-   * На сегодня делать нечего: всё сдано или лежит у куратора.
-   *
-   * Только в этот момент показывается мини-игра. Гейт нарочный: пока задание
-   * не сделано, игра не должна с ним соперничать — ребёнок пришёл учиться,
-   * и бот не имеет права уводить его от работы. Зато когда всё закрыто, игра
-   * становится наградой и держит ребёнка в приложении ещё немного, ради чего
-   * владелец её и просил.
-   */
-  const dayIsClear =
-    isDailyTab &&
-    visibleQuests.every((quest) => getQuestStatus(quest) !== "available");
 
   return (
     <motion.div
@@ -966,38 +949,16 @@ export default function QuestsPage() {
                       />
                     ))}
 
-                    {/* Игра стоит ПОСЛЕ заданий и нарочно не оранжевая:
-                        оранжевая кнопка на экране одна и всегда про дело */}
-                    {dayIsClear && (
-                      <motion.button
-                        variants={item}
-                        onClick={() => {
-                          hapticTap();
-                          setShowGame(true);
-                        }}
-                        className="w-full p-4 rounded-3xl bg-white dark:bg-card border border-violet-200 dark:border-violet-500/30 shadow-sm flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
-                      >
-                        <span className="w-11 h-11 shrink-0 rounded-xl bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center font-mono text-[11px] font-bold tracking-tight text-violet-600 dark:text-violet-300">
-                          2048
-                        </span>
-                        <span className="flex-1 min-w-0">
-                          <span className="block font-bold text-sm text-slate-800 dark:text-slate-100">
-                            Всё сделано — разомни мозги
-                          </span>
-                          <span className="block text-xs text-slate-500 dark:text-slate-400 leading-snug">
-                            Складывай плитки, пока есть ходы
-                          </span>
-                        </span>
-                        <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
-                      </motion.button>
-                    )}
+                    {/* Мини-игра ЖИВЁТ НЕ ЗДЕСЬ. Раньше вход в неё стоял тут
+                        и открывался только тем, кто закрыл весь день, — новичок
+                        до него не добирался в принципе. Теперь она за кнопкой
+                        «Настроение» на главном экране (см. care-panel.tsx).
+                        Не возвращать сюда: одна дверь на одну комнату. */}
                   </>
                 )}
           </motion.div>
         </AnimatePresence>
       </div>
-
-      {showGame && <MiniGame onClose={() => setShowGame(false)} />}
     </motion.div>
   );
 }
