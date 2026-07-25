@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RotateCcw, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import {
   BOARD_SIZE,
   WIN_VALUE,
@@ -110,22 +117,30 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
   const boardRef = useRef<HTMLDivElement | null>(null);
 
   /**
-   * СВАЙП ВНИЗ СВОРАЧИВАЛ ВСЁ ПРИЛОЖЕНИЕ — без этого играть было нельзя.
+   * СВАЙП ВНИЗ СВОРАЧИВАЕТ ВСЁ ПРИЛОЖЕНИЕ. Читать целиком, прежде чем
+   * «улучшать» управление — здесь уже стоит то, что реально работает.
    *
    * Так устроен сам Телеграм: движение пальцем вниз внутри мини-аппа он
-   * считает своим жестом «свернуть», и до игры оно просто не доходило.
-   * Владелец 25.07: «вниз — критично, приложение уезжает вниз».
+   * считает своим жестом «свернуть» и перехватывает его РАНЬШЕ страницы.
+   * Владелец 25.07: «резкий свайп вниз сворачивает сразу, лёгкий опускает
+   * на треть экрана». Влево, вправо и вверх при этом работают.
    *
-   * Лечится это не хитростями с вёрсткой, а прямой просьбой к Телеграму:
-   * `disableVerticalSwipes` (появился в Bot API 7.7) выключает жест
-   * сворачивания, пока он нам мешает. Выключаем ТОЛЬКО на время игры
-   * и обязательно возвращаем на место при выходе: на остальных экранах
-   * свайп вниз — привычный способ закрыть мини-апп, и отнимать его нельзя.
+   * Что пробовали и что из этого вышло:
    *
-   * У совсем старых клиентов метода нет — поэтому он вызывается через
-   * проверку, а не напрямую. Там остаётся вторая линия обороны ниже:
-   * поле само гасит движение пальцем (`touchmove`), и до жеста Телеграма
-   * оно тоже не доходит.
+   * 1. `disableVerticalSwipes` (штатный метод Телеграма, Bot API 7.7).
+   *    Вызывается ниже, при открытии игры, и возвращается при закрытии.
+   *    На айфоне владельца НЕ ПОМОГЛО — поведение не изменилось совсем.
+   *    Метод оставлен: где он работает, там будет приятнее, вреда от него нет.
+   * 2. Гашение `touchmove` на поле слушателем с `passive: false` — тоже
+   *    не помогло: жест перехватывает нативный клиент, а не страница.
+   *
+   * ПОЭТОМУ ГЛАВНОЕ УПРАВЛЕНИЕ — КНОПКИ-СТРЕЛКИ на экране. Они не зависят
+   * ни от версии Телеграма, ни от его жестов вообще. Свайпы оставлены
+   * как второй способ: три направления из четырёх работают, и тому,
+   * у кого сработал пункт 1, будет удобно.
+   *
+   * НЕ УДАЛЯТЬ кнопки в пользу «чистых свайпов». Это уже проверено на живом
+   * телефоне владельца и не работает.
    */
   useEffect(() => {
     const webApp = getTelegramWebApp();
@@ -248,13 +263,22 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
             2048
           </h2>
 
+          {/* «Заново» переехало наверх: внизу теперь стрелки, и место нужнее им */}
+          <button
+            onClick={restart}
+            aria-label="Начать заново"
+            className="ml-auto p-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-border text-slate-500 dark:text-slate-300 active:scale-95 transition-transform"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
+
           <button
             onClick={() => {
               hapticTap();
               onClose();
             }}
             aria-label="Закрыть"
-            className="ml-auto p-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-border text-slate-500 dark:text-slate-300 active:scale-95 transition-transform"
+            className="p-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-border text-slate-500 dark:text-slate-300 active:scale-95 transition-transform"
           >
             <X className="w-5 h-5" />
           </button>
@@ -303,20 +327,64 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        <p className="mt-3 text-xs text-center text-slate-500 dark:text-slate-400 leading-snug">
+        <p className="mt-2 text-xs text-center text-slate-500 dark:text-slate-400 leading-snug">
           {game.won
             ? "2048 собрана. Дальше — на рекорд."
-            : "Проведи пальцем — плитки съедут и сложатся."}
+            : "Жми стрелки — плитки съедут и сложатся."}
         </p>
 
-        <button
-          onClick={restart}
-          className="mt-3 w-full py-3 flex items-center justify-center gap-2 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-border text-sm font-bold text-slate-600 dark:text-slate-300 active:scale-[0.99] transition-transform"
-        >
-          <RotateCcw className="w-4 h-4" /> Начать заново
-        </button>
+        {/* Крестовина как на старой приставке: сверху «вверх», под ним ряд
+            «влево — вниз — вправо». Это главный способ играть, см. большое
+            пояснение про свайпы наверху файла. */}
+        <div className="mt-2 mx-auto grid grid-cols-3 gap-2 w-[186px]">
+          <span />
+          <PadButton label="Вверх" onPress={() => applyMove("up")}>
+            <ArrowUp className="w-6 h-6" />
+          </PadButton>
+          <span />
+
+          <PadButton label="Влево" onPress={() => applyMove("left")}>
+            <ArrowLeft className="w-6 h-6" />
+          </PadButton>
+          <PadButton label="Вниз" onPress={() => applyMove("down")}>
+            <ArrowDown className="w-6 h-6" />
+          </PadButton>
+          <PadButton label="Вправо" onPress={() => applyMove("right")}>
+            <ArrowRight className="w-6 h-6" />
+          </PadButton>
+        </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Кнопка крестовины. Ход делается на НАЖАТИИ пальца (`onPointerDown`),
+ * а не на отпускании: так игра отзывается сразу, а не через задержку,
+ * которую браузер держит на всякий случай. `touchAction: none` не даёт
+ * Телеграму принять нажатие за начало своего жеста.
+ */
+function PadButton({
+  label,
+  onPress,
+  children,
+}: {
+  label: string;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      aria-label={label}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        onPress();
+      }}
+      style={{ touchAction: "none" }}
+      className="h-[52px] rounded-[6px] flex items-center justify-center bg-white dark:bg-card border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-200 active:bg-slate-200 dark:active:bg-slate-700 active:scale-95 transition-transform"
+    >
+      {children}
+    </button>
   );
 }
 
