@@ -12,6 +12,7 @@ import {
   type Direction,
 } from "@/lib/game-2048";
 import { hapticSelect, hapticSuccess, hapticTap, hapticWarn } from "@/lib/haptics";
+import { getTelegramWebApp } from "@/game/cloud";
 
 /**
  * МИНИ-ИГРА 2048.
@@ -106,6 +107,64 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
   const [game, setGame] = useState<GameState>(freshGame);
   const [best, setBest] = useState<number>(readBest);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
+  const boardRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * СВАЙП ВНИЗ СВОРАЧИВАЛ ВСЁ ПРИЛОЖЕНИЕ — без этого играть было нельзя.
+   *
+   * Так устроен сам Телеграм: движение пальцем вниз внутри мини-аппа он
+   * считает своим жестом «свернуть», и до игры оно просто не доходило.
+   * Владелец 25.07: «вниз — критично, приложение уезжает вниз».
+   *
+   * Лечится это не хитростями с вёрсткой, а прямой просьбой к Телеграму:
+   * `disableVerticalSwipes` (появился в Bot API 7.7) выключает жест
+   * сворачивания, пока он нам мешает. Выключаем ТОЛЬКО на время игры
+   * и обязательно возвращаем на место при выходе: на остальных экранах
+   * свайп вниз — привычный способ закрыть мини-апп, и отнимать его нельзя.
+   *
+   * У совсем старых клиентов метода нет — поэтому он вызывается через
+   * проверку, а не напрямую. Там остаётся вторая линия обороны ниже:
+   * поле само гасит движение пальцем (`touchmove`), и до жеста Телеграма
+   * оно тоже не доходит.
+   */
+  useEffect(() => {
+    const webApp = getTelegramWebApp();
+
+    if (!webApp) return;
+
+    const canToggle = typeof webApp.disableVerticalSwipes === "function";
+
+    try {
+      webApp.expand?.();
+      if (canToggle) webApp.disableVerticalSwipes();
+    } catch {
+      // Старый клиент — играем как есть, приложение от этого не ломается.
+    }
+
+    return () => {
+      try {
+        if (canToggle) webApp.enableVerticalSwipes?.();
+      } catch {
+        // Вернуть не вышло — не страшно, при закрытии мини-аппа всё сбросится.
+      }
+    };
+  }, []);
+
+  /**
+   * Вторая линия обороны. Слушатель ставится вручную с `passive: false`,
+   * потому что только такому браузер разрешает погасить движение пальцем;
+   * обычный обработчик React этого сделать не может.
+   */
+  useEffect(() => {
+    const node = boardRef.current;
+
+    if (!node) return;
+
+    const swallow = (event: TouchEvent) => event.preventDefault();
+
+    node.addEventListener("touchmove", swallow, { passive: false });
+    return () => node.removeEventListener("touchmove", swallow);
+  }, []);
 
   const restart = useCallback(() => {
     hapticTap();
@@ -209,9 +268,10 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
         {/* Поле. touchAction: none — иначе свайп по плиткам прокручивал бы
             страницу вместо хода. */}
         <div
+          ref={boardRef}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          style={{ touchAction: "none" }}
+          style={{ touchAction: "none", overscrollBehavior: "contain" }}
           className="relative rounded-2xl bg-slate-300 dark:bg-slate-900 p-2 select-none"
         >
           <div
