@@ -82,6 +82,16 @@ export const PETTING_DAILY_LIMIT = 10;
 const randomTipInterval = () =>
   TIP_MIN_TAPS + Math.floor(Math.random() * (TIP_MAX_TAPS - TIP_MIN_TAPS + 1));
 
+/**
+ * С какого места начинается счёт советов. Число большое и случайное НАРОЧНО:
+ * по нему считается и номер круга (каждый круг перемешан по-своему), и место
+ * внутри круга — значит у разных учеников порядок советов разный.
+ *
+ * Ставить сюда 0 нельзя, и раньше именно так и было при сбросе прогресса:
+ * после каждого сброса советы начинались с одного и того же. См. pickTip.
+ */
+const randomTipStart = () => Math.floor(Math.random() * 100000);
+
 
 export type RecurringQuestProgress = {
   cycleKey: string;
@@ -451,7 +461,7 @@ export const useGameState = create<GameState>()(
       pettingDate: "",
       petTapsTotal: 0,
       nextTipAt: randomTipInterval(),
-      tipCursor: Math.floor(Math.random() * 40),
+      tipCursor: randomTipStart(),
       lastSeenDate: "",
       care: createFreshCare(),
       supplies: { ...STARTER_SUPPLIES },
@@ -1103,7 +1113,7 @@ export const useGameState = create<GameState>()(
           chestDate: "",
           petTapsTotal: 0,
           nextTipAt: randomTipInterval(),
-          tipCursor: 0,
+          tipCursor: randomTipStart(),
           lastSeenDate: formatLocalDate(new Date()),
           care: createFreshCare(),
           supplies: { ...STARTER_SUPPLIES },
