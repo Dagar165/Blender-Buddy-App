@@ -35,7 +35,6 @@ import {
   getStepStates,
   getWaitingStep,
   getWeekProject,
-  holdsQueue,
   type WeeklyProject,
 } from "@/lib/projects-config";
 import { submitQuestClaim } from "@/lib/quest-claim";
@@ -214,21 +213,13 @@ function WeekPath({
   doneIds,
   pendingIds,
   openUpTo,
-  holdQueue,
 }: {
   project: WeeklyProject;
   doneIds: string[];
   pendingIds: string[];
   openUpTo: number;
-  holdQueue: boolean;
 }) {
-  const states = getStepStates(
-    project,
-    doneIds,
-    pendingIds,
-    openUpTo,
-    holdQueue
-  );
+  const states = getStepStates(project, doneIds, pendingIds, openUpTo);
   const doneCount = states.filter((state) => state === "done").length;
 
   return (
@@ -437,8 +428,7 @@ export default function QuestsPage() {
     const next = getNextStep(
       weekProject,
       weeklyProgress.weekDoneIds ?? [],
-      weekPendingIds,
-      holdsQueue(dateKey)
+      weekPendingIds
     );
 
     return Boolean(next && next.index > getPaceIndex(dateKey));
@@ -453,22 +443,14 @@ export default function QuestsPage() {
   // закрыл», и ребёнку надо сказать именно её: ждём не завтрашнего дня,
   // а ответа — который может прийти и через десять минут.
   const waitingStep = useMemo(() => {
-    const dateKey = dailyProgress.cycleKey.slice("daily-".length);
-
-    // В выходные очередь не держится, поэтому и плашки «жду ответа» там нет:
-    // следующий шаг уже лежит рядом. getWaitingStep вернёт null сам.
+    // Проверяется во все дни: шаги сдаются все семь дней, значит и ждать
+    // ответа куратора можно в субботу.
     return getWaitingStep(
       weekProject,
       weeklyProgress.weekDoneIds ?? [],
-      weekPendingIds,
-      holdsQueue(dateKey)
+      weekPendingIds
     );
-  }, [
-    dailyProgress.cycleKey,
-    weekProject,
-    weeklyProgress.weekDoneIds,
-    weekPendingIds,
-  ]);
+  }, [weekProject, weeklyProgress.weekDoneIds, weekPendingIds]);
 
   const dailyTabConfig = QUESTS_CONFIG.tabs.daily;
   const weeklyTabConfig = QUESTS_CONFIG.tabs.weekly;
@@ -936,9 +918,6 @@ export default function QuestsPage() {
                           doneIds={weekDoneIds}
                           pendingIds={weekPendingIds}
                           openUpTo={getPaceIndex(
-                            dailyProgress.cycleKey.slice("daily-".length)
-                          )}
-                          holdQueue={holdsQueue(
                             dailyProgress.cycleKey.slice("daily-".length)
                           )}
                         />

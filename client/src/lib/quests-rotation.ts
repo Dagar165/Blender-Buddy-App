@@ -9,7 +9,6 @@ import {
   getNextStep,
   getPaceIndex,
   getWeekProject,
-  holdsQueue,
   isWeekend,
   type ProjectStep,
   type WeeklyProject,
@@ -159,13 +158,9 @@ export function getActiveQuestsForTab(
   }
 
   const project = getWeekProject(weekCycleKey);
-  // В будни шаг «на проверке» держит очередь, в выходные — нет (см. holdsQueue).
-  const next = getNextStep(
-    project,
-    weekDoneIds,
-    weekPendingIds,
-    holdsQueue(dateKey)
-  );
+  // Шаг «на проверке» держит очередь все семь дней: getNextStep вернёт null,
+  // пока куратор не ответит. Календарь ниже — вторая, отдельная дверь.
+  const next = getNextStep(project, weekDoneIds, weekPendingIds);
   // Календарь не решает, КАКОЙ шаг выдать, но остаётся потолком: отстал —
   // нагонишь, а вперёд паровоза не убежишь. В выходные потолок снят совсем.
   const openUpTo = getPaceIndex(dateKey);
