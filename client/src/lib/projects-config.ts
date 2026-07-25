@@ -19,6 +19,8 @@
  * - шаг рассчитан на 20–40 минут и всегда заканчивается видимой картинкой.
  */
 
+import { parseLocalDate } from "@/game/dates";
+
 export type ProjectStep = {
   id: string;
   title: string;
@@ -309,6 +311,11 @@ const ROTATION_START_MONDAY = "2026-07-20";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Каждый проект рассчитан на пять шагов — по одному на будний день.
+// Отсюда «последний шаг» в календаре ниже.
+const STEPS_PER_WEEK = 5;
+const LAST_STEP_INDEX = STEPS_PER_WEEK - 1;
+
 // Проект недели: по кругу, чтобы у всех в одну неделю был один и тот же.
 export function getWeekProject(weekCycleKey: string): WeeklyProject {
   const weekDate = weekCycleKey.replace("weekly-", "");
@@ -327,22 +334,61 @@ export function getWeekProject(weekCycleKey: string): WeeklyProject {
   return WEEKLY_PROJECTS[index];
 }
 
-// Будни дают шаг проекта, выходные — свободные задания из quests-config.
-// Какой именно шаг, день недели больше не решает: см. getNextStep.
-export function isProjectDay(dateKey: string): boolean {
-  const weekday = new Date(dateKey).getDay(); // 0 = воскресенье
+/**
+ * Выходной ли это день.
+ *
+ * Шаги проекта выдаются ТЕПЕРЬ КАЖДЫЙ ДЕНЬ, включая выходные. От этой функции
+ * зависит только ВТОРОЕ задание дня: в будни это разминка на пять минут,
+ * в выходные — задание на насмотренность (смотреть и разбирать, а не моделить).
+ *
+ * Раньше здесь была `isProjectDay`, и она в субботу с воскресеньем убирала
+ * шаг проекта совсем. Из-за этого ребёнок, севший за проект в выходные,
+ * не мог сдать ни одного шага: во вкладке «Неделя» шаг честно горел «сейчас»,
+ * а во вкладке «День» его просто не было. Замечание владельца 25.07.
+ */
+export function isWeekend(dateKey: string): boolean {
+  const weekday = parseLocalDate(dateKey).getDay(); // 0 = воскресенье
 
-  return weekday >= 1 && weekday <= 5;
+  return weekday === 0 || weekday === 6;
 }
 
-// Каким по счёту шёл бы шаг, если делать по одному в будний день.
-// Нужно только для подсказки «ты идёшь с опережением / нагоняешь».
+/**
+ * Докуда календарь открыл шаги СЕГОДНЯ — номер последнего доступного шага.
+ *
+ * Будни держат темп «шаг в день»: понедельник открывает только первый шаг,
+ * среда — первые три. Вперёд паровоза не убежишь, иначе весь проект
+ * закрывается в понедельник вечером и неделя перестаёт быть неделей.
+ * При этом отставший НАГОНЯЕТ: пришёл в среду — делает первый, второй
+ * и третий подряд, по мере того как куратор их принимает.
+ *
+ * Суббота и воскресенье открывают ВСЕ пять. Выходные отданы под догон:
+ * проект заканчивается в воскресенье, в понедельник начинается следующий,
+ * и тот, кто смог сесть только в воскресенье, должен успеть сделать его
+ * целиком. Решение владельца 25.07: «большинство откладывает на последний
+ * момент, будут дети, кто только в воскресенье сядет на несколько часов».
+ */
 export function getPaceIndex(dateKey: string): number {
-  const weekday = new Date(dateKey).getDay();
+  const weekday = parseLocalDate(dateKey).getDay(); // 0 = воскресенье
 
-  if (weekday === 0) return 4;
+  if (isWeekend(dateKey)) return LAST_STEP_INDEX;
 
-  return Math.min(4, Math.max(0, weekday - 1));
+  return Math.min(LAST_STEP_INDEX, Math.max(0, weekday - 1));
+}
+
+/**
+ * Держит ли шаг, отправленный куратору, очередь за собой.
+ *
+ * БУДНИ — да. Шаги строятся друг на друге: «покрась клинок» поверх заточки,
+ * которую куратор ещё не принял, — это работа поверх, возможно, брака.
+ * Ждать не обидно: следующий шаг всё равно откроется только завтра.
+ *
+ * ВЫХОДНЫЕ — нет. Там календарь открыл сразу все пять, и ожидание проверки
+ * становится единственной стеной. Ребёнок, севший за проект в воскресенье
+ * на несколько часов, должен пройти его целиком, не упираясь в то, когда
+ * куратор возьмёт телефон. Решение владельца 25.07.
+ */
+export function holdsQueue(dateKey: string): boolean {
+  return !isWeekend(dateKey);
 }
 
 export type StepState = "done" | "pending" | "next" | "soon" | "locked";
@@ -356,18 +402,19 @@ export type StepState = "done" | "pending" | "next" | "soon" | "locked";
  * следующий шаг — просто первый несданный. Отстал — нагоняешь, награда та же,
  * а за ежедневность и так платит бонус серии.
  *
- * «pending» — отправлен куратору и ДЕРЖИТ ОЧЕРЕДЬ: пока шаг не проверен,
- * следующий не открывается. Раньше было наоборот, чтобы ученик не простаивал,
- * и это оказалось ошибкой: шаги строятся друг на друге. «Покрась клинок»
- * поверх заточки, которую куратор ещё не принял, — это работа поверх, может
- * быть, брака. Замечание владельца 23.07.
+ * «pending» — отправлен куратору. В БУДНИ он держит очередь: пока шаг
+ * не проверен, следующий не открывается (замечание владельца 23.07, причина —
+ * в holdsQueue). В ВЫХОДНЫЕ очередь не держится, чтобы марафон одного вечера
+ * не упирался в скорость проверки.
  */
 export function getStepStates(
   project: WeeklyProject,
   doneIds: string[],
   pendingIds: string[],
   // Докуда открыл календарь: дальше сегодня не уйти (см. getPaceIndex).
-  openUpTo: number = project.steps.length - 1
+  openUpTo: number = project.steps.length - 1,
+  // Держит ли шаг «на проверке» очередь за собой (см. holdsQueue).
+  holdQueue: boolean = true
 ): StepState[] {
   let blocked = false;
 
@@ -375,8 +422,9 @@ export function getStepStates(
     if (doneIds.includes(step.id)) return "done";
 
     if (pendingIds.includes(step.id)) {
-      // Шаг у куратора — всё, что за ним, ждёт его ответа.
-      blocked = true;
+      // Шаг у куратора. В будни всё, что за ним, ждёт его ответа;
+      // в выходные — идём дальше, шаг просто помечен «на проверке».
+      if (holdQueue) blocked = true;
       return "pending";
     }
 
@@ -390,31 +438,53 @@ export function getStepStates(
 }
 
 /**
- * Шаг, который делаем сейчас: первый несданный — но только если перед ним
- * никто не ждёт проверки. Ждёт — значит сегодня делать нечего, см. getWaitingStep.
+ * Шаг, который делаем сейчас: первый несданный.
+ *
+ * Если он стоит у куратора, в БУДНИ делать сегодня нечего (вернём null,
+ * а экран скажет об этом словами — см. getWaitingStep). В ВЫХОДНЫЕ шаг
+ * на проверке пропускаем и отдаём следующий свободный: марафон не должен
+ * упираться в ожидание. Правило целиком — в holdsQueue.
  */
 export function getNextStep(
   project: WeeklyProject,
   doneIds: string[],
-  pendingIds: string[]
+  pendingIds: string[],
+  holdQueue: boolean = true
 ) {
   const index = project.steps.findIndex((step) => !doneIds.includes(step.id));
 
   if (index === -1) return null;
-  if (pendingIds.includes(project.steps[index].id)) return null;
+  if (!pendingIds.includes(project.steps[index].id)) {
+    return { step: project.steps[index], index };
+  }
 
-  return { step: project.steps[index], index };
+  if (holdQueue) return null;
+
+  // Выходной: перешагиваем всё, что уже сдано или ждёт проверки.
+  const freeIndex = project.steps.findIndex(
+    (step) => !doneIds.includes(step.id) && !pendingIds.includes(step.id)
+  );
+
+  if (freeIndex === -1) return null;
+
+  return { step: project.steps[freeIndex], index: freeIndex };
 }
 
 /**
- * Шаг, который стоит у куратора и держит очередь. Нужен экрану, чтобы сказать
+ * Шаг, который стоит у куратора и ДЕРЖИТ очередь. Нужен экрану, чтобы сказать
  * ребёнку правду: не «на сегодня всё», а «жду ответа по шагу N».
+ *
+ * В выходные очередь не держится, поэтому и сказать нечего — вернём null,
+ * а сам шаг всё равно виден карточкой со статусом «на проверке».
  */
 export function getWaitingStep(
   project: WeeklyProject,
   doneIds: string[],
-  pendingIds: string[]
+  pendingIds: string[],
+  holdQueue: boolean = true
 ) {
+  if (!holdQueue) return null;
+
   const index = project.steps.findIndex((step) => !doneIds.includes(step.id));
 
   if (index === -1) return null;

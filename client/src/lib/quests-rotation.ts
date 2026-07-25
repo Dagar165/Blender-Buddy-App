@@ -9,7 +9,8 @@ import {
   getNextStep,
   getPaceIndex,
   getWeekProject,
-  isProjectDay,
+  holdsQueue,
+  isWeekend,
   type ProjectStep,
   type WeeklyProject,
 } from "@/lib/projects-config";
@@ -101,14 +102,42 @@ function toStepQuest(
   };
 }
 
+// Разминка буднего дня в виде карточки задания.
+function buildWarmupQuests(
+  stepIndex: number,
+  weekCycleKey: string
+): QuestDefinition[] {
+  const warmup = getWarmupForStep(stepIndex, weekCycleKey);
+
+  if (!warmup) return [];
+
+  return [
+    {
+      ...warmup,
+      stepLabel: "Разминка — на пять минут",
+      kind: "warmup" as const,
+    },
+  ];
+}
+
 /**
  * Задания дня и недели.
  *
- * Неделя — один большой проект (projects-config.ts). Будний день даёт два
- * задания: шаг проекта (главное дело дня) и короткую разминку на 5–10 минут,
- * чтобы день не выглядел неподъёмным и всегда был выполним.
- * Суббота и воскресенье оставлены свободными, но задания там всё же есть —
- * иначе серия дней сгорала бы каждые выходные.
+ * Неделя — один большой проект (projects-config.ts), и шаг этого проекта
+ * даётся КАЖДЫЙ день, включая выходные. Рядом с ним всегда стоит второе,
+ * лёгкое задание, чтобы день не выглядел неподъёмным: в будни это разминка
+ * на пять минут, в выходные — задание на насмотренность (смотреть и
+ * разбирать, а не моделить).
+ *
+ * ЧТО ЗДЕСЬ БЫЛО СЛОМАНО (правка 25.07). Раньше суббота и воскресенье
+ * возвращали ТОЛЬКО свободные задания, а шаг проекта не выдавался вовсе.
+ * Ребёнок, добравшийся до проекта в выходные, упирался в стену: во вкладке
+ * «Неделя» шаг горел «сейчас», а сдать его было негде. Теперь выходные —
+ * это время догнать: календарь открывает в них все пять шагов (getPaceIndex),
+ * а проект закрывается в воскресенье.
+ *
+ * Порядок карточек: сначала то, что у куратора, потом шаг на сегодня,
+ * потом лёгкое задание. Оранжевая кнопка на экране одна — это шаг.
  */
 export function getActiveQuestsForTab(
   tab: QuestTab,
@@ -124,30 +153,25 @@ export function getActiveQuestsForTab(
 
   const dateKey = cycleKey.replace("daily-", "");
 
-  // Выходной — отдыхаем от моделинга: смотрим, разбираем, наводим порядок.
-  if (!isProjectDay(dateKey) || !weekCycleKey) {
+  // Проекта нет (ключ недели не передали) — остаются свободные задания.
+  if (!weekCycleKey) {
     return getActiveQuestsFromPool(WEEKEND_QUESTS, cycleKey, WEEKEND_LIMIT);
   }
 
   const project = getWeekProject(weekCycleKey);
-  const next = getNextStep(project, weekDoneIds, weekPendingIds);
-  // Календарь больше не решает, КАКОЙ шаг выдать, но остаётся потолком:
-  // отстал — нагонишь, а вперёд паровоза не убежишь. Иначе весь проект
-  // закрывался за один вечер, и неделя переставала быть неделей.
+  // В будни шаг «на проверке» держит очередь, в выходные — нет (см. holdsQueue).
+  const next = getNextStep(
+    project,
+    weekDoneIds,
+    weekPendingIds,
+    holdsQueue(dateKey)
+  );
+  // Календарь не решает, КАКОЙ шаг выдать, но остаётся потолком: отстал —
+  // нагонишь, а вперёд паровоза не убежишь. В выходные потолок снят совсем.
   const openUpTo = getPaceIndex(dateKey);
-  // Разминка своя на каждый будний день, поэтому считается по календарю,
-  // а не по номеру шага: иначе догоняющий получал бы одну и ту же дважды.
-  const warmup = getWarmupForStep(getPaceIndex(dateKey), weekCycleKey);
-
-  const warmupQuest = warmup
-    ? [
-        {
-          ...warmup,
-          stepLabel: "Разминка — на пять минут",
-          kind: "warmup" as const,
-        },
-      ]
-    : [];
+  // Шаг, который реально можно делать сегодня: и очередь до него дошла,
+  // и календарь пустил.
+  const stepToday = next && next.index <= openUpTo ? next : null;
 
   // Отправленный куратору шаг остаётся на виду, просто со статусом
   // «на проверке». Раньше он исчезал: ребёнок сдавал работу и видел вместо
@@ -161,12 +185,28 @@ export function getActiveQuestsForTab(
     })
     .filter((quest): quest is QuestDefinition => quest !== null);
 
-  // Шаги кончились или сегодняшний уже сдан — остаётся разминка.
-  if (!next || next.index > openUpTo) return [...pendingQuests, ...warmupQuest];
+  // Второе задание дня. Разминка своя на каждый будний день, поэтому считается
+  // по календарю, а не по номеру шага: иначе догоняющий получал бы одну и ту же
+  // дважды. В выходные вместо неё — задания на насмотренность; когда шага
+  // на сегодня нет (всё сдано или ждём куратора), их выдаётся полная пачка,
+  // иначе выходной остался бы пустым.
+  const companionQuests = isWeekend(dateKey)
+    ? getActiveQuestsFromPool(
+        WEEKEND_QUESTS,
+        cycleKey,
+        stepToday ? 1 : WEEKEND_LIMIT
+      )
+    : buildWarmupQuests(openUpTo, weekCycleKey);
 
+  if (!stepToday) return [...pendingQuests, ...companionQuests];
+
+  // Шаг, который делаем СЕЙЧАС, идёт первым — это единственная оранжевая
+  // кнопка экрана. Отправленные лежат под ним: в выходные их может набраться
+  // несколько подряд, и главное дело дня не должно оказаться под стопкой
+  // того, что уже сделано.
   return [
+    toStepQuest(project, stepToday.step, stepToday.index),
     ...pendingQuests,
-    toStepQuest(project, next.step, next.index),
-    ...warmupQuest,
+    ...companionQuests,
   ];
 }
