@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { ArrowRight, ExternalLink, X } from "lucide-react";
 import {
   MARATHON_DIFFERENCE,
@@ -34,9 +35,30 @@ import { hapticTap } from "@/lib/haptics";
  * окно без кадров застревает на первом кадре, а экран обязан быть виден.
  */
 export function MovementPanel({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-background overflow-y-auto">
-      <div className="w-full max-w-[460px] mx-auto px-5 pt-4 pb-10">
+  /**
+   * ПОЧЕМУ ЧЕРЕЗ createPortal, А НЕ ПРОСТО ТАК — правило для всех
+   * полноэкранных окон в этом приложении.
+   *
+   * Владелец 25.07: «не влезает, вниз дальше не прокручивается». Нижние
+   * вкладки накрывали конец экрана. Причин оказалось ДВЕ, и лечить надо обе:
+   *
+   * 1. Вкладки тоже `z-50`, и рисуются ПОЗЖЕ — при равном слое побеждают они.
+   *    Отсюда `z-[60]` ниже (такой же, как у обучающего тура).
+   * 2. Этого мало. Экраны обёрнуты в анимацию появления, а она задаёт
+   *    прозрачность — и родитель с прозрачностью ЗАПИРАЕТ слой внутри себя.
+   *    Тогда никакой `z-60` не помогает: он сравнивается только с соседями
+   *    внутри этой обёртки, а вкладки живут снаружи.
+   *
+   * Портал вешает окно прямо в корень страницы, минуя всех родителей, —
+   * и оно перестаёт зависеть от того, во что его вложили. Заодно это
+   * лечит случай, когда окну не дают кадров и прозрачность застревает
+   * на нуле (см. `JKids_Bot_как_работать_25.07.md`).
+   *
+   * Отступ снизу — под домашнюю полоску айфона.
+   */
+  return createPortal(
+    <div className="fixed inset-0 z-[60] bg-slate-50 dark:bg-background overflow-y-auto">
+      <div className="w-full max-w-[460px] mx-auto px-5 pt-4 pb-16">
         <div className="flex items-center gap-3 mb-4">
           <h2 className="font-display text-xl font-bold text-slate-800 dark:text-slate-100">
             Наши движухи
@@ -149,6 +171,7 @@ export function MovementPanel({ onClose }: { onClose: () => void }) {
           </span>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

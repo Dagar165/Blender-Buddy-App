@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowDown,
   ArrowLeft,
@@ -360,8 +361,13 @@ export function MiniGame({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-background">
+  // Через портал и z-[60] — по той же причине, что и «Наши движухи»:
+  // нижние вкладки тоже z-50 и рисуются позже, а родительская анимация
+  // запирает слой внутри себя. Полный разбор — в шапке movement-panel.tsx.
+  // Игра вложена ещё глубже (панель ухода внутри главного экрана),
+  // поэтому портал ей нужен тем более.
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex flex-col bg-slate-50 dark:bg-background">
       <div className="w-full max-w-[420px] mx-auto flex flex-col px-5 pt-4 pb-5">
         <div className="flex items-center gap-3 mb-3">
           <h2 className="font-mono text-2xl font-bold tracking-[0.2em] text-slate-800 dark:text-slate-100">
@@ -478,7 +484,8 @@ export function MiniGame({
         </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
