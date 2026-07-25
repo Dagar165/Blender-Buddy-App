@@ -35,6 +35,7 @@ import { SHOP_ITEMS } from "@/lib/shop-config";
 import { hapticTap } from "@/lib/haptics";
 import { getTelegramPhotoUrl } from "@/game/cloud";
 import { forgetTour } from "@/components/tour";
+import { MovementPanel } from "@/components/movement-panel";
 
 export default function ProfilePage() {
   const {
@@ -57,6 +58,8 @@ export default function ProfilePage() {
     string | null
   >(null);
   const [showDevPanel, setShowDevPanel] = useState(false);
+  // Экран «Наши движухи» — открывается только по кнопке, сам не всплывает.
+  const [showMovement, setShowMovement] = useState(false);
   // Медали свёрнуты, пока их не попросят: профиль и без них длинный.
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   // Инвентарь — по той же причине и тем же переключателем.
@@ -427,6 +430,29 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* Дверь в «Наши движухи»: марафон и чат подробно.
+            Стоит ПЕРЕД ссылками на каналы, потому что это про нас самих,
+            а не про соцсети. Оранжевой не делаем — оранжевая кнопка
+            в приложении одна и всегда про задание. */}
+        <button
+          onClick={() => {
+            hapticTap();
+            setShowMovement(true);
+          }}
+          className="w-full mb-3 p-4 rounded-3xl bg-white dark:bg-card border border-secondary/30 dark:border-secondary/30 shadow-sm flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+        >
+          <span className="text-2xl leading-none shrink-0">🔨</span>
+          <span className="flex-1 min-w-0">
+            <span className="block font-display font-bold text-slate-800 dark:text-slate-100">
+              Наши движухи
+            </span>
+            <span className="block text-xs text-slate-500 dark:text-slate-400 leading-snug">
+              Марафон и чат школы — что это и чем отличается
+            </span>
+          </span>
+          <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
+        </button>
+
         {/* Бот-помощник и наши каналы */}
         <button
           onClick={() => openOutboundLink(HELPER_BOT)}
@@ -487,6 +513,9 @@ export default function ProfilePage() {
       </div>
 
       {showDevPanel && <DevPanel onClose={() => setShowDevPanel(false)} />}
+      {showMovement && (
+        <MovementPanel onClose={() => setShowMovement(false)} />
+      )}
     </motion.div>
   );
 }
