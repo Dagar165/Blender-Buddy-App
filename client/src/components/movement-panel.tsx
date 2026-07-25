@@ -131,13 +131,13 @@ export function MovementPanel({ onClose }: { onClose: () => void }) {
                     title: "Марафон",
                     subtitle: "",
                     url: MARATHON_SIGNUP_URL,
-                    // Анкета живёт в браузере, не в Телеграме.
+                    // Открывается страница марафона в браузере, не Телеграм.
                     kind: "web",
                   })
                 }
                 className="mt-4 w-full py-3.5 rounded-2xl font-bold text-white bg-gradient-to-r from-secondary to-orange-400 shadow-lg shadow-secondary/30 active:scale-[0.99] transition-transform"
               >
-                Записаться в лист ожидания
+                Всё про марафон и запись
               </button>
 
               <p className="mt-2 text-xs text-center text-slate-500 dark:text-slate-400 leading-snug">
