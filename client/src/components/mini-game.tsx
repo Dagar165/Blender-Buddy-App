@@ -20,6 +20,7 @@ import {
 } from "@/lib/game-2048";
 import { hapticSelect, hapticSuccess, hapticTap, hapticWarn } from "@/lib/haptics";
 import { getTelegramWebApp } from "@/game/cloud";
+import { pickTip } from "@/lib/tips-config";
 
 /**
  * МИНИ-ИГРА 2048.
@@ -99,6 +100,47 @@ function writeBest(value: number) {
   }
 }
 
+/**
+ * Сможем ли мы забрать вертикальный свайп у Телеграма на этом клиенте.
+ *
+ * true  — свайпы наши, кнопки не нужны и не показываются.
+ * false — жест останется у Телеграма, и без кнопок играть будет нельзя.
+ *
+ * Вне Телеграма (обычный браузер, компьютер) возвращаем true: там жеста
+ * нет вовсе, а ходить можно стрелками на клавиатуре.
+ */
+function canOwnSwipes(webApp: any): boolean {
+  if (!webApp) return true;
+
+  /**
+   * ЛОВУШКА, пойманная на проверке: скрипт Телеграма подключён к странице
+   * ВСЕГДА, поэтому объект `WebApp` существует и в обычном браузере — просто
+   * все его методы ни к кому не обращаются, а версия там древняя (6.0).
+   * Если смотреть только на методы, кнопки вылезали бы на компьютере,
+   * где никакого жеста нет и в помине.
+   *
+   * Настоящий признак «мы внутри Телеграма» — платформа: снаружи `unknown`,
+   * внутри `ios`, `android`, `tdesktop` и подобное.
+   */
+  const platform =
+    typeof webApp.platform === "string" ? webApp.platform : "unknown";
+
+  if (platform === "unknown") return true;
+
+  if (typeof webApp.disableVerticalSwipes !== "function") return false;
+
+  // У старых клиентов метод в библиотеке есть, а в самом приложении его нет:
+  // он молча ничего не делает. Версию спрашиваем, если умеет отвечать.
+  if (
+    typeof webApp.isVersionAtLeast === "function" &&
+    !webApp.isVersionAtLeast("7.7")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 type GameState = {
   board: Board;
   score: number;
@@ -115,6 +157,20 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
   const [best, setBest] = useState<number>(readBest);
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
+
+  // Спрашиваем один раз при открытии: клиент за игру не меняется.
+  const [needsPad] = useState(() => !canOwnSwipes(getTelegramWebApp()));
+
+  /**
+   * Совет по Blender под полем. Место освободилось от кнопок, и владелец
+   * попросил занять его чем-то полезным — а совет тут к месту вдвойне:
+   * ребёнок пришёл отдохнуть после заданий, но уходит всё равно с приёмом
+   * из Blender. Берётся из общего списка (tips-config), меняется на каждую
+   * новую партию, чтобы не примелькался.
+   */
+  const [tipCursor, setTipCursor] = useState(() =>
+    Math.floor(Math.random() * 100000)
+  );
 
   /**
    * СВАЙП ВНИЗ СВОРАЧИВАЕТ ВСЁ ПРИЛОЖЕНИЕ. Читать целиком, прежде чем
@@ -139,11 +195,19 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
    * **Вывод: «не помогло» проверяй ПЕРЕЗАПУСКОМ мини-аппа, прежде чем
    * переписывать код.**
    *
-   * Кнопки-стрелки под полем родились из той ошибки, но оставлены НАРОЧНО
-   * и удалять их не надо: свайп внутри мини-аппа принадлежит Телеграму,
-   * он уже отбирал его и может отобрать снова — в другой версии или на
-   * другой платформе. Кнопки ни от кого не зависят, а телефоны у детей
-   * будут разные. Пусть будет два способа.
+   * КНОПКИ-СТРЕЛКИ ТЕПЕРЬ ЗАПАСНЫЕ И ОБЫЧНО НЕ ВИДНЫ. Владелец 25.07:
+   * «занимают очень много места, надобности в них нет, просто скроем».
+   * Он прав — там, где свайпы работают, кнопки лишние.
+   *
+   * Но совсем выбрасывать их нельзя, и вот почему: свайп принадлежит
+   * Телеграму, и на клиенте, который не умеет `disableVerticalSwipes`,
+   * игра снова станет неиграбельной — только теперь без всякого запасного
+   * пути. Владелец проверил на СВОЁМ айфоне; у детей будут другие телефоны,
+   * другой Android и старые версии, и проверить их все мы не сможем.
+   *
+   * Поэтому кнопки показываются ТОЛЬКО там, где мы не смогли забрать жест
+   * себе (см. `canOwnSwipes`). На айфоне владельца их не будет — место внизу
+   * освободилось, как он и просил.
    */
   useEffect(() => {
     const webApp = getTelegramWebApp();
@@ -187,6 +251,7 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
   const restart = useCallback(() => {
     hapticTap();
     setGame(freshGame());
+    setTipCursor((cursor) => cursor + 1);
   }, []);
 
   const applyMove = useCallback(
@@ -330,32 +395,51 @@ export function MiniGame({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        <p className="mt-2 text-xs text-center text-slate-500 dark:text-slate-400 leading-snug">
-          {game.won
-            ? "2048 собрана. Дальше — на рекорд."
-            : "Жми стрелки — плитки съедут и сложатся."}
-        </p>
+        {game.won && (
+          <p className="mt-2 text-xs text-center text-slate-500 dark:text-slate-400 leading-snug">
+            2048 собрана. Дальше — на рекорд.
+          </p>
+        )}
 
-        {/* Крестовина как на старой приставке: сверху «вверх», под ним ряд
-            «влево — вниз — вправо». Это главный способ играть, см. большое
-            пояснение про свайпы наверху файла. */}
-        <div className="mt-2 mx-auto grid grid-cols-3 gap-2 w-[186px]">
-          <span />
-          <PadButton label="Вверх" onPress={() => applyMove("up")}>
-            <ArrowUp className="w-6 h-6" />
-          </PadButton>
-          <span />
+        {/* Крестовина как на старой приставке. Обычно СКРЫТА: показывается
+            только там, где свайп забрать у Телеграма не вышло — иначе игра
+            была бы неиграбельной. Разбор целиком — в шапке файла. */}
+        {needsPad && (
+          <div className="mt-2 mx-auto grid grid-cols-3 gap-2 w-[186px]">
+            <span />
+            <PadButton label="Вверх" onPress={() => applyMove("up")}>
+              <ArrowUp className="w-6 h-6" />
+            </PadButton>
+            <span />
 
-          <PadButton label="Влево" onPress={() => applyMove("left")}>
-            <ArrowLeft className="w-6 h-6" />
-          </PadButton>
-          <PadButton label="Вниз" onPress={() => applyMove("down")}>
-            <ArrowDown className="w-6 h-6" />
-          </PadButton>
-          <PadButton label="Вправо" onPress={() => applyMove("right")}>
-            <ArrowRight className="w-6 h-6" />
-          </PadButton>
+            <PadButton label="Влево" onPress={() => applyMove("left")}>
+              <ArrowLeft className="w-6 h-6" />
+            </PadButton>
+            <PadButton label="Вниз" onPress={() => applyMove("down")}>
+              <ArrowDown className="w-6 h-6" />
+            </PadButton>
+            <PadButton label="Вправо" onPress={() => applyMove("right")}>
+              <ArrowRight className="w-6 h-6" />
+            </PadButton>
+          </div>
+        )}
+
+        {/* Место, освободившееся от кнопок. Ребёнок отдыхает — и всё равно
+            уносит отсюда приём из Blender.
+
+            Там, где кнопки всё-таки нужны, совет НЕ показываем: вместе они
+            не влезают в экран (проверено — перебор на 32 точки, поле уезжает
+            под край). Играбельность важнее совета. */}
+        {!needsPad && (
+        <div className="mt-3 p-4 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-border">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">
+            Пока думаешь
+          </p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
+            {pickTip(tipCursor)}
+          </p>
         </div>
+        )}
       </div>
     </div>
   );
