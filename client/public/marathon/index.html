@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Молот Тора в Blender — Марафон JKids</title>
+
+  <!-- Шрифты (Google Fonts CDN) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+
+  <!-- Стили -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Анимированный фон (canvas) -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- Эффект «фонарика» под курсором -->
+<div id="torch"></div>
+
+<!-- Кастомный курсор (только десктоп) -->
+<div id="cursor">
+  <div id="cursor-glow"></div>
+  <div id="cursor-dot"></div>
+</div>
+
+<div class="page">
+
+  <!-- ============================================================
+       ШАПКА
+       ============================================================ -->
+  <header class="hdr">
+    <div class="logo-wrap">
+      <img class="logo-img" src="images/logo.jpg" alt="JKids">
+      <span class="logo-txt">JKids</span>
+    </div>
+    <a class="btn-orange" href="#register">Записаться бесплатно →</a>
+  </header>
+
+
+  <!-- ============================================================
+       HERO — главный экран
+       ============================================================ -->
+  <div class="hero-outer">
+    <section class="hero">
+      <div class="hero-content">
+        <div class="eyebrow rev">БЕСПЛАТНЫЙ ОНЛАЙН-МАРАФОН · ИДЁТ НАБОР ГРУППЫ</div>
+        <h1 class="rev">Молот Тора<br>в <em>Blender</em>.<br>За 7 дней.<br>С нуля.</h1>
+        <p class="hero-sub rev">Без скучных лекций и жёсткого расписания. Короткие видеоуроки по 30 минут в день в Telegram-чате. За неделю ваш ребёнок создаст свою первую сложную 3D-модель и получит крутой рендер для портфолио.</p>
+        <a class="btn-orange rev" href="#register">Записаться бесплатно →</a>
+        <p class="hero-fine rev">Для подростков 11–17 лет. Нужен только компьютер или ноутбук.</p>
+      </div>
+      <div class="hero-img-wrap rev">
+        <div class="glow-ring"></div>
+        <picture>
+          <source srcset="images/image-3.webp" type="image/webp">
+          <img class="hero-img" src="images/image-3.webp" alt="Молот Тора в Blender">
+        </picture>
+      </div>
+    </section>
+  </div>
+
+
+  <!-- ============================================================
+       СУТЬ МАРАФОНА — три карточки
+       ============================================================ -->
+  <section class="sec sec-dark">
+    <div class="tiles-inner">
+      <div class="sec-label rev">Суть марафона</div>
+      <div class="tiles">
+        <div class="tile rev">
+          <div class="tile-num">7</div>
+          <h3>дней практики</h3>
+          <p>Пошаговый марафон в Telegram. Внутри 11 коротких видеоуроков (от 3 до 20 минут) — ребёнок смотрит и делает в своём темпе.</p>
+        </div>
+        <div class="tile rev">
+          <div class="tile-num">→</div>
+          <h3>Разборы и мастер-классы</h3>
+          <p>Проводим живые онлайн-созвоны: разбираем ошибки из чата и даём фишки, чтобы сделать Молот Тора ещё круче.</p>
+        </div>
+        <div class="tile rev">
+          <div class="tile-num">0₽</div>
+          <h3>Бесплатно</h3>
+          <p>Марафон полностью открытый. Никаких «пробных периодов», привязок карт и скрытых подписок.</p>
+        </div>
+      </div>
+      <div class="cta-center rev">
+        <a class="btn-orange" href="#register">Записаться бесплатно →</a>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================================
+       ПРОГРАММА — расписание по дням
+       ============================================================ -->
+  <section class="sec">
+    <div class="sched-inner">
+      <div class="sec-label rev">Программа</div>
+      <div class="sec-title rev">Что будет каждый день</div>
+      <div class="sched-wrap">
+        <div class="rev">
+          <table>
+            <thead>
+              <tr>
+                <th>День</th>
+                <th>Тема</th>
+                <th>Результат</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="day">День 1</span></td>
+                <td>Знакомство с интерфейсом и блокинг формы молота Тора</td>
+                <td class="result">Базовая сцена сохранена, первый куб в чате</td>
+              </tr>
+              <tr>
+                <td><span class="day">День 2</span></td>
+                <td>Работа с углами: первые фаски, инструмент Bevel и функция Apply Scale</td>
+                <td class="result">Молот теряет острые углы и становится объёмным</td>
+              </tr>
+              <tr>
+                <td><span class="day">День 3</span></td>
+                <td>Детализация: создание крутых насечек методами Inset + Extrude</td>
+                <td class="result">На бойке молота появляется сложный рельеф</td>
+              </tr>
+              <tr>
+                <td><span class="day">День 4</span></td>
+                <td>Моделирование рукояти, заглушки, хвостика и сглаживание Auto Smooth</td>
+                <td class="result">Полностью готовая и проработанная геометрия 3D-модели</td>
+              </tr>
+              <tr>
+                <td><span class="day">День 5</span></td>
+                <td>Работа с материалами: настраиваем Base Color, Metallic и Roughness</td>
+                <td class="result">Молот перестаёт быть серым и получает текстуру металла</td>
+              </tr>
+              <tr>
+                <td><span class="day">День 6</span></td>
+                <td>Кастомизация: декоративные линии, пропорциональное редактирование и свечение</td>
+                <td class="result">Твой молот становится уникальным и кастомным</td>
+              </tr>
+              <tr>
+                <td><span class="day">День 7</span></td>
+                <td>Финальный эпик-рендер сцены. Онлайн-разбор работ и фидбек</td>
+                <td class="result">Готовая крутая картинка для портфолио и понимание, куда расти дальше</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="rev">
+          <picture>
+            <source srcset="images/image-2.webp" type="image/webp">
+            <img class="sched-img" src="images/image-2.webp" alt="Молот в мастерской">
+          </picture>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================================
+       КТО ВЕДЁТ — преподаватель
+       ============================================================ -->
+  <section class="sec sec-dark">
+    <div class="instr-outer">
+      <div class="instr-wrap">
+        <div class="rev">
+          <picture>
+            <source srcset="images/image-1.webp" type="image/webp">
+            <img class="instr-img" src="images/image-1.webp" alt="Сергей Фенчин">
+          </picture>
+        </div>
+        <div class="instr-text rev">
+          <div class="sec-label">Кто ведёт марафон?</div>
+          <h2 class="sec-title" style="margin-bottom:24px">Я — Сергей Фенчин</h2>
+          <p>Уже 3 года преподаю Blender, проводя офлайн-занятия для более 100 подростков в неделю. Объясняю сложные инструменты простым языком, а теорию — не скучно.</p>
+          <p>Вместе проходим путь от создания первого кубика до готовой сцены, которую можно добавить в портфолио. Помогаю найти верный путь и исправить ошибку, если что-то получается не так, как хочется.</p>
+          <a href="https://t.me/jcenterskids/320" target="_blank" class="badge">
+            <img src="images/logo.jpg" alt="JKids">
+            Канал JKids в Telegram
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================================
+       ДЛЯ РОДИТЕЛЕЙ
+       ============================================================ -->
+  <section class="sec" style="background:rgba(14,26,43,.9);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+    <div class="parents-inner">
+      <div class="sec-label rev">Для взрослых</div>
+      <div class="sec-title rev">Что важно знать родителям</div>
+      <div class="parents-grid">
+        <div class="p-card rev">
+          <h4>Это точно бесплатно?</h4>
+          <p>Да. Марафон полностью бесплатный, без скрытых подписок и привязки банковских карт. Ребёнок просто пробует новое направление, чтобы понять, нравится ему это или нет.</p>
+        </div>
+        <div class="p-card rev">
+          <h4>Чему именно он научится?</h4>
+          <p>Базовой работе в Blender. Это профессиональная программа, в которой делают графику для кино и современных игр (от Marvel до Fortnite). Хороший старт для будущего дизайнера или программиста.</p>
+        </div>
+        <div class="p-card rev">
+          <h4>А если у него не получится?</h4>
+          <p>В Telegram-чате работает живая поддержка. Если программа не запускается или ребёнок запутался в кнопках — он пишет в чат, мы подключаемся и помогаем разобраться.</p>
+        </div>
+        <div class="p-card rev">
+          <h4>А что дальше?</h4>
+          <p>По итогам марафона можно попасть на мой авторский курс, где мы уже более детально изучаем Blender и его возможности. Идёте по пути профессионала, создаёте работы для портфолио и находите единомышленников.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================================
+       FAQ — частые вопросы
+       ============================================================ -->
+  <section class="sec">
+    <div class="faq-outer">
+      <div class="sec-label rev">FAQ</div>
+      <div class="sec-title rev">Частые вопросы</div>
+      <div class="faq-list rev">
+        <div class="faq-item">
+          <button class="faq-q">
+            <span>Сколько времени в день нужно?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-a">От 15 до 40 минут на просмотр видео и повторение действий в программе. Уроки разбиты на логические шаги: посмотрел короткий кусок — сделал у себя. Спешить не нужно, все материалы остаются в чате.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">
+            <span>Нужен мощный компьютер?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-a">Подойдёт обычный домашний компьютер или ноутбук. Главное, чтобы на нём стояла Windows 10/11 или macOS, и была подключена мышка (на тачпаде моделировать неудобно). Если Blender начнёт зависать — мы подскажем в чате, какие настройки графики снизить.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">
+            <span>А если ребёнок никогда не делал 3D?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-a">Марафон как раз рассчитан на новичков. Мы начнём с самых азов: где скачать программу, куда нажать, чтобы создать первый куб, и как крутить камеру. Никаких стартовых знаний не требуется.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">
+            <span>Что если пропустит день?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-a">Ничего страшного. Уроки выходят в записи, жёсткого расписания «минута в минуту» нет. Если ребёнок уезжал или был занят, он может спокойно догнать группу в удобное время. Главное — успеть сделать финальный рендер к последнему дню, чтобы попасть на онлайн-разбор.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">
+            <span>Что будет после марафона?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-a">У ребёнка на руках останется готовая 3D-модель молота Тора, которую он настроил и зарендерил сам. Он поймёт базовые принципы работы с формой, цветом и светом в Blender. В финале мы проведём открытый созвон, разберём работы и расскажем, как развиваться в 3D дальше.</div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q">
+            <span>Как попасть на марафон?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-a">Нажмите кнопку «Записаться на марафон» ниже на сайте и заполните короткую Яндекс.Форму — это запись в лист ожидания. Как только соберётся группа, мы напишем вам в Telegram и пришлём ссылку на закрытый чат, где всё и начнётся.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============================================================
+       ФИНАЛЬНЫЙ БЛОК — запись
+       ============================================================ -->
+  <section class="final" id="register">
+    <h2 class="rev">Набираем группу.<br>Места ограничены — до 30 человек.</h2>
+    <p class="rev">Заполни форму — напишем в Telegram, как только стартуем.</p>
+    <div class="rev">
+      <div class="form-wrap">
+        <!-- Кнопка записи → Яндекс-форма -->
+        <a href="https://forms.yandex.ru/u/6a28356f95add5a724d0f238"
+           target="_blank"
+           class="btn-submit">
+          Записаться на марафон →
+        </a>
+        <!-- Соцсети -->
+        <p class="social-label">Следите за школой в соцсетях:</p>
+        <div class="social-btns">
+          <a href="https://t.me/jcenterskids/320" target="_blank" class="btn-social btn-telegram" aria-label="Telegram">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.93 6.686-1.878 8.851c-.14.626-.507.779-.978.483l-2.712-1.998-1.308 1.258c-.144.144-.266.266-.544.266l.193-2.756 5.01-4.527c.217-.194-.048-.301-.336-.107L7.578 14.6l-2.67-.835c-.58-.182-.593-.58.12-.858l10.415-4.018c.483-.175.906.107.487.797z" fill="currentColor"/></svg>
+          </a>
+          <a href="https://www.youtube.com/@JKidsBlender" target="_blank" class="btn-social btn-youtube" aria-label="YouTube">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M21.543 6.498C22 8.28 22 12 22 12s0 3.72-.457 5.502c-.254.985-.997 1.76-1.938 2.022C17.896 20 12 20 12 20s-5.893 0-7.605-.476c-.945-.266-1.687-1.04-1.938-2.022C2 15.72 2 12 2 12s0-3.72.457-5.502c.254-.985.997-1.76 1.938-2.022C6.107 4 12 4 12 4s5.896 0 7.605.476c.945.266 1.687 1.04 1.938 2.022zM10 15.5l6-3.5-6-3.5v7z" fill="currentColor"/></svg>
+          </a>
+          <a href="https://vk.com/jcenterskids" target="_blank" class="btn-social btn-vk" aria-label="ВКонтакте">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.408 0 15.684 0zm3.692 17.123h-1.744c-.66 0-.864-.525-2.05-1.727-1.033-1-1.49-1.135-1.744-1.135-.356 0-.458.102-.458.593v1.575c0 .424-.135.678-1.253.678-1.846 0-3.896-1.118-5.335-3.202C5.16 11.66 4.547 9.618 4.547 9.16c0-.254.102-.491.593-.491h1.744c.44 0 .61.203.78.677.864 2.49 2.303 4.675 2.896 4.675.22 0 .322-.102.322-.66V11.17c-.068-1.186-.695-1.287-.695-1.71 0-.204.17-.407.44-.407h2.744c.373 0 .508.203.508.643v3.473c0 .372.17.508.271.508.22 0 .407-.136.813-.542 1.254-1.406 2.151-3.574 2.151-3.574.119-.254.322-.491.763-.491h1.744c.525 0 .644.27.525.643-.22 1.017-2.354 4.031-2.354 4.031-.186.305-.254.44 0 .78.186.254.796.779 1.203 1.253.745.847 1.32 1.558 1.473 2.05.17.491-.085.745-.576.745z" fill="currentColor"/></svg>
+          </a>
+        </div>
+        <p class="form-fine">Не спамим. Пришлём только то, что нужно для марафона.</p>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+
+<!-- ============================================================
+     ПОДВАЛ
+     ============================================================ -->
+<footer>
+  <div class="footer-logo">
+    <img src="images/logo.jpg" alt="JKids">
+    <span>JKids</span>
+  </div>
+  <span class="muted">Школа 3D для подростков JKids · Новосибирск · 2026</span>
+</footer>
+
+
+<!-- ============================================================
+     JAVASCRIPT — анимации и интерактивность
+     Не трогай, если не знаешь что делаешь :)
+     ============================================================ -->
+<script>
+
+/* ── ФОНОВЫЙ CANVAS ─────────────────────────────────────────── */
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Плавающий каркасный куб
+class Cube {
+  constructor() { this.reset(true); }
+  reset(init) {
+    this.x    = Math.random() * W;
+    this.y    = init ? Math.random() * H : H + 80;
+    this.z    = 0.3 + Math.random() * 0.7;
+    this.size = (20 + Math.random() * 50) * this.z;
+    this.vx   = (Math.random() - 0.5) * 0.18;
+    this.vy   = -(0.08 + Math.random() * 0.15) * this.z;
+    this.rx   = Math.random() * Math.PI * 2;
+    this.ry   = Math.random() * Math.PI * 2;
+    this.rz   = Math.random() * Math.PI * 2;
+    this.drx  = (Math.random() - 0.5) * 0.005;
+    this.dry  = (Math.random() - 0.5) * 0.006;
+    this.drz  = (Math.random() - 0.5) * 0.003;
+    this.alpha = 0.04 + Math.random() * 0.07;
+  }
+  project(v) {
+    let x = v[0], y = v[1], z = v[2];
+    let y2 = y * Math.cos(this.rx) - z * Math.sin(this.rx);
+    let z2 = y * Math.sin(this.rx) + z * Math.cos(this.rx);
+    y = y2; z = z2;
+    let x2 = x * Math.cos(this.ry) + z * Math.sin(this.ry);
+    let z3 = -x * Math.sin(this.ry) + z * Math.cos(this.ry);
+    x = x2; z = z3;
+    let xf = x * Math.cos(this.rz) - y * Math.sin(this.rz);
+    let yf = x * Math.sin(this.rz) + y * Math.cos(this.rz);
+    return [this.x + xf * this.size, this.y + yf * this.size];
+  }
+  draw(c) {
+    const verts = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+    const edges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+    const pts = verts.map(v => this.project(v));
+    c.strokeStyle = '#4EA8FF';
+    c.globalAlpha = this.alpha;
+    c.lineWidth = 0.8;
+    c.beginPath();
+    edges.forEach(([a, b]) => {
+      c.moveTo(pts[a][0], pts[a][1]);
+      c.lineTo(pts[b][0], pts[b][1]);
+    });
+    c.stroke();
+    c.fillStyle = '#4EA8FF';
+    c.globalAlpha = this.alpha * 1.8;
+    pts.forEach(p => {
+      c.beginPath();
+      c.arc(p[0], p[1], 1.5, 0, Math.PI * 2);
+      c.fill();
+    });
+    c.globalAlpha = 1;
+  }
+  update() {
+    this.x  += this.vx; this.y  += this.vy;
+    this.rx += this.drx; this.ry += this.dry; this.rz += this.drz;
+    if (this.y < -120) this.reset(false);
+  }
+}
+
+const cubes = Array.from({ length: 18 }, () => new Cube());
+
+function drawBg() {
+  ctx.clearRect(0, 0, W, H);
+  cubes.forEach(c => { c.update(); c.draw(ctx); });
+  // Угловые оси координат
+  [[60,60],[W-60,60],[60,H-60],[W-60,H-60]].forEach(([ox, oy]) => {
+    ctx.globalAlpha = 0.06;
+    ctx.lineWidth = 1.5;
+    [['#FF4444',1,0],['#44FF44',0,1],['#4488FF',0,0]].forEach(([col, dx, dy]) => {
+      ctx.strokeStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + dx * 16, oy + dy * 16);
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+  });
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+
+/* ── КУРСОР + ФОНАРИК ───────────────────────────────────────── */
+const cursorEl = document.getElementById('cursor');
+const torchEl  = document.getElementById('torch');
+let mx = 0, my = 0, cx = 0, cy = 0;
+
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+function animCursor() {
+  cx += (mx - cx) * 0.12;
+  cy += (my - cy) * 0.12;
+  cursorEl.style.left = cx + 'px';
+  cursorEl.style.top  = cy + 'px';
+  torchEl.style.background =
+    `radial-gradient(circle 360px at ${mx}px ${my}px, rgba(78,168,255,.07) 0%, rgba(78,168,255,.025) 40%, transparent 70%)`;
+  requestAnimationFrame(animCursor);
+}
+animCursor();
+
+document.querySelectorAll('a, button, .tile, .p-card').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    document.getElementById('cursor-dot').style.transform = 'translate(-50%,-50%) scale(2.8)';
+  });
+  el.addEventListener('mouseleave', () => {
+    document.getElementById('cursor-dot').style.transform = 'translate(-50%,-50%) scale(1)';
+  });
+});
+
+
+/* ── АНИМАЦИЯ ПОЯВЛЕНИЯ ПРИ СКРОЛЛЕ ────────────────────────── */
+const revEls = document.querySelectorAll('.rev');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('vis'); obs.unobserve(e.target); }
+  });
+}, { threshold: 0.1 });
+revEls.forEach(el => obs.observe(el));
+
+
+/* ── FAQ ─────────────────────────────────────────────────────── */
+document.querySelectorAll('.faq-q').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item  = btn.closest('.faq-item');
+    const ans   = item.querySelector('.faq-a');
+    const isOpen = btn.classList.contains('open');
+    // Закрываем всё
+    document.querySelectorAll('.faq-q.open').forEach(b => {
+      b.classList.remove('open');
+      b.closest('.faq-item').querySelector('.faq-a').classList.remove('open');
+    });
+    // Открываем нажатый, если был закрыт
+    if (!isOpen) { btn.classList.add('open'); ans.classList.add('open'); }
+  });
+});
+
+</script>
+
+</body>
+</html>
