@@ -21,6 +21,7 @@ import {
 import { hapticSelect, hapticSuccess, hapticTap, hapticWarn } from "@/lib/haptics";
 import { getTelegramWebApp } from "@/game/cloud";
 import { pickTip } from "@/lib/tips-config";
+import { pickMarathonFact } from "@/lib/marathon-config";
 
 /**
  * МИНИ-ИГРА 2048.
@@ -190,6 +191,14 @@ export function MiniGame({
   const [tipCursor, setTipCursor] = useState(() =>
     Math.floor(Math.random() * 100000)
   );
+
+  /**
+   * Изредка вместо совета — рассказ про марафон. Это именно РАССКАЗ
+   * («у нас бывают марафоны, вот как там»), а не приглашение: звать некуда,
+   * пока набор не идёт. Разбор различия — в шапке marathon-config.ts.
+   * null означает «сегодня рассказа нет», и тогда показывается совет.
+   */
+  const marathonFact = pickMarathonFact(tipCursor);
 
   /**
    * СВАЙП ВНИЗ СВОРАЧИВАЕТ ВСЁ ПРИЛОЖЕНИЕ. Читать целиком, прежде чем
@@ -461,10 +470,10 @@ export function MiniGame({
         {!needsPad && (
         <div className="mt-3 p-4 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-border">
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">
-            Пока думаешь
+            {marathonFact ? "У нас бывает так" : "Пока думаешь"}
           </p>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
-            {pickTip(tipCursor)}
+            {marathonFact ?? pickTip(tipCursor)}
           </p>
         </div>
         )}
