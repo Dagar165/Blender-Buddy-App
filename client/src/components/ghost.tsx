@@ -27,15 +27,35 @@ export function Ghost({
   stage,
   mood = "idle",
   size = 280,
+  fill = false,
   overlays = [],
 }: {
   stage: PetStage;
   mood?: PetMood;
   size?: number;
+  /**
+   * `fill` — призрак занимает всю высоту, которую ему дал родитель,
+   * вместо жёстких `size` точек.
+   *
+   * Зачем: на главном экране комната резиновая, и высота у неё разная
+   * на разных телефонах. Картинки призрака КВАДРАТНЫЕ, поэтому
+   * `aspect-square` при заданной высоте даёт ровно ту же ширину —
+   * а от ширины считаются все проценты одежды, так что вещи
+   * продолжают садиться на место сами, ничего пересчитывать не надо.
+   *
+   * Родитель обязан иметь ограниченную высоту (`flex-1 min-h-0`),
+   * иначе `h-full` не от чего считать и призрак схлопнется.
+   */
+  fill?: boolean;
   overlays?: WornOverlay[];
 }) {
   return (
-    <div className="relative" style={{ width: size }}>
+    <div
+      // max-w-full — страховка от узкой комнаты: квадрат считает ширину
+      // от высоты, и на широком невысоком экране он мог бы вылезти вбок.
+      className={fill ? "relative h-full max-w-full aspect-square" : "relative"}
+      style={fill ? undefined : { width: size }}
+    >
       {overlays.map((overlay) => (
         <img
           key={overlay.itemId}

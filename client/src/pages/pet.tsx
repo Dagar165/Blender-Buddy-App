@@ -10,10 +10,12 @@ import {
 } from "framer-motion";
 import { hapticSelect, hapticTap } from "@/lib/haptics";
 import { Link } from "wouter";
-import { CheckCircle, ChevronRight, Clock, Scroll } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronRight, Clock, Scroll } from "lucide-react";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
 import { CarePanel } from "@/components/care-panel";
 import { RoomCubes } from "@/components/room-cubes";
+import { GrowthSection } from "@/components/growth-section";
+import { FriendsSection } from "@/components/friends-section";
 import {
   CARE_NEEDS,
   getCarePhrase,
@@ -139,10 +141,6 @@ export default function PetPage() {
     dailyProgress,
     weeklyProgress,
     potionActive,
-    progressInLevel,
-    requiredForNextLevel,
-    xpToNextLevel,
-    xpProgress,
     care,
     petGhost,
     markVisit,
@@ -381,15 +379,8 @@ export default function PetPage() {
     pendingClaims,
   ]);
 
-  const progressLabel =
-    requiredForNextLevel > 0
-      ? `${progressInLevel} / ${requiredForNextLevel} XP`
-      : "MAX";
-
-  const subLabel =
-    requiredForNextLevel > 0
-      ? `Осталось ${xpToNextLevel} XP — их дают за задания`
-      : "Максимальный уровень достигнут";
+  // Полоса опыта и подписи к ней переехали на второй экран,
+  // в `components/growth-section.tsx` — там же и считаются.
 
   return (
     <motion.div
@@ -399,8 +390,37 @@ export default function PetPage() {
     >
       <TopBar />
 
-      <div className="flex-1 overflow-y-auto px-5 pb-24">
+      {/**
+       * ГЛАВНАЯ — ТРИ ЭКРАНА, КОТОРЫЕ ПЕРЕКЛЮЧАЮТСЯ СВАЙПОМ.
+       *
+       * Задача владельца 26.07: «главный экран очень короткий — свайпнёшь
+       * вверх, и там чуть-чуть только строка опыта», а профиль наоборот
+       * «очень нагроможденный». Образец он показал сам — приложение, где
+       * экран не листается бесконечно, а «движение пальцем сделал —
+       * и переключился на второй».
+       *
+       * Так это и сделано: `snap-y snap-mandatory` на прокрутке и
+       * `snap-start` на каждом экране. Браузер сам доводит до края
+       * ближайшего экрана, промежуточных положений не остаётся.
+       *
+       * Каждый экран ровно в высоту окна (`min-h-full`), поэтому их ровно
+       * три и на любом телефоне их будет три.
+       *
+       * ⚠️ Отступ снизу тут МАЛЕНЬКИЙ (`pb-4`), и это не забывчивость.
+       * Место под нижние вкладки уже отведено выше, в оболочке приложения
+       * (`App.tsx`, `pb-[80px]`). Пока тут стоял привычный `pb-24`, отступ
+       * считался ДВАЖДЫ — экран призрака вырастал на сто точек и переставал
+       * помещаться в окно. Не возвращать.
+       *
+       * Осторожно: если содержимое экрана станет выше окна (например,
+       * раскрыли все медали), прилипание для него само отключится —
+       * так устроен браузер, и это правильно. Ломаться ничего не будет,
+       * но проверять новые блоки надо на 393×700.
+       */}
+      <div className="flex-1 overflow-y-auto snap-y snap-mandatory">
         {/**
+         * ЭКРАН 1 — ПРИЗРАК. Всё, ради чего сюда заходят каждый день.
+         *
          * Расстояния между блоками задаёт КОЛОНКА (gap-4), а не сами блоки.
          *
          * Раньше каждый блок нёс собственный отступ сверху, и это ломалось
@@ -412,12 +432,21 @@ export default function PetPage() {
          * С общим шагом любой блок можно убрать, скрыть или переставить —
          * расстояния останутся ровными. НЕ возвращать отступы внутрь блоков.
          */}
-        <div className="flex flex-col items-center gap-4">
+        {/* h-full, а НЕ min-h-full, как у двух других экранов. Разница
+            принципиальная: комната резиновая, и чтобы она знала, сколько
+            высоты можно занять, у экрана должна быть ТОЧНАЯ высота.
+            С `min-h-full` потолка нет — комната росла, выталкивала кнопки
+            за край, и первый свайп доскроливал вместо переключения. */}
+        <section className="snap-start h-full px-5 pb-4 flex flex-col items-center gap-4">
           {/* Комната призрака — отсылка к 3D-окну Blender:
               сетка пола, гизмо осей, а призрак «выделен» оранжевым */}
           <div
             data-tour="pet-room"
-            className="relative w-full max-w-sm rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10"
+            /* flex-1/min-h-0 — комната занимает всю высоту, что осталась
+               от кнопок ухода и оранжевой кнопки. Раньше высота была
+               жёсткой, и на невысоком телефоне низ экрана уезжал
+               за край: первый свайп доскроливал, а не переключал. */
+            className="relative w-full max-w-sm flex-1 min-h-0 flex flex-col rounded-3xl overflow-hidden border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-b from-sky-100 via-blue-50 to-slate-100 dark:from-[#1c2a44] dark:via-[#15203a] dark:to-[#101a30] shadow-xl shadow-primary/10"
           >
             {/* Каркасные кубики на фоне — как на лендинге школы. Стоят
                 ПЕРВЫМИ в разметке, поэтому рисуются под всем остальным
@@ -457,8 +486,9 @@ export default function PetPage() {
               }}
             />
 
-            {/* pt-14 — чтобы пузырь начинался ниже HUD слева и гизмо справа */}
-            <div className="relative flex flex-col items-center pt-14 pb-12">
+            {/* pt-12 — чтобы пузырь начинался ниже HUD слева и гизмо справа.
+                flex-1/min-h-0 — комната отдаёт всю оставшуюся высоту призраку. */}
+            <div className="relative flex-1 min-h-0 flex flex-col items-center pt-12 pb-4">
               <motion.div
                 key={phrase}
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
@@ -504,7 +534,7 @@ export default function PetPage() {
               {/* mt-9, а не mt-3: шляпа торчит выше макушки на 12% кадра,
                   и на прежнем отступе её кончик со звездой уезжал под пузырь
                   с репликой. Опускаем призрака, а не убираем пузырь. */}
-              <div className="relative flex items-center justify-center mt-9">
+              <div className="relative flex-1 min-h-0 flex items-center justify-center mt-9">
                 {/* Сердечки от поглаживания */}
                 <AnimatePresence>
                   {hearts.map((heart) => (
@@ -532,6 +562,10 @@ export default function PetPage() {
                     ease: "easeInOut",
                   }}
                   style={{ perspective: 700 }}
+                  // h-full тянется от резиновой комнаты до самого призрака:
+                  // если хоть один слой в этой цепочке не отдаст высоту,
+                  // призрак схлопнется в ноль.
+                  className="h-full"
                 >
                   <motion.div
                     drag="x"
@@ -551,7 +585,7 @@ export default function PetPage() {
                     }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handlePet}
-                    className="flex items-center justify-center select-none cursor-pointer touch-pan-y"
+                    className="h-full flex items-center justify-center select-none cursor-pointer touch-pan-y"
                     style={{
                       x: swing,
                       rotateY,
@@ -560,12 +594,11 @@ export default function PetPage() {
                       filter: "drop-shadow(0 0 2px rgba(249, 115, 22, 0.75))",
                     }}
                   >
-                    <Ghost
-                      stage={stage}
-                      mood={mood}
-                      size={240}
-                      overlays={wornOverlays}
-                    />
+                    {/* fill, а не size={240}: комната резиновая, и призрак
+                        занимает ту высоту, которая осталась. На высоком
+                        телефоне он крупнее прежнего, на коротком ужимается
+                        сам — вместо того чтобы выталкивать кнопки за экран. */}
+                    <Ghost stage={stage} mood={mood} fill overlays={wornOverlays} />
                   </motion.div>
                 </motion.div>
               </div>
@@ -728,42 +761,26 @@ export default function PetPage() {
             </div>
           )}
 
-          {/* Полоса XP — как ползунок-значение в Blender: процент прямо в полосе */}
-          <div className="w-full max-w-sm bg-white dark:bg-card p-4 rounded-3xl shadow-xl shadow-primary/5 border border-slate-100 dark:border-border">
-            <div className="flex justify-between items-end mb-2 gap-4">
-              <h3 className="font-display font-bold text-slate-700 dark:text-slate-200 text-base">
-                До уровня {requiredForNextLevel > 0 ? level + 1 : level}
-              </h3>
-              <span className="text-sm font-bold text-primary whitespace-nowrap">
-                {progressLabel}
-              </span>
-            </div>
-
-            <div className="relative h-6 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${xpProgress}%` }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-                className="absolute top-0 left-0 h-full bg-gradient-to-b from-blue-400 to-primary rounded-l-lg"
-              />
-              <div className="absolute inset-0 flex items-center justify-between px-2.5 pointer-events-none">
-                <span
-                  className={`text-[11px] font-bold font-mono ${
-                    xpProgress >= 16
-                      ? "text-white drop-shadow-sm"
-                      : "text-slate-500 dark:text-slate-300"
-                  }`}
-                >
-                  {Math.round(xpProgress)}%
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-2 text-xs text-slate-400 dark:text-slate-500 font-medium">
-              {subLabel}
-            </div>
+          {/* Подсказка, что экран не кончился. Без неё второй и третий
+              экраны никто не найдёт: снизу ничего не торчит, и выглядит
+              как конец страницы. Бледная и мелкая намеренно — она не должна
+              спорить с оранжевой кнопкой. */}
+          <div className="flex flex-col items-center text-slate-300 dark:text-slate-600">
+            <span className="text-[11px] font-bold">Листай вверх</span>
+            <ChevronDown className="w-4 h-4" />
           </div>
-        </div>
+        </section>
+
+        {/* ЭКРАН 2 — МОЙ РОСТ. Переехал из профиля, разбор причины
+            в шапке самого блока. */}
+        <section className="snap-start min-h-full px-5 pt-4 pb-4">
+          <GrowthSection />
+        </section>
+
+        {/* ЭКРАН 3 — РЕБЯТА. Зал славы, движухи и бот-помощник. */}
+        <section className="snap-start min-h-full px-5 pt-4 pb-4">
+          <FriendsSection />
+        </section>
       </div>
     </motion.div>
   );

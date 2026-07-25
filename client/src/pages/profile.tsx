@@ -3,17 +3,12 @@ import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
 import {
   User,
-  Trophy,
-  Package,
   RotateCcw,
   PenSquare,
-  Medal,
-  Coins,
   Sun,
   Moon,
   ExternalLink,
   SlidersHorizontal,
-  ChevronDown,
   ChevronRight,
   Compass,
 } from "lucide-react";
@@ -22,30 +17,30 @@ import { useLocation } from "wouter";
 import { setTheme, useTheme } from "@/lib/theme";
 import { DevPanel } from "@/components/dev-panel";
 import { isDevUser } from "@/lib/dev-config";
-import {
-  HELPER_BOT,
-  SOCIAL_LINKS,
-  openOutboundLink,
-} from "@/lib/links-config";
-import {
-  buildAchievementSnapshot,
-  evaluateAchievements,
-} from "@/lib/achievements-config";
-import { SHOP_ITEMS } from "@/lib/shop-config";
+import { SOCIAL_LINKS, openOutboundLink } from "@/lib/links-config";
 import { hapticTap } from "@/lib/haptics";
 import { getTelegramPhotoUrl } from "@/game/cloud";
 import { forgetTour } from "@/components/tour";
-import { MovementPanel } from "@/components/movement-panel";
-import { GalleryPanel } from "@/components/gallery-panel";
 
+/**
+ * ПРОФИЛЬ — имя, тема, подсказки, наши каналы и сброс прогресса.
+ *
+ * ⚠️ ГЛАВНОЕ ПРО ЭТОТ ЭКРАН: он должен оставаться КОРОТКИМ И СКУЧНЫМ.
+ *
+ * 26.07 владелец назвал его «очень нагроможденным», и причина была не
+ * в количестве блоков, а в том, что экран смешивал четыре разные вещи:
+ * кто я, как я расту, куда сходить и настройки. Всё игровое отсюда
+ * переехало на главную вторым и третьим экраном —
+ * `components/growth-section.tsx` и `components/friends-section.tsx`.
+ *
+ * Сюда заходят редко и по делу. Новую игровую вещь класть НЕ СЮДА.
+ */
 export default function ProfilePage() {
   const {
     username,
     level,
     xp,
     gold,
-    inventory,
-    stats,
     telegramUserId,
     telegramUsername,
     setUsername,
@@ -55,17 +50,7 @@ export default function ProfilePage() {
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(username);
-  const [selectedAchievementId, setSelectedAchievementId] = useState<
-    string | null
-  >(null);
   const [showDevPanel, setShowDevPanel] = useState(false);
-  // Экран «Наши движухи» — открывается только по кнопке, сам не всплывает.
-  const [showMovement, setShowMovement] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
-  // Медали свёрнуты, пока их не попросят: профиль и без них длинный.
-  const [achievementsOpen, setAchievementsOpen] = useState(false);
-  // Инвентарь — по той же причине и тем же переключателем.
-  const [inventoryOpen, setInventoryOpen] = useState(false);
 
   // Аватарка спрашивается у Телеграма один раз за открытие экрана.
   const [photoUrl] = useState(getTelegramPhotoUrl);
@@ -74,15 +59,6 @@ export default function ProfilePage() {
 
   // Кнопка панели видна только владельцу — список в lib/dev-config.ts.
   const canUseDevPanel = isDevUser(telegramUserId, telegramUsername);
-
-  const achievements = evaluateAchievements(
-    buildAchievementSnapshot({ stats, level, inventory })
-  );
-  const unlockedCount = achievements.filter((entry) => entry.unlocked).length;
-  const selectedAchievement =
-    achievements.find(
-      (entry) => entry.definition.id === selectedAchievementId
-    ) ?? null;
 
   const handleSaveName = () => {
     if (editName.trim()) {
@@ -213,285 +189,15 @@ export default function ProfilePage() {
           <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
         </button>
 
-        {/* Статистика — строки «название → значение», как панель свойств */}
-        <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-6 overflow-hidden">
-          {[
-            {
-              label: "Заданий сделано",
-              value: `${stats.approvedQuestsTotal}`,
-              hot: false,
-              coin: false,
-            },
-            {
-              label: "Рекорд серии",
-              value:
-                stats.bestStreak > 0 ? `${stats.bestStreak} дн. 🔥` : "—",
-              hot: stats.bestStreak > 0,
-              coin: false,
-            },
-            {
-              label: "Голды потрачено",
-              value: `${stats.goldSpent}`,
-              hot: false,
-              coin: true,
-            },
-          ].map((row, index) => (
-            <div
-              key={row.label}
-              className={`flex items-center px-5 py-3 ${
-                index > 0 ? "border-t border-slate-100 dark:border-border" : ""
-              }`}
-            >
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                {row.label}
-              </span>
-              <span
-                className={`ml-auto flex items-center gap-1.5 font-mono text-sm font-bold ${
-                  row.hot
-                    ? "text-orange-500"
-                    : "text-slate-800 dark:text-slate-100"
-                }`}
-              >
-                {row.value}
-                {row.coin && <Coins className="w-4 h-4 text-amber-400" />}
-              </span>
-            </div>
-          ))}
-        </div>
+        {/* Статистика, достижения, инвентарь, зал славы, движухи и бот
+            ПЕРЕЕХАЛИ ОТСЮДА на главный экран (26.07). Владелец назвал этот
+            экран «очень нагроможденным», и был прав: он смешивал четыре
+            разные вещи — кто я, как я расту, куда сходить и настройки.
 
-        {/* Свёрнуто по умолчанию: медалей дюжина, и раскрытым списком они
-            занимали пол-экрана профиля. Заголовок работает переключателем,
-            счёт «сколько из скольких» виден и в свёрнутом виде — ради него
-            сюда и заходят. */}
-        <button
-          onClick={() => {
-            hapticTap();
-            setAchievementsOpen((open) => !open);
-          }}
-          className="w-full mb-4 flex items-center gap-2 text-left"
-        >
-          <Medal className="text-secondary" />
-          <span className="font-display font-bold text-slate-800 dark:text-slate-100 text-lg">
-            Достижения
-          </span>
-          <span className="ml-auto text-sm font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-card px-3 py-1 rounded-xl border border-slate-200 dark:border-border">
-            {unlockedCount}/{achievements.length}
-          </span>
-          <ChevronDown
-            className={`w-5 h-5 shrink-0 text-slate-400 dark:text-slate-500 transition-transform ${
-              achievementsOpen ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-
-        {achievementsOpen && selectedAchievement && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            key={selectedAchievement.definition.id}
-            className={`mb-3 p-4 rounded-2xl border flex items-center gap-3 ${
-              selectedAchievement.unlocked
-                ? "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30"
-                : "bg-white border-slate-200 dark:bg-card dark:border-border"
-            }`}
-          >
-            <span
-              className={`text-3xl ${
-                selectedAchievement.unlocked ? "" : "grayscale opacity-50"
-              }`}
-            >
-              {selectedAchievement.definition.emoji}
-            </span>
-            <div>
-              <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                {selectedAchievement.definition.title}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {selectedAchievement.definition.description}
-              </p>
-              <p
-                className={`text-xs font-bold mt-1 ${
-                  selectedAchievement.unlocked
-                    ? "text-amber-600 dark:text-amber-300"
-                    : "text-slate-500 dark:text-slate-400"
-                }`}
-              >
-                {selectedAchievement.unlocked
-                  ? "Получено! 🎉"
-                  : `Прогресс: ${selectedAchievement.value}/${selectedAchievement.target}`}
-              </p>
-            </div>
-          </motion.div>
-        )}
-
-        <div
-          className={`grid-cols-3 gap-3 mb-8 ${
-            achievementsOpen ? "grid" : "hidden"
-          }`}
-        >
-          {achievements.map((entry) => {
-            const isSelected =
-              entry.definition.id === selectedAchievementId;
-
-            return (
-              <button
-                key={entry.definition.id}
-                onClick={() =>
-                  setSelectedAchievementId(
-                    isSelected ? null : entry.definition.id
-                  )
-                }
-                className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all active:scale-95 ${
-                  entry.unlocked
-                    ? "bg-white border-amber-200 shadow-sm shadow-amber-100 dark:bg-card dark:border-amber-500/40 dark:shadow-none"
-                    : "bg-slate-50 border-slate-200 dark:bg-muted dark:border-border"
-                } ${isSelected ? "ring-2 ring-primary/40" : ""}`}
-              >
-                <span
-                  className={`text-3xl ${
-                    entry.unlocked ? "" : "grayscale opacity-40"
-                  }`}
-                >
-                  {entry.definition.emoji}
-                </span>
-                <span
-                  className={`text-[11px] font-bold leading-tight text-center ${
-                    entry.unlocked
-                      ? "text-slate-700 dark:text-slate-200"
-                      : "text-slate-400 dark:text-slate-500"
-                  }`}
-                >
-                  {entry.definition.title}
-                </span>
-                {!entry.unlocked && (
-                  <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary/60 rounded-full"
-                      style={{ width: `${entry.percent}%` }}
-                    />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Свёрнут так же, как достижения, и по той же причине: вещей
-            становится всё больше, а профиль владелец назвал «гигантским».
-            Счёт вещей виден и в свёрнутом виде — ради него сюда и заходят. */}
-        <button
-          onClick={() => {
-            hapticTap();
-            setInventoryOpen((open) => !open);
-          }}
-          className="w-full mb-4 flex items-center gap-2 text-left"
-        >
-          <Package className="text-secondary" />
-          <span className="font-display font-bold text-slate-800 dark:text-slate-100 text-lg">
-            Мой инвентарь
-          </span>
-          <span className="ml-auto text-sm font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-card px-3 py-1 rounded-xl border border-slate-200 dark:border-border">
-            {inventory.length}
-          </span>
-          <ChevronDown
-            className={`w-5 h-5 shrink-0 text-slate-400 dark:text-slate-500 transition-transform ${
-              inventoryOpen ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-
-        {!inventoryOpen ? null : inventory.length === 0 ? (
-          <div className="bg-white dark:bg-card border-2 border-dashed border-slate-200 dark:border-border rounded-3xl p-8 text-center mb-8">
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Пока пусто.<br/>Всё нужное — в магазине.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 mb-8">
-            {/* Значок у каждой вещи свой — тот же, что на главном экране.
-                Одинаковый кубок у всего подряд не давал узнать вещь в лицо.
-                Покупки хранятся по НАЗВАНИЮ, поэтому ищем по нему; если владелец
-                переименовал вещь в магазине, старая покупка останется с кубком. */}
-            {inventory.map((item, i) => {
-              const known = SHOP_ITEMS.find((entry) => entry.name === item);
-              const Icon = known?.icon ?? Trophy;
-
-              return (
-                <div key={i} className="bg-white dark:bg-card p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-border flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      known
-                        ? `${known.bg} ${known.color}`
-                        : "bg-slate-50 dark:bg-muted text-primary"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{item}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Дверь в зал славы. Стоит ПЕРВОЙ из дверей: это работы таких же
-            ребят, а не рассказ про школу, — и ради этого сюда возвращаются.
-            Оранжевой не делаем, оранжевая кнопка одна и всегда про задание. */}
-        <button
-          onClick={() => {
-            hapticTap();
-            setShowGallery(true);
-          }}
-          className="w-full mb-3 p-4 rounded-3xl bg-white dark:bg-card border border-primary/30 dark:border-primary/30 shadow-sm flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
-        >
-          <span className="text-2xl leading-none shrink-0">🏆</span>
-          <span className="flex-1 min-w-0">
-            <span className="block font-display font-bold text-slate-800 dark:text-slate-100">
-              Зал славы
-            </span>
-            <span className="block text-xs text-slate-500 dark:text-slate-400 leading-snug">
-              Работы ребят из школы
-            </span>
-          </span>
-          <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
-        </button>
-
-        {/* Дверь в «Наши движухи»: марафон и чат подробно.
-            Стоит ПЕРЕД ссылками на каналы, потому что это про нас самих,
-            а не про соцсети. Оранжевой не делаем — оранжевая кнопка
-            в приложении одна и всегда про задание. */}
-        <button
-          onClick={() => {
-            hapticTap();
-            setShowMovement(true);
-          }}
-          className="w-full mb-3 p-4 rounded-3xl bg-white dark:bg-card border border-secondary/30 dark:border-secondary/30 shadow-sm flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
-        >
-          <span className="text-2xl leading-none shrink-0">🔨</span>
-          <span className="flex-1 min-w-0">
-            <span className="block font-display font-bold text-slate-800 dark:text-slate-100">
-              Наши движухи
-            </span>
-            <span className="block text-xs text-slate-500 dark:text-slate-400 leading-snug">
-              Марафон и чат школы — что это и чем отличается
-            </span>
-          </span>
-          <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
-        </button>
-
-        {/* Бот-помощник и наши каналы */}
-        <button
-          onClick={() => openOutboundLink(HELPER_BOT)}
-          className="w-full mb-3 p-4 rounded-3xl bg-gradient-to-r from-primary to-blue-400 text-white shadow-lg shadow-primary/30 flex items-center gap-3 text-left active:scale-95 transition-transform"
-        >
-          <span className="text-2xl leading-none">{HELPER_BOT.emoji}</span>
-          <span className="flex-1 min-w-0">
-            <span className="block font-display font-bold">{HELPER_BOT.title}</span>
-            <span className="block text-xs text-blue-50/90 leading-snug">
-              {HELPER_BOT.subtitle}
-            </span>
-          </span>
-          <ExternalLink className="w-4 h-4 shrink-0 opacity-80" />
-        </button>
-
+            Осталось только последнее: имя, тема, подсказки, каналы и сброс.
+            Сюда заходят редко и по делу, поэтому экран и должен быть
+            коротким и скучным. Не возвращать сюда игровое —
+            см. components/growth-section.tsx и components/friends-section.tsx. */}
         <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-8 overflow-hidden">
           {SOCIAL_LINKS.map((link, index) => (
             <button
@@ -537,10 +243,6 @@ export default function ProfilePage() {
       </div>
 
       {showDevPanel && <DevPanel onClose={() => setShowDevPanel(false)} />}
-      {showMovement && (
-        <MovementPanel onClose={() => setShowMovement(false)} />
-      )}
-      {showGallery && <GalleryPanel onClose={() => setShowGallery(false)} />}
     </motion.div>
   );
 }
