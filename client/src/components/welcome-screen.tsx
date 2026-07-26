@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Ghost as GhostIcon } from "lucide-react";
+import { PET_STAGES } from "@/lib/pet-config";
 import {
   WELCOME_BUTTON,
   WELCOME_FOOTNOTE,
@@ -52,16 +52,32 @@ export function forgetWelcome() {
 export function WelcomeScreen({ onDone }: { onDone: () => void }) {
   return createPortal(
     <div className="fixed inset-0 z-[70] bg-slate-50 dark:bg-background overflow-y-auto">
-      <div className="w-full max-w-[460px] mx-auto min-h-full px-6 py-10 flex flex-col justify-center">
-        <div className="w-16 h-16 mb-5 rounded-2xl bg-primary/10 flex items-center justify-center">
-          <GhostIcon className="w-9 h-9 text-primary" />
+      <div className="w-full max-w-[460px] mx-auto min-h-full px-6 py-6 flex flex-col justify-center">
+        {/* ⚠️ ЖИВОЙ ПРИЗРАК, А НЕ ЗНАЧОК.
+            Первая версия ставила сюда иконку-привидение из набора, и владелец
+            забраковал сразу: «самый главный первый экран — просто на чёрном
+            „Привет, это твой призрак“. А где, какой призрак, что к чему?
+            Ничего не понятно и не видно, это очень сильно отталкивает».
+            Он прав: экран знакомит с призраком, значит призрак должен быть
+            на нём — тот самый, которого ребёнок увидит через секунду.
+            Берём первую стадию: с неё все и начинают. */}
+        <div className="relative self-center mb-1">
+          {/* Подсветка под призраком: без неё он висит в пустоте, а экран
+              выглядит как чёрный лист с текстом. */}
+          <div className="absolute inset-0 -z-10 rounded-full bg-primary/20 blur-3xl" />
+          <img
+            src={PET_STAGES[0].image}
+            alt=""
+            draggable={false}
+            className="w-44 h-44 object-contain select-none"
+          />
         </div>
 
-        <h1 className="font-display text-2xl font-bold text-slate-800 dark:text-slate-100 leading-tight mb-6">
+        <h1 className="font-display text-2xl font-bold text-center text-slate-800 dark:text-slate-100 leading-tight mb-5">
           {WELCOME_TITLE}
         </h1>
 
-        <div className="space-y-4 mb-8">
+        <div className="space-y-3.5 mb-6">
           {WELCOME_LINES.map((line) => (
             <div key={line.text} className="flex items-start gap-3">
               <span className="text-xl leading-none shrink-0 mt-0.5">
