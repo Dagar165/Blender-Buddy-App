@@ -10,7 +10,7 @@ import {
 } from "framer-motion";
 import { hapticSelect, hapticTap } from "@/lib/haptics";
 import { Link } from "wouter";
-import { CheckCircle, ChevronDown, ChevronRight, Clock, Scroll } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronRight, Clock, Scroll, X } from "lucide-react";
 import { getActiveQuestsForTab } from "@/lib/quests-rotation";
 import { CarePanel } from "@/components/care-panel";
 import { RoomCubes } from "@/components/room-cubes";
@@ -162,6 +162,13 @@ export default function PetPage() {
   const [greeting, setGreeting] = useState<string | null>(null);
   // Сколько раз погладили за всё время — только ради подсказки.
   const [pettingTaps, setPettingTaps] = useState(readPettingTaps);
+  /**
+   * Облако закрыто крестиком.
+   *
+   * Сбрасывается сам, как только призрак говорит что-то НОВОЕ (см. эффект
+   * ниже): закрыл — убрал эту реплику, а не выключил призрака навсегда.
+   */
+  const [bubbleHidden, setBubbleHidden] = useState(false);
 
   useEffect(() => {
     const daysAway = markVisit();
@@ -313,6 +320,17 @@ export default function PetPage() {
 
   // Позвал в чат — дай дверь. Фраза без входа остаётся пустым звуком.
   const showCommunityDoor = Boolean(communityLine) && phrase === communityLine;
+
+  /**
+   * Новая реплика — облако возвращается, даже если прошлую закрыли.
+   *
+   * Иначе крестик выключал бы призрака до перезахода: погладил, он выдал
+   * совет по Blender — а показать его уже некуда. Закрываем РЕПЛИКУ,
+   * а не собеседника.
+   */
+  useEffect(() => {
+    setBubbleHidden(false);
+  }, [phrase]);
 
   const stage = getPetStage(level);
   const nextStage = getNextPetStage(level);
@@ -529,27 +547,48 @@ export default function PetPage() {
              * экран получается выше окна — это осознанная плата за то,
              * чтобы ничего не наезжало на призрака.
              */}
-            <div
-              className={`relative flex flex-col items-center pb-0 ${
-                showCommunityDoor ? "pt-[178px]" : "pt-[96px]"
-              }`}
-            >
-              {/* Полоса реплики: облако и, если призрак зовёт в чат, кнопка
-                  под ним. Вся полоса ПОВЕРХ потока — поэтому что бы призрак
+            <div className="relative flex flex-col items-center pb-0 pt-[96px]">
+              {/* Полоса реплики ПОВЕРХ потока — поэтому что бы призрак
                   ни сказал и сколько бы строк это ни заняло, он остаётся
                   на месте, а комната не растёт. */}
               <div className="absolute top-[38px] left-0 right-0 z-10 flex flex-col items-center px-3">
+              {!bubbleHidden && (
               <motion.div
                 key={phrase}
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className={`relative max-w-[80%] border shadow-md rounded-2xl px-4 py-2.5 z-10 ${
+                className={`relative max-w-[85%] border shadow-md rounded-2xl pl-4 pr-8 py-2.5 z-10 ${
                   tip
                     ? "bg-amber-50 border-amber-200 shadow-amber-200/50 dark:bg-amber-500/15 dark:border-amber-500/40 dark:shadow-black/40"
                     : "bg-white border-slate-100 shadow-slate-200/60 dark:bg-card dark:border-border dark:shadow-black/40"
                 }`}
               >
+                {/**
+                 * ⚠️ КРЕСТИК — прямая просьба владельца 27.07, и вот почему
+                 * он обязателен.
+                 *
+                 * Холст одежды на 18% выше призрака (`CLOTHING_FRAME`),
+                 * то есть **шляпа поднимается примерно на 43 точки выше
+                 * его картинки**. Чтобы облако гарантированно не задевало
+                 * её, полосу надо поднять почти на полсотни точек — а это
+                 * ровно та высота, из-за которой внизу начинает обрезаться
+                 * ряд с одеждой. Одно лечится за счёт другого.
+                 *
+                 * Поэтому облако можно просто ЗАКРЫТЬ. Оно вернётся само
+                 * со следующей репликой — вся остальная механика цела.
+                 */}
+                <button
+                  onClick={() => {
+                    hapticTap();
+                    setBubbleHidden(true);
+                  }}
+                  aria-label="Скрыть реплику"
+                  className="absolute top-1 right-1 p-1.5 rounded-full text-slate-400 dark:text-slate-500 active:scale-90 transition-transform"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+
                 <p
                   className={`text-sm font-bold text-center ${
                     tip
@@ -560,6 +599,23 @@ export default function PetPage() {
                   {tip && <span className="mr-1">💡</span>}
                   {phrase}
                 </p>
+
+                {/* Дверь в чат ВНУТРИ облака, а не под ним. Снаружи она
+                    не влезала в полосу и садилась призраку на лицо, а под
+                    неё приходилось раздувать комнату — и тогда обрезался
+                    ряд с одеждой (владелец прислал оба скриншота). */}
+                {showCommunityDoor && (
+                  <button
+                    onClick={() => {
+                      hapticTap();
+                      openOutboundLink(COMMUNITY_LINK);
+                    }}
+                    className="mt-2 w-full text-center text-[11px] font-bold text-sky-600 dark:text-sky-300 active:scale-95 transition-transform"
+                  >
+                    Открыть чат школы →
+                  </button>
+                )}
+
                 <div
                   className={`absolute left-1/2 -bottom-1.5 -translate-x-1/2 w-3 h-3 border-b border-r rotate-45 ${
                     tip
@@ -568,17 +624,6 @@ export default function PetPage() {
                   }`}
                 />
               </motion.div>
-
-              {showCommunityDoor && (
-                <button
-                  onClick={() => {
-                    hapticTap();
-                    openOutboundLink(COMMUNITY_LINK);
-                  }}
-                  className="z-10 mt-3 flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50/80 px-3 py-1 text-[11px] font-bold text-sky-600 transition-transform active:scale-95 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300"
-                >
-                  Открыть чат школы →
-                </button>
               )}
               </div>
 
