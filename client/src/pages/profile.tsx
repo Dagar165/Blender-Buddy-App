@@ -21,6 +21,7 @@ import { SOCIAL_LINKS, openOutboundLink } from "@/lib/links-config";
 import { hapticTap } from "@/lib/haptics";
 import { getTelegramPhotoUrl } from "@/game/cloud";
 import { forgetTour } from "@/components/tour";
+import { forgetWelcome } from "@/components/welcome-screen";
 
 /**
  * ПРОФИЛЬ — имя, тема, подсказки, наши каналы и сброс прогресса.
@@ -177,6 +178,9 @@ export default function ProfilePage() {
         <button
           onClick={() => {
             hapticTap();
+            // Забываем обе отметки: и приветствие, и тур. Иначе кнопка
+            // возвращала бы только половину знакомства с приложением.
+            forgetWelcome();
             forgetTour();
             setLocation("/");
           }}

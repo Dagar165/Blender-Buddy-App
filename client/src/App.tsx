@@ -28,6 +28,7 @@ import ShopPage from "@/pages/shop";
 import ProfilePage from "@/pages/profile";
 import NotFound from "@/pages/not-found";
 import { Tour } from "@/components/tour";
+import { WelcomeGate } from "@/components/welcome-screen";
 
 function Router() {
   // Тур живёт только на главной: все его шаги показывают то, что видно
@@ -46,7 +47,14 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
 
-      {location === "/" && <Tour />}
+      {/* Сначала ЗАЧЕМ (приветствие), потом ГДЕ (тур). Оба один раз
+          и только на главной. Разбор, зачем понадобилось приветствие, —
+          в шапке `lib/welcome-config.ts`. */}
+      {location === "/" && (
+        <WelcomeGate>
+          <Tour />
+        </WelcomeGate>
+      )}
     </div>
   );
 }
