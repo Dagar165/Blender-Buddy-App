@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
+import { COMMUNITY_LINK } from "@/lib/community-config";
+import { openOutboundLink } from "@/lib/links-config";
 import {
   GALLERY_HOW_TO_GET_IN,
   GALLERY_INTRO,
@@ -113,9 +115,21 @@ export function GalleryPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
+        {/* Приписка «скинь работу в чат» — и сразу дверь в этот чат.
+            Без двери она не работала: тестировщик-подросток, у которого
+            чата не было, сказал прямо — «я не знаю, куда я хочу отправить,
+            мне нужно тыкать в профиль, искать там ссылку». Просьба, ради
+            которой надо идти искать, — это не просьба. */}
         <p className="mt-5 text-xs text-slate-500 dark:text-slate-400 leading-snug text-center">
           {GALLERY_HOW_TO_GET_IN}
         </p>
+
+        <button
+          onClick={() => openOutboundLink(COMMUNITY_LINK)}
+          className="mt-3 w-full py-3 rounded-2xl font-bold text-sm text-primary dark:text-blue-300 bg-white dark:bg-card border border-primary/30 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
+        >
+          Открыть чат школы <ExternalLink className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* РАБОТА КРУПНО. Отдельный слой поверх сетки, тоже без анимаций. */}

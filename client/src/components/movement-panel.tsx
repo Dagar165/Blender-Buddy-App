@@ -88,6 +88,19 @@ export function MovementPanel({ onClose }: { onClose: () => void }) {
             Бесплатно. Без карт и подписок.
           </p>
 
+          {/* Сам молот. Владелец 27.07: «в приложении вообще непонятно, что
+              это — там ни молота нет как такового, не показано, какой он
+              может быть». Текст описывал формат, а вещь, ради которой идут,
+              ребёнок не видел ни разу. Картинка — та же, что на лендинге,
+              пережата под телефон (20 КБ) и лежит в `public`, поэтому
+              грузится только когда экран открыли. */}
+          <img
+            src={import.meta.env.BASE_URL + "marathon-hammer.webp"}
+            alt="Молот Тора, собранный в Blender"
+            loading="lazy"
+            className="mt-3 w-full rounded-2xl border border-slate-100 dark:border-border"
+          />
+
           {/* Разница «тут / там» — сердце экрана */}
           <div className="mt-4 space-y-2">
             {MARATHON_DIFFERENCE.map((row) => (
@@ -137,7 +150,7 @@ export function MovementPanel({ onClose }: { onClose: () => void }) {
                 }
                 className="mt-4 w-full py-3.5 rounded-2xl font-bold text-white bg-gradient-to-r from-secondary to-orange-400 shadow-lg shadow-secondary/30 active:scale-[0.99] transition-transform"
               >
-                Записаться в лист ожидания
+                Узнать подробнее
               </button>
 
               <p className="mt-2 text-xs text-center text-slate-500 dark:text-slate-400 leading-snug">

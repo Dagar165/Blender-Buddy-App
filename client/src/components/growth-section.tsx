@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronDown, Coins, Medal, Package, Trophy } from "lucide-react";
+import { ChevronRight, Coins, Medal, Package } from "lucide-react";
 import { useGameState } from "@/hooks/use-game-state";
 import {
   buildAchievementSnapshot,
   evaluateAchievements,
 } from "@/lib/achievements-config";
-import { SHOP_ITEMS } from "@/lib/shop-config";
+import { AchievementsPanel } from "@/components/achievements-panel";
+import { InventoryPanel } from "@/components/inventory-panel";
 import { hapticTap } from "@/lib/haptics";
 
 /**
@@ -23,10 +24,13 @@ import { hapticTap } from "@/lib/haptics";
  * (опыт), ниже то, что копится неделями (статистика, медали, вещи).
  * Ребёнок заходит смотреть на первое, а не на последнее.
  *
- * Медали и инвентарь остаются свёрнутыми. Причина та же, что и раньше:
- * пятнадцать медалей раскрытым списком — это пять рядов, и экран
- * перестаёт быть экраном. Счёт «сколько из скольких» виден и свёрнутым,
- * ради него сюда и заходят.
+ * ⚠️ ГЛАВНОЕ ПРАВИЛО ЭТОГО ЭКРАНА: он обязан помещаться в окно целиком.
+ * Медали и инвентарь ОТКРЫВАЮТСЯ ОТДЕЛЬНЫМ ОКНОМ, а не раскрываются
+ * списком вниз. Так было сделано сначала — и тестировщик-подросток сразу
+ * поймал поломку: длинный список делал экран выше окна, прокрутка внутри
+ * дралась со свайпом («листаю достижения, а меня перекидывает на следующую
+ * страницу»), а инвентарь под ними становился недостижим вовсе.
+ * НЕ возвращать сюда раскрывающиеся блоки.
  */
 export function GrowthSection() {
   const {
@@ -39,20 +43,13 @@ export function GrowthSection() {
     xpProgress,
   } = useGameState();
 
-  const [selectedAchievementId, setSelectedAchievementId] = useState<
-    string | null
-  >(null);
-  const [achievementsOpen, setAchievementsOpen] = useState(false);
-  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
 
   const achievements = evaluateAchievements(
     buildAchievementSnapshot({ stats, level, inventory })
   );
   const unlockedCount = achievements.filter((entry) => entry.unlocked).length;
-  const selectedAchievement =
-    achievements.find(
-      (entry) => entry.definition.id === selectedAchievementId
-    ) ?? null;
 
   const progressLabel =
     requiredForNextLevel > 0
@@ -151,178 +148,48 @@ export function GrowthSection() {
         ))}
       </div>
 
-      <button
-        onClick={() => {
-          hapticTap();
-          setAchievementsOpen((open) => !open);
-        }}
-        className="w-full mb-3 flex items-center gap-2 text-left"
-      >
-        <Medal className="text-secondary" />
-        <span className="font-display font-bold text-slate-800 dark:text-slate-100 text-lg">
-          Достижения
-        </span>
-        <span className="ml-auto text-sm font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-card px-3 py-1 rounded-xl border border-slate-200 dark:border-border">
-          {unlockedCount}/{achievements.length}
-        </span>
-        <ChevronDown
-          className={`w-5 h-5 shrink-0 text-slate-400 dark:text-slate-500 transition-transform ${
-            achievementsOpen ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {achievementsOpen && selectedAchievement && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          key={selectedAchievement.definition.id}
-          className={`mb-3 p-4 rounded-2xl border flex items-center gap-3 ${
-            selectedAchievement.unlocked
-              ? "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30"
-              : "bg-white border-slate-200 dark:bg-card dark:border-border"
-          }`}
+      {/* Две двери. Обе открывают отдельное окно — см. правило в шапке. */}
+      <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border overflow-hidden">
+        <button
+          onClick={() => {
+            hapticTap();
+            setShowAchievements(true);
+          }}
+          className="w-full flex items-center gap-3 px-5 py-4 text-left active:bg-slate-50 dark:active:bg-muted transition-colors"
         >
-          <span
-            className={`text-3xl ${
-              selectedAchievement.unlocked ? "" : "grayscale opacity-50"
-            }`}
-          >
-            {selectedAchievement.definition.emoji}
+          <Medal className="w-5 h-5 shrink-0 text-secondary" />
+          <span className="flex-1 font-display font-bold text-slate-800 dark:text-slate-100">
+            Достижения
           </span>
-          <div>
-            <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-              {selectedAchievement.definition.title}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {selectedAchievement.definition.description}
-            </p>
-            <p
-              className={`text-xs font-bold mt-1 ${
-                selectedAchievement.unlocked
-                  ? "text-amber-600 dark:text-amber-300"
-                  : "text-slate-500 dark:text-slate-400"
-              }`}
-            >
-              {selectedAchievement.unlocked
-                ? "Получено! 🎉"
-                : `Прогресс: ${selectedAchievement.value}/${selectedAchievement.target}`}
-            </p>
-          </div>
-        </motion.div>
-      )}
+          <span className="text-sm font-bold text-slate-500 dark:text-slate-300">
+            {unlockedCount}/{achievements.length}
+          </span>
+          <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
+        </button>
 
-      <div
-        className={`grid-cols-3 gap-3 mb-5 ${
-          achievementsOpen ? "grid" : "hidden"
-        }`}
-      >
-        {achievements.map((entry) => {
-          const isSelected = entry.definition.id === selectedAchievementId;
-
-          return (
-            <button
-              key={entry.definition.id}
-              onClick={() =>
-                setSelectedAchievementId(
-                  isSelected ? null : entry.definition.id
-                )
-              }
-              className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition-all active:scale-95 ${
-                entry.unlocked
-                  ? "bg-white border-amber-200 shadow-sm shadow-amber-100 dark:bg-card dark:border-amber-500/40 dark:shadow-none"
-                  : "bg-slate-50 border-slate-200 dark:bg-muted dark:border-border"
-              } ${isSelected ? "ring-2 ring-primary/40" : ""}`}
-            >
-              <span
-                className={`text-3xl ${
-                  entry.unlocked ? "" : "grayscale opacity-40"
-                }`}
-              >
-                {entry.definition.emoji}
-              </span>
-              <span
-                className={`text-[11px] font-bold leading-tight text-center ${
-                  entry.unlocked
-                    ? "text-slate-700 dark:text-slate-200"
-                    : "text-slate-400 dark:text-slate-500"
-                }`}
-              >
-                {entry.definition.title}
-              </span>
-              {!entry.unlocked && (
-                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary/60 rounded-full"
-                    style={{ width: `${entry.percent}%` }}
-                  />
-                </div>
-              )}
-            </button>
-          );
-        })}
+        <button
+          onClick={() => {
+            hapticTap();
+            setShowInventory(true);
+          }}
+          className="w-full flex items-center gap-3 px-5 py-4 text-left border-t border-slate-100 dark:border-border active:bg-slate-50 dark:active:bg-muted transition-colors"
+        >
+          <Package className="w-5 h-5 shrink-0 text-secondary" />
+          <span className="flex-1 font-display font-bold text-slate-800 dark:text-slate-100">
+            Мой инвентарь
+          </span>
+          <span className="text-sm font-bold text-slate-500 dark:text-slate-300">
+            {inventory.length}
+          </span>
+          <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
+        </button>
       </div>
 
-      <button
-        onClick={() => {
-          hapticTap();
-          setInventoryOpen((open) => !open);
-        }}
-        className="w-full mb-3 flex items-center gap-2 text-left"
-      >
-        <Package className="text-secondary" />
-        <span className="font-display font-bold text-slate-800 dark:text-slate-100 text-lg">
-          Мой инвентарь
-        </span>
-        <span className="ml-auto text-sm font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-card px-3 py-1 rounded-xl border border-slate-200 dark:border-border">
-          {inventory.length}
-        </span>
-        <ChevronDown
-          className={`w-5 h-5 shrink-0 text-slate-400 dark:text-slate-500 transition-transform ${
-            inventoryOpen ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {!inventoryOpen ? null : inventory.length === 0 ? (
-        <div className="bg-white dark:bg-card border-2 border-dashed border-slate-200 dark:border-border rounded-3xl p-8 text-center">
-          <p className="text-slate-500 dark:text-slate-400 font-medium">
-            Пока пусто.
-            <br />
-            Всё нужное — в магазине.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {/* Значок у каждой вещи свой — тот же, что на главном экране.
-              Одинаковый кубок у всего подряд не давал узнать вещь в лицо.
-              Покупки хранятся по НАЗВАНИЮ, поэтому ищем по нему; если владелец
-              переименовал вещь в магазине, старая покупка останется с кубком. */}
-          {inventory.map((item, i) => {
-            const known = SHOP_ITEMS.find((entry) => entry.name === item);
-            const Icon = known?.icon ?? Trophy;
-
-            return (
-              <div
-                key={i}
-                className="bg-white dark:bg-card p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-border flex items-center gap-3"
-              >
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    known
-                      ? `${known.bg} ${known.color}`
-                      : "bg-slate-50 dark:bg-muted text-primary"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                </div>
-                <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">
-                  {item}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+      {showAchievements && (
+        <AchievementsPanel onClose={() => setShowAchievements(false)} />
+      )}
+      {showInventory && (
+        <InventoryPanel onClose={() => setShowInventory(false)} />
       )}
     </div>
   );
