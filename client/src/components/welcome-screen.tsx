@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { PET_STAGES } from "@/lib/pet-config";
+import { getPetStage } from "@/lib/pet-config";
+import { useGameState } from "@/hooks/use-game-state";
 import {
   WELCOME_BUTTON,
   WELCOME_FOOTNOTE,
@@ -50,6 +51,17 @@ export function forgetWelcome() {
 }
 
 export function WelcomeScreen({ onDone }: { onDone: () => void }) {
+  /**
+   * Призрак тут — ТОТ ЖЕ, что у ребёнка на главном экране.
+   *
+   * Поправка владельца 27.07. Сначала стояла жёстко первая стадия: для
+   * новичка это верно, но экран возвращается и по кнопке «Показать
+   * подсказки заново» — и тогда тридцатый уровень видел бы малыша вместо
+   * своего Творца. Приложение не должно забывать, кто перед ним.
+   */
+  const { level } = useGameState();
+  const stage = getPetStage(level);
+
   return createPortal(
     <div className="fixed inset-0 z-[70] bg-slate-50 dark:bg-background overflow-y-auto">
       <div className="w-full max-w-[460px] mx-auto min-h-full px-6 py-6 flex flex-col justify-center">
@@ -66,7 +78,7 @@ export function WelcomeScreen({ onDone }: { onDone: () => void }) {
               выглядит как чёрный лист с текстом. */}
           <div className="absolute inset-0 -z-10 rounded-full bg-primary/20 blur-3xl" />
           <img
-            src={PET_STAGES[0].image}
+            src={stage.image}
             alt=""
             draggable={false}
             className="w-44 h-44 object-contain select-none"

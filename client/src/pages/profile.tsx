@@ -202,6 +202,14 @@ export default function ProfilePage() {
             Сюда заходят редко и по делу, поэтому экран и должен быть
             коротким и скучным. Не возвращать сюда игровое —
             см. components/growth-section.tsx и components/friends-section.tsx. */}
+
+        {/* Заголовок над ссылками — просьба владельца 27.07. Без него три
+            строки с иконками висели сами по себе, и было не понять, что
+            это вообще за список и куда он ведёт. */}
+        <h2 className="mb-2 px-1 font-display font-bold text-slate-800 dark:text-slate-100">
+          Наши соцсети
+        </h2>
+
         <div className="bg-white dark:bg-card rounded-3xl shadow-sm border border-slate-100 dark:border-border mb-8 overflow-hidden">
           {SOCIAL_LINKS.map((link, index) => (
             <button

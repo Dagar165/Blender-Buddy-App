@@ -426,7 +426,7 @@ export default function PetPage() {
       <ScreenDots
         scrollRef={screensRef}
         count={3}
-        labels={["Призрак", "Мой рост", "Ребята"]}
+        labels={["Призрак", "Мой рост", "Движ"]}
       />
       <div ref={screensRef} className="h-full overflow-y-auto snap-y snap-mandatory">
         {/**

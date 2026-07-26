@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import { GalleryPanel } from "@/components/gallery-panel";
-import { galleryImageUrl, getGalleryItems } from "@/lib/gallery-config";
 import { MovementPanel } from "@/components/movement-panel";
 import { HELPER_BOT, openOutboundLink } from "@/lib/links-config";
 import { hapticTap } from "@/lib/haptics";
 
 /**
- * «РЕБЯТА» — третий экран главной. Всё, что связывает ребёнка с другими:
+ * «ДВИЖ» — третий экран главной. Всё, что связывает ребёнка с другими:
  * работы учеников, марафон с чатом школы и бот-помощник.
  *
  * ЗАЧЕМ ОТДЕЛЬНЫМ ЭКРАНОМ (владелец 26.07). Раньше эти двери стояли
@@ -24,15 +23,11 @@ export function FriendsSection() {
   const [showGallery, setShowGallery] = useState(false);
   const [showMovement, setShowMovement] = useState(false);
 
-  // Три работы для полоски-приманки. Берём первые из списка: порядок там
-  // задаёт владелец, значит он же решает, что показывать первым.
-  const preview = getGalleryItems().slice(0, 3);
-
   return (
     <div className="w-full max-w-sm mx-auto">
       <h2 className="font-display text-xl font-bold text-slate-800 dark:text-slate-100 mb-3">
-        Ребята
-      </h2>
+        Движ
+</h2>
 
       {/* Зал славы стоит первым: это работы таких же ребят, а не рассказ
           про школу, — и ради этого сюда возвращаются. */}
@@ -74,36 +69,10 @@ export function FriendsSection() {
         <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
       </button>
 
-      {/* Полоска работ прямо на экране. Две причины, обе важные.
-          Первая: владелец сказал, что внизу «вообще ничем не занято, тупо
-          чёрный экран» — и был прав, три кнопки не заполняли окно.
-          Вторая, важнее: зал славы за кнопкой надо ЗАХОТЕТЬ открыть,
-          а работы, которые видно сразу, зовут сами. Это и есть то самое
-          вдохновение, ради которого экран задуман. */}
-      {preview.length > 0 && (
-        <button
-          onClick={() => {
-            hapticTap();
-            setShowGallery(true);
-          }}
-          className="w-full mb-3 grid grid-cols-3 gap-2 active:scale-[0.99] transition-transform"
-          aria-label="Открыть зал славы"
-        >
-          {preview.map((item) => (
-            <span
-              key={item.file}
-              className="aspect-square rounded-2xl overflow-hidden bg-slate-100 dark:bg-muted border border-slate-200 dark:border-border"
-            >
-              <img
-                src={galleryImageUrl(item.file, true)}
-                alt={"Работа ученика " + item.nick}
-                loading="lazy"
-                className="w-full h-full object-cover"
-              />
-            </span>
-          ))}
-        </button>
-      )}
+      {/* Полоски с превью работ тут БЫЛА И УБРАНА (владелец 27.07):
+          «зачем нам тупо дублировать картинки детей на экране». Те же
+          работы лежат за кнопкой «Зал славы» строкой выше — показывать
+          их дважды на одном экране незачем. Не возвращать. */}
 
       <button
         onClick={() => openOutboundLink(HELPER_BOT)}
