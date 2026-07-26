@@ -97,6 +97,23 @@ export function CarePanel() {
               key={need.id}
               onClick={() => {
                 hapticTap();
+
+                /**
+                 * Пока игра ОДНА — открываем её сразу, без списка из одной
+                 * строки. Тестировщик-подросток 27.07: нажал «Настроение»
+                 * и ждал, что игра развернётся, «а потом увидел, что
+                 * маленькая плашечка под этим всем». Два нажатия ради
+                 * выбора из одного варианта — это не выбор, а лишний шаг.
+                 *
+                 * Появится вторая игра — условие само перестанет
+                 * срабатывать, и вернётся список. Ничего не переписывать.
+                 */
+                if (need.byGame && MINI_GAMES.length === 1) {
+                  setOpenNeed(null);
+                  setPlayingGame(MINI_GAMES[0].id);
+                  return;
+                }
+
                 setOpenNeed((current) => (current === need.id ? null : need.id));
               }}
               className={`relative flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-2.5 transition-all active:scale-95 ${
