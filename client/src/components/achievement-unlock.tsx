@@ -1,3 +1,15 @@
+/**
+ * ПОЛУЧЕНА МЕДАЛЬ — полноэкранное окно с конфетти.
+ *
+ * Сами медали и условия их получения — в `lib/achievements-config.ts`,
+ * там же правила правки. Показывается по одной; какая медаль ещё не была
+ * показана, помнит стор (`hooks/use-game-state.ts`), а очередь окон —
+ * `App.tsx`.
+ *
+ * Внизу окна — `CommunityHint`, тихое приглашение в чат школы. Оно стоит
+ * тут не случайно: медаль — это пик радости, и только на таких пиках
+ * приглашение уместно. Правила упоминаний чата — `lib/community-config.ts`.
+ */
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";

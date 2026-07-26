@@ -1,6 +1,20 @@
-// Talks to the verification worker: files quest-completion claims and polls
-// their statuses. Rewards are granted only after the curator approves a claim,
-// so submission failures surface to the caller instead of being swallowed.
+/**
+ * СВЯЗЬ С СЕРВЕРКОМ ПРОВЕРКИ. Тут вся дорога от «Выполнил» до награды.
+ *
+ * Две задачи: отправить заявку куратору и потом спросить, что он решил.
+ * Сам серверок лежит в папке `worker/` (Cloudflare Worker), туда же
+ * приходит нажатие куратора «Подтвердить» из Телеграма.
+ *
+ * ⚠️ **Награду даёт НЕ этот файл и не экран заданий.** Здесь только
+ * переписка. Опыт и голда начисляются в сторе, когда пришёл ответ
+ * «подтверждено» (`applyClaimResolutions` в `hooks/use-game-state.ts`).
+ * Начислить раньше — значит выдать награду за непроверенную работу.
+ *
+ * Ошибки отправки НЕ проглатываются: экран обязан показать, что заявка
+ * не ушла, иначе ребёнок будет ждать ответа, которого никто не получал.
+ *
+ * `WORKER_URL` — адрес серверка. Меняется только вместе с его выкладкой.
+ */
 
 const WORKER_URL = "https://jkids-quest-check.sergfenchen.workers.dev";
 
