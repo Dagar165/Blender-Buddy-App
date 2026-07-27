@@ -53,13 +53,17 @@ import {
   Circle,
   Clock,
   Coins,
+  ExternalLink,
   Flame,
   Lock,
+  Send,
   Snowflake,
   Target,
   Zap,
 } from "lucide-react";
 import { pluralizeDaysRu } from "@/lib/utils";
+import { COMMUNITY_LINK } from "@/lib/community-config";
+import { openOutboundLink } from "@/lib/links-config";
 import {
   QUESTS_CONFIG,
   type QuestDefinition,
@@ -220,18 +224,57 @@ function QuestCard({
           «что снять на скриншот», а просто «к чему стремиться». Обещать
           проверку, которой не будет, нельзя — ребёнок ждал бы ответа. */}
       {quest.result && (
-        <div className="flex gap-2 mb-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-muted">
-          {isWarmup ? (
-            <Target className="w-4 h-4 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
-          ) : (
-            <Camera className="w-4 h-4 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
+        <div className="mb-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-muted">
+          <div className="flex gap-2">
+            {isWarmup ? (
+              <Target className="w-4 h-4 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
+            ) : (
+              <Camera className="w-4 h-4 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
+            )}
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
+              <span className="font-bold">
+                {isWarmup ? "Должно получиться: " : "На скриншоте: "}
+              </span>
+              {quest.result}
+            </p>
+          </div>
+
+          {/**
+           * ⚠️ КУДА НЕСТИ СКРИНШОТ. Это была самая дорогая дыра приложения.
+           *
+           * Карточка говорила, ЧТО должно быть на скриншоте, и молчала
+           * о том, КУДА его девать. Ребёнок доходил до конца задания —
+           * до той самой точки, ради которой всё делалось, — и упирался
+           * в стену. Владелец 28.07: «людям детям вообще непонятно, куда
+           * скидывать готовые работы. Понятно, что скриншот, но куда
+           * вообще? Меня уже некоторые спрашивали».
+           *
+           * Дверь стоит ПРЯМО ЗДЕСЬ, а не в профиле и не в подсказках:
+           * просьба, ради которой надо идти искать, — это не просьба.
+           *
+           * Адрес берётся из одного места (`COMMUNITY_LINK` → `SCHOOL_CHAT`),
+           * и это конкретный пост с открытыми комментариями, а не канал
+           * целиком. Слова «чат» тут быть не может: чата у школы нет.
+           *
+           * У разминки этой строки НЕТ: её никто не проверяет, и звать
+           * ребёнка куда-то с ней — врать про проверку, которой не будет.
+           */}
+          {!isWarmup && (
+            <button
+              onClick={() => {
+                hapticTap();
+                openOutboundLink(COMMUNITY_LINK);
+              }}
+              className="mt-1 w-full flex items-center gap-1.5 pt-1 border-t border-slate-200 dark:border-border text-left text-xs font-bold text-primary dark:text-blue-300 active:scale-[0.99] transition-transform"
+            >
+              <Send className="w-3.5 h-3.5 shrink-0" />
+              {/* Слово «сначала» тут работает не хуже ссылки: оно задаёт
+                  порядок. Нажмёт оранжевую кнопку раньше — куратор получит
+                  заявку, под которой нечего смотреть. */}
+              <span className="flex-1">Сначала скинь скрин в комментарии</span>
+              <ExternalLink className="w-3 h-3 shrink-0 opacity-60" />
+            </button>
           )}
-          <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
-            <span className="font-bold">
-              {isWarmup ? "Должно получиться: " : "На скриншоте: "}
-            </span>
-            {quest.result}
-          </p>
         </div>
       )}
 
