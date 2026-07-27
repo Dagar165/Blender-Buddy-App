@@ -20,6 +20,7 @@ import {
   type Direction,
 } from "@/lib/game-2048";
 import { hapticSelect, hapticSuccess, hapticTap, hapticWarn } from "@/lib/haptics";
+import { useGameState } from "@/hooks/use-game-state";
 import { getTelegramWebApp } from "@/game/cloud";
 import { pickTip } from "@/lib/tips-config";
 import { pickMarathonFact } from "@/lib/marathon-config";
@@ -183,6 +184,19 @@ export function MiniGame({
   const playedRef = useRef(false);
 
   /**
+   * Партия доиграна до конца — засчитываем её в счётчик медалей.
+   *
+   * Ровно ОДИН раз на партию: `countedRef` не даёт посчитать её второй раз,
+   * если экран перерисуется, пока висит «ХОДОВ НЕТ». Сбрасывается при
+   * начале новой партии (см. restart).
+   *
+   * Победа не нужна: медаль за то, что доиграл. Владелец 27.07 — «ребёнок
+   * проиграл первый раз, но ачивку получил».
+   */
+  const finishGame = useGameState((state) => state.finishGame);
+  const countedRef = useRef(false);
+
+  /**
    * Совет по Blender под полем. Место освободилось от кнопок, и владелец
    * попросил занять его чем-то полезным — а совет тут к месту вдвойне:
    * ребёнок пришёл отдохнуть после заданий, но уходит всё равно с приёмом
@@ -281,7 +295,19 @@ export function MiniGame({
     hapticTap();
     setGame(freshGame());
     setTipCursor((cursor) => cursor + 1);
+    // Новая партия — её ещё не считали.
+    countedRef.current = false;
   }, []);
+
+  // Ходов не осталось — партия закончилась. Считаем здесь, а не в applyMove:
+  // конец партии может наступить и от кнопки «Ещё раз», и от клавиатуры,
+  // а состояние `over` одно на все пути.
+  useEffect(() => {
+    if (!game.over || countedRef.current) return;
+
+    countedRef.current = true;
+    finishGame();
+  }, [game.over, finishGame]);
 
   const applyMove = useCallback(
     (direction: Direction) => {

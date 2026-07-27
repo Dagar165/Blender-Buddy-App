@@ -18,6 +18,7 @@ import {
 } from "@/game/wardrobe";
 import {
   QUIZ_GOLD_PER_CORRECT,
+  QUIZ_PER_DAY,
   QUIZ_XP_PER_CORRECT,
 } from "@/lib/quiz-config";
 import { TIP_MAX_TAPS, TIP_MIN_TAPS, pickTip } from "@/lib/tips-config";
@@ -103,18 +104,65 @@ export type RecurringQuestProgress = {
   weekDoneIds?: string[];
 };
 
-// Lifetime counters achievements are computed from.
+/**
+ * Счётчики «за всё время», от которых считаются медали.
+ *
+ * Правило у всех одно: значение только РАСТЁТ и никогда не уменьшается —
+ * поэтому при слиянии с облаком берётся максимум (см. syncCloudState).
+ * Заводишь новый счётчик — добавь его и в createDefaultStats, и в слияние,
+ * иначе на втором устройстве медаль отберётся обратно.
+ */
 export type GameStats = {
   approvedQuestsTotal: number;
   goldSpent: number;
   bestStreak: number;
+  /**
+   * Сколько ДНЕЙ квиз пройден целиком (все QUIZ_PER_DAY вопросов).
+   *
+   * Считаем дни, а не ответы: владелец 27.07 — «квиз закончился и всё, надо
+   * как-то визуально точку поставить для ребёнка». Точка ставится в конце
+   * дня квиза, а не после каждого вопроса.
+   */
+  quizDaysDone: number;
+  /**
+   * Сколько партий в мини-игре доиграно до конца (ходов больше нет).
+   *
+   * ⚠️ ПОБЕЖДАТЬ НЕ НАДО — прямое требование владельца: «ребёнок проиграл
+   * первый раз, но ачивку получил». Медаль тут за то, что доиграл, а не
+   * за результат: 2048 с первого раза не собирает никто.
+   */
+  gamesFinished: number;
 };
 
 const createDefaultStats = (): GameStats => ({
   approvedQuestsTotal: 0,
   goldSpent: 0,
   bestStreak: 0,
+  quizDaysDone: 0,
+  gamesFinished: 0,
 });
+
+/**
+ * Достраивает счётчики, которых не было в прошлой версии приложения.
+ *
+ * ⚠️ ЗАЧЕМ ЭТО НУЖНО, иначе игра ломается молча. В памяти телефона лежит
+ * тот набор счётчиков, который существовал на момент последнего запуска.
+ * Добавили новый — у старого ученика его там НЕТ, и первое же `+ 1`
+ * превращает счётчик в «не число»: медаль не выдаётся никогда, а цифра
+ * в профиле показывает NaN. Поэтому всё, что пришло из памяти, всегда
+ * прогоняется через эту функцию.
+ */
+const normalizeStats = (raw: Partial<GameStats> | undefined): GameStats => {
+  const defaults = createDefaultStats();
+
+  return {
+    approvedQuestsTotal: raw?.approvedQuestsTotal ?? defaults.approvedQuestsTotal,
+    goldSpent: raw?.goldSpent ?? defaults.goldSpent,
+    bestStreak: raw?.bestStreak ?? defaults.bestStreak,
+    quizDaysDone: raw?.quizDaysDone ?? defaults.quizDaysDone,
+    gamesFinished: raw?.gamesFinished ?? defaults.gamesFinished,
+  };
+};
 
 // A quest the student says is done, waiting for the curator's verdict.
 export type PendingClaim = {
@@ -266,6 +314,8 @@ export interface GameState extends LevelData {
   buySupply: (supplyId: string) => boolean;
   petGhost: () => { granted: boolean; tip: string | null };
   answerQuizQuestion: (questionId: string, correct: boolean) => boolean;
+  // Партия в мини-игре доиграна до конца. Наград не даёт, растит счётчик медалей.
+  finishGame: () => void;
   openDailyChest: () => number | null;
 
   refreshQuestCycles: () => void;
@@ -1006,17 +1056,59 @@ export const useGameState = create<GameState>()(
         if (answered.includes(questionId)) return false;
 
         const nextXp = state.xp + (correct ? QUIZ_XP_PER_CORRECT : 0);
+        const nextAnswered = [...answered, questionId];
+
+        /**
+         * Последний вопрос дня — квиз пройден целиком, засчитываем ДЕНЬ.
+         *
+         * Владелец 27.07: «квиз закончился и всё. Надо как-то визуально точку
+         * поставить для ребёнка». Точка — медаль, и считается она по дням,
+         * а не по ответам: иначе «первое прохождение» выдавалось бы после
+         * первого же вопроса, то есть ни за что.
+         *
+         * Верность ответа тут не важна: медаль за то, что дошёл до конца.
+         * Награда за правильные ответы и так начисляется отдельно, выше.
+         */
+        const dayFinished = nextAnswered.length >= QUIZ_PER_DAY;
 
         set({
           quizDate: today,
-          quizAnswered: [...answered, questionId],
+          quizAnswered: nextAnswered,
           xp: nextXp,
           gold: state.gold + (correct ? QUIZ_GOLD_PER_CORRECT : 0),
+          ...(dayFinished
+            ? {
+                stats: {
+                  ...state.stats,
+                  quizDaysDone: state.stats.quizDaysDone + 1,
+                },
+              }
+            : {}),
           ...getLevelData(nextXp),
         });
 
         queueCloudSave(get);
         return true;
+      },
+
+      /**
+       * Партия в мини-игре доиграна до конца (ходов больше нет).
+       *
+       * Зовётся ОДИН раз за партию из самой игры. Награды не даёт нарочно —
+       * игра остаётся отдыхом, а не способом фармить голду (правило комнаты
+       * написано прямо на её экране). Растёт только счётчик для медалей.
+       */
+      finishGame: () => {
+        const state = get();
+
+        set({
+          stats: {
+            ...state.stats,
+            gamesFinished: state.stats.gamesFinished + 1,
+          },
+        });
+
+        queueCloudSave(get);
       },
 
       // The chest only appears on days the curator counted real practice —
@@ -1271,6 +1363,14 @@ export const useGameState = create<GameState>()(
             ),
             goldSpent: Math.max(state.stats.goldSpent, cloudStats?.goldSpent ?? 0),
             bestStreak: Math.max(state.stats.bestStreak, cloudStats?.bestStreak ?? 0),
+            quizDaysDone: Math.max(
+              state.stats.quizDaysDone,
+              cloudStats?.quizDaysDone ?? 0
+            ),
+            gamesFinished: Math.max(
+              state.stats.gamesFinished,
+              cloudStats?.gamesFinished ?? 0
+            ),
           };
 
           const coveredNow = new Set([...nextStreakDays, ...nextFrozenDays]);
@@ -1445,6 +1545,9 @@ export const useGameState = create<GameState>()(
           equipped: typedState.equipped
             ? sanitizeEquipped(typedState.equipped, inventory)
             : seedEquippedFromInventory(inventory),
+          // Счётчики из памяти телефона могут быть от старой версии — там
+          // нет новых полей. Разбор, чем это грозит, — над normalizeStats.
+          stats: normalizeStats(typedState.stats),
           ...getLevelData(xp),
         };
 
