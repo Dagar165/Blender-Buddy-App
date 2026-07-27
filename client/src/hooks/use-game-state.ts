@@ -312,7 +312,12 @@ export interface GameState extends LevelData {
   // Поиграл в мини-игру — настроение полное. Припасов не тратит, наград не даёт.
   cheerByGame: () => void;
   buySupply: (supplyId: string) => boolean;
-  petGhost: () => { granted: boolean; tip: string | null };
+  // `leftToday` — сколько поглаживаний с опытом осталось СЕГОДНЯ после этого.
+  petGhost: () => {
+    granted: boolean;
+    tip: string | null;
+    leftToday: number;
+  };
   answerQuizQuestion: (questionId: string, correct: boolean) => boolean;
   // Партия в мини-игре доиграна до конца. Наград не даёт, растит счётчик медалей.
   finishGame: () => void;
@@ -1041,7 +1046,7 @@ export const useGameState = create<GameState>()(
         if (countToday >= PETTING_DAILY_LIMIT) {
           set(tipState);
           queueCloudSave(get);
-          return { granted: false, tip };
+          return { granted: false, tip, leftToday: 0 };
         }
 
         const nextXp = state.xp + 1;
@@ -1055,7 +1060,15 @@ export const useGameState = create<GameState>()(
         });
 
         queueCloudSave(get);
-        return { granted: true, tip };
+
+        // `leftToday` отдаём наружу, чтобы экран мог СКАЗАТЬ про лимит вслух.
+        // Раньше он знал только «дали или нет», и ребёнок видел, что плюсики
+        // просто перестали появляться, — правило было в коде, а не в игре.
+        return {
+          granted: true,
+          tip,
+          leftToday: PETTING_DAILY_LIMIT - (countToday + 1),
+        };
       },
 
       answerQuizQuestion: (questionId, correct) => {

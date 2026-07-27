@@ -246,10 +246,39 @@ export default function PetPage() {
    */
   const tipTimerRef = useRef<number | null>(null);
 
+  /**
+   * Своя реплика призрака про лимит поглаживаний — и свой таймер под неё.
+   *
+   * ⚠️ ТАЙМЕР ОТДЕЛЬНЫЙ ОТ СОВЕТОВ НАРОЧНО. Общий таймер снимал бы чужую
+   * реплику раньше срока — ровно та поломка, что расписана над `tipTimerRef`.
+   *
+   * Почему не через `tip`: в облаке совет по Blender рисуется жёлтым
+   * и с лампочкой. Про свои же обнимашки призрак говорит СВОИМИ словами,
+   * а не «советом», поэтому реплика идёт обычным белым облаком.
+   */
+  const [note, setNote] = useState<string | null>(null);
+  const noteTimerRef = useRef<number | null>(null);
+
+  const sayNote = (text: string) => {
+    setNote(text);
+
+    if (noteTimerRef.current !== null) {
+      window.clearTimeout(noteTimerRef.current);
+    }
+
+    noteTimerRef.current = window.setTimeout(() => {
+      noteTimerRef.current = null;
+      setNote(null);
+    }, TIP_VISIBLE_MS);
+  };
+
   useEffect(() => {
     return () => {
       if (tipTimerRef.current !== null) {
         window.clearTimeout(tipTimerRef.current);
+      }
+      if (noteTimerRef.current !== null) {
+        window.clearTimeout(noteTimerRef.current);
       }
     };
   }, []);
@@ -271,8 +300,28 @@ export default function PetPage() {
       setPettingTaps(next);
     }
 
-    const { granted, tip: freshTip } = petGhost();
+    const { granted, tip: freshTip, leftToday } = petGhost();
     const id = Date.now() + Math.random();
+
+    /**
+     * ⚠️ ПРО ЛИМИТ ГОВОРИМ ВСЛУХ. Опыт за поглаживания кончается после
+     * PETTING_DAILY_LIMIT раз в день — правило старое, но жило только
+     * в коде. Снаружи это выглядело так: плюсики были и вдруг перестали.
+     *
+     * Владелец 27.07: «у нас это где-то прописано, что в день можно
+     * максимум 10 набрать, но пользователю это не ясно». А подросток-
+     * тестировщик в тот же день решил, что «+1 XP» вообще не бывает —
+     * он просто гладил призрака уже после лимита.
+     *
+     * Поэтому две реплики: одна на последнем засчитанном поглаживании,
+     * вторая — если гладят дальше. Обе живут 7 секунд и не спамят:
+     * пока висит одна, следующая её не сменит раньше срока.
+     */
+    if (granted && leftToday === 0) {
+      sayNote("Опыт за обнимашки на сегодня всё — 10 из 10. Завтра снова дам!");
+    } else if (!granted) {
+      sayNote("Обнимай сколько хочешь, но опыт за это сегодня кончился. Завтра будет новый.");
+    }
 
     if (freshTip) {
       setGreeting(null);
@@ -350,7 +399,12 @@ export default function PetPage() {
   // Про двор стоит ВЫШЕ просьбы об уходе нарочно: просьба находится почти
   // всегда, и упоминание, поставленное ниже, не показалось бы никогда.
   // Оно и так выпадает раз в восемнадцать заходов.
-  const phrase = tip ?? greeting ?? communityLine ?? carePhrase ?? moodPhrase;
+  //
+  // Реплика про лимит поглаживаний (`note`) стоит СРАЗУ ЗА СОВЕТОМ: она
+  // отвечает на действие, которое ребёнок только что сделал пальцем,
+  // и ждать своей очереди за дежурной фразой настроения ей нельзя.
+  const phrase =
+    tip ?? note ?? greeting ?? communityLine ?? carePhrase ?? moodPhrase;
 
   // Позвал в чат — дай дверь. Фраза без входа остаётся пустым звуком.
   const showCommunityDoor = Boolean(communityLine) && phrase === communityLine;
@@ -923,8 +977,27 @@ export default function PetPage() {
          * глухую плиту пустоты. Посередине пустота делится пополам
          * и перестаёт читаться как «тут что-то не догрузилось».
          */}
-        <section className="snap-start min-h-full px-5 py-4 flex flex-col justify-center">
+        {/* ⚠️ `relative` — ради подсказки внизу, она absolute. Без него
+            подсказка ушла бы считать края от всего списка экранов и легла
+            бы в самый низ третьего. */}
+        <section className="relative snap-start min-h-full px-5 py-4 flex flex-col justify-center">
           <GrowthSection />
+
+          {/* Подсказка, что и этот экран не последний.
+
+              Точки-указатели справа стоят с 26.07, но их мало: тестировщик
+              -подросток 27.07 листнул на «Мой рост» и остановился — «не видно
+              и непонятно, что можно пролистнуть ещё на третий экран, где
+              зал славы и наши движухи».
+
+              Поэтому подсказка НАЗЫВАЕТ то, что ниже. «Листай вверх» само
+              по себе не работает: свайп продают не стрелкой, а тем, что
+              за ней лежит. Вне потока (absolute) — экран обязан оставаться
+              ростом в окно, растить его нельзя. */}
+          <div className="absolute bottom-1 left-0 right-0 z-0 flex flex-col items-center pointer-events-none text-slate-400 dark:text-slate-500">
+            <span className="text-[11px] font-bold">Ниже — Движ: зал славы и движухи</span>
+            <ChevronDown className="w-4 h-4" />
+          </div>
         </section>
 
         <section className="snap-start min-h-full px-5 py-4 flex flex-col justify-center">
