@@ -28,6 +28,10 @@
  * Порядок в списке = порядок в комнате.
  */
 
+import { GAME_LINES, pickCommunityLine } from "@/lib/community-config";
+import { MARATHON_FACT_EVERY, pickMarathonFact } from "@/lib/marathon-config";
+import { pickTip } from "@/lib/tips-config";
+
 export type MiniGameEntry = {
   id: string;
   title: string;
@@ -63,3 +67,70 @@ export const GAME_ROOM_NOTE =
   "Поиграешь — призрак повеселеет. Голду за это не дают: это отдых, а не работа.";
 
 export const GAME_ROOM_SOON = "Скоро";
+
+/**
+ * ══ КАРТОЧКА ПОД ПОЛЕМ ИГРЫ ══
+ *
+ * Под полем 2048 живёт одна карточка с текстом. Раньше она менялась только
+ * при новой партии, и владелец 27.07 поймал это сразу: «внизу подсказки
+ * и фишки никак не меняются сами, пусть типа таймера будет на них и смена».
+ * Теперь карточка перелистывается сама, раз в `GAME_CARD_ROTATE_MS`.
+ *
+ * В колоде ДВА вида карточек:
+ * - обычная — совет по Blender (`lib/tips-config.ts`). Ребёнок отдыхает,
+ *   но уносит с собой приём из программы;
+ * - нативная — про марафон или про чат школы. Она СВЕТИТСЯ, чтобы её
+ *   заметили: это прямая просьба владельца.
+ *
+ * Нативной становится каждая `GAME_NATIVE_EVERY`-я карточка, и они
+ * чередуются между собой — то марафон, то чат. Значит про чат ребёнок
+ * прочтёт примерно раз в восемь карточек, и это НАМЕРЕННО редко:
+ * блок, который зовёт наружу каждый раз, перестают читать целиком —
+ * вместе с советами.
+ *
+ * Первая карточка партии — всегда совет. Игра не должна открываться
+ * рекламой.
+ */
+export const GAME_CARD_ROTATE_MS = 12_000;
+
+/** Каждая N-я карточка — нативная. Меньше 3 НЕ ставить, это станет спамом. */
+export const GAME_NATIVE_EVERY = 4;
+
+export type GameCard =
+  | { kind: "tip"; label: string; text: string }
+  /** Нативная карточка: светится, и у неё бывает дверь наружу. */
+  | { kind: "marathon"; label: string; text: string }
+  | { kind: "chat"; label: string; text: string };
+
+/**
+ * Что показать под полем на шаге `cursor` (0, 1, 2… — растущий счётчик).
+ *
+ * Тексты лежат в других файлах: советы — `tips-config`, факты о марафоне —
+ * `marathon-config`, фразы про чат — `community-config`. Здесь только выбор,
+ * какой из них сейчас очередь.
+ */
+export function getGameCard(cursor: number): GameCard {
+  const step = Math.max(0, Math.floor(cursor));
+  const isNativeSlot = step > 0 && step % GAME_NATIVE_EVERY === 0;
+
+  if (isNativeSlot) {
+    // Номер нативной карточки по счёту: 1, 2, 3… Нечётные отдаём чату,
+    // чётные — марафону, поэтому каждая из тем всплывает вдвое реже.
+    const nativeSlot = step / GAME_NATIVE_EVERY;
+
+    if (nativeSlot % 2 === 1) {
+      const line = pickCommunityLine(GAME_LINES, (nativeSlot - 1) / 2);
+
+      // Список фраз опустел — молча показываем совет, ничего не ломая.
+      if (line) return { kind: "chat", label: "Наш чат", text: line };
+    } else {
+      // Факты о марафоне живут со своим шагом (MARATHON_FACT_EVERY),
+      // поэтому просим их по кратному числу — так они идут по кругу.
+      const fact = pickMarathonFact((nativeSlot / 2) * MARATHON_FACT_EVERY);
+
+      if (fact) return { kind: "marathon", label: "У нас бывает так", text: fact };
+    }
+  }
+
+  return { kind: "tip", label: "Пока думаешь", text: pickTip(step) };
+}

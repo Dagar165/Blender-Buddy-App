@@ -22,8 +22,9 @@ import {
 import { hapticSelect, hapticSuccess, hapticTap, hapticWarn } from "@/lib/haptics";
 import { useGameState } from "@/hooks/use-game-state";
 import { getTelegramWebApp } from "@/game/cloud";
-import { pickTip } from "@/lib/tips-config";
-import { pickMarathonFact } from "@/lib/marathon-config";
+import { GAME_CARD_ROTATE_MS, getGameCard } from "@/lib/games-config";
+import { COMMUNITY_LINK } from "@/lib/community-config";
+import { openOutboundLink } from "@/lib/links-config";
 
 /**
  * МИНИ-ИГРА 2048.
@@ -197,23 +198,34 @@ export function MiniGame({
   const countedRef = useRef(false);
 
   /**
-   * Совет по Blender под полем. Место освободилось от кнопок, и владелец
-   * попросил занять его чем-то полезным — а совет тут к месту вдвойне:
-   * ребёнок пришёл отдохнуть после заданий, но уходит всё равно с приёмом
-   * из Blender. Берётся из общего списка (tips-config), меняется на каждую
-   * новую партию, чтобы не примелькался.
+   * КАРТОЧКА ПОД ПОЛЕМ. Что в ней бывает и как часто — в `games-config.ts`.
+   *
+   * Считаем ОТ НУЛЯ, а не от случайного места: колода устроена так, что
+   * первая карточка обязана быть советом, а нативные идут по счёту. Начни
+   * со случайного числа — игра могла бы открыться рекламой.
    */
-  const [tipCursor, setTipCursor] = useState(() =>
-    Math.floor(Math.random() * 100000)
-  );
+  const [cardCursor, setCardCursor] = useState(0);
+  const card = getGameCard(cardCursor);
+  // Нативная — та, что зовёт наружу (марафон или чат). Она и светится.
+  const isNativeCard = card.kind !== "tip";
 
   /**
-   * Изредка вместо совета — рассказ про марафон. Это именно РАССКАЗ
-   * («у нас бывают марафоны, вот как там»), а не приглашение: звать некуда,
-   * пока набор не идёт. Разбор различия — в шапке marathon-config.ts.
-   * null означает «сегодня рассказа нет», и тогда показывается совет.
+   * Карточка перелистывается сама. Просьба владельца 27.07: «внизу подсказки
+   * и фишки никак не меняются сами, пусть типа таймера будет на них и смена».
+   *
+   * Таймер ОДИН на всё время игры и снимается при закрытии. Заводить его
+   * заново на каждую карточку не надо: так уже обжигались на советах
+   * призрака — старый таймер догонял новый текст и стирал его раньше срока
+   * (разбор в `pages/pet.tsx`, над `tipTimerRef`).
    */
-  const marathonFact = pickMarathonFact(tipCursor);
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setCardCursor((cursor) => cursor + 1),
+      GAME_CARD_ROTATE_MS
+    );
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   /**
    * СВАЙП ВНИЗ СВОРАЧИВАЕТ ВСЁ ПРИЛОЖЕНИЕ. Читать целиком, прежде чем
@@ -294,7 +306,7 @@ export function MiniGame({
   const restart = useCallback(() => {
     hapticTap();
     setGame(freshGame());
-    setTipCursor((cursor) => cursor + 1);
+    setCardCursor((cursor) => cursor + 1);
     // Новая партия — её ещё не считали.
     countedRef.current = false;
   }, []);
@@ -496,17 +508,56 @@ export function MiniGame({
         {/* Место, освободившееся от кнопок. Ребёнок отдыхает — и всё равно
             уносит отсюда приём из Blender.
 
-            Там, где кнопки всё-таки нужны, совет НЕ показываем: вместе они
+            Там, где кнопки всё-таки нужны, карточку НЕ показываем: вместе они
             не влезают в экран (проверено — перебор на 32 точки, поле уезжает
-            под край). Играбельность важнее совета. */}
+            под край). Играбельность важнее совета.
+
+            ⚠️ СВЕЧЕНИЕ У НАТИВНОЙ КАРТОЧКИ ЗАДАНО СТАТИЧНО, не анимацией
+            появления. Окно без кадров (свёрнутый Телеграм, скрытая вкладка)
+            не доигрывает ни `transition`, ни `framer-motion`, и карточка
+            могла бы навсегда остаться прозрачной — так уже было, разбор
+            в `JKids_Bot_как_работать_25.07.md`. Мигает только точка в углу:
+            если кадры отнимут, она просто замрёт, а сама карточка видна. */}
         {!needsPad && (
-        <div className="mt-3 p-4 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-border">
-          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">
-            {marathonFact ? "У нас бывает так" : "Пока думаешь"}
+        <div
+          className={`relative mt-3 p-4 rounded-2xl border transition-colors ${
+            isNativeCard
+              ? "bg-violet-50 border-violet-300 shadow-lg shadow-violet-400/30 dark:bg-violet-500/10 dark:border-violet-500/50 dark:shadow-violet-500/20"
+              : "bg-white border-slate-200 dark:bg-card dark:border-border"
+          }`}
+        >
+          {/* Точка-маячок: «тут появилось что-то новое» */}
+          {isNativeCard && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse" />
+          )}
+
+          <p
+            className={`font-mono text-[10px] font-bold uppercase tracking-widest mb-1.5 ${
+              isNativeCard
+                ? "text-violet-500 dark:text-violet-300"
+                : "text-slate-400 dark:text-slate-500"
+            }`}
+          >
+            {card.label}
           </p>
+
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
-            {marathonFact ?? pickTip(tipCursor)}
+            {card.text}
           </p>
+
+          {/* Позвал в чат — дай дверь. Фраза без входа остаётся пустым
+              звуком: то же правило, что и в облаке призрака. */}
+          {card.kind === "chat" && (
+            <button
+              onClick={() => {
+                hapticTap();
+                openOutboundLink(COMMUNITY_LINK);
+              }}
+              className="mt-2.5 w-full rounded-xl border border-violet-300 py-2 text-xs font-bold text-violet-600 active:scale-[0.98] transition-transform dark:border-violet-500/50 dark:text-violet-300"
+            >
+              Открыть чат школы →
+            </button>
+          )}
         </div>
         )}
       </div>
