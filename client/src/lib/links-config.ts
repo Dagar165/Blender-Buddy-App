@@ -86,8 +86,11 @@ export const SCHOOL_CHAT: OutboundLink = {
  */
 export const HELPER_BOT: OutboundLink = {
   id: "helper-bot",
-  title: "Спроси про Blender",
-  subtitle: "Бот-помощник ответит на вопрос по программе",
+  // У помощника есть ИМЯ — Джейки, и здесь оно названо нарочно. Ребёнок
+  // должен идти к кому-то, а не к «боту-помощнику»: в самом Телеграме
+  // он тоже представляется Джейки, и эти два места обязаны совпадать.
+  title: "Спроси Джейки про Blender",
+  subtitle: "Помощник школы: объяснит и покажет, какие кнопки жать",
   url: "https://t.me/VozhatyBot?start=app",
   kind: "telegram",
   emoji: "🤖",
