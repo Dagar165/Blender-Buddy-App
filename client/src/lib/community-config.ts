@@ -30,7 +30,7 @@
  * выкинуть, и это нормально.
  */
 
-import { SOCIAL_LINKS, type OutboundLink } from "@/lib/links-config";
+import { SCHOOL_CHAT, type OutboundLink } from "@/lib/links-config";
 
 /**
  * Идёт ли ПРЯМО СЕЙЧАС набор на марафон.
@@ -41,10 +41,15 @@ import { SOCIAL_LINKS, type OutboundLink } from "@/lib/links-config";
  */
 export const MARATHON_OPEN = false;
 
-// Куда ведут все упоминания. Берётся из links-config, чтобы адрес чата
-// жил в одном месте и не разъезжался.
-export const COMMUNITY_LINK: OutboundLink =
-  SOCIAL_LINKS.find((link) => link.id === "telegram") ?? SOCIAL_LINKS[0];
+/**
+ * Куда ведут ВСЕ упоминания движухи — одна дверь на всё приложение.
+ *
+ * Ведёт в ЧАТ, а не в канал: фразы ниже зовут показать работу и спросить,
+ * а в ленте новостей ни того, ни другого сделать нельзя. Раньше здесь
+ * стоял именно канал, и владелец поймал это 27.07 — разбор в шапке
+ * `SCHOOL_CHAT` (`links-config.ts`). Адрес живёт ТОЛЬКО там.
+ */
+export const COMMUNITY_LINK: OutboundLink = SCHOOL_CHAT;
 
 /**
  * ВАЖНО ПРО МАРАФОН: строки бывают ДВУХ РАЗНЫХ ВИДОВ, не путать.
