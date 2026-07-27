@@ -98,6 +98,9 @@ function toStepQuest(
     result: step.result,
     stepLabel: `Шаг ${index + 1} из ${project.steps.length} — ${project.title}`,
     kind: "step",
+    // Пятый шаг — это и есть готовая работа. Карточка на нём зовёт нести
+    // скриншот не в приёмку, а под закреплённый пост, в витрину.
+    isFinalStep: index === project.steps.length - 1,
     xpReward: step.xpReward,
     goldReward: step.goldReward,
   };

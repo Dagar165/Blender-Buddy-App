@@ -63,7 +63,7 @@ import {
 } from "lucide-react";
 import { pluralizeDaysRu } from "@/lib/utils";
 import { COMMUNITY_LINK } from "@/lib/community-config";
-import { openOutboundLink } from "@/lib/links-config";
+import { HOMEWORK_GROUP, openOutboundLink } from "@/lib/links-config";
 import {
   QUESTS_CONFIG,
   type QuestDefinition,
@@ -252,18 +252,24 @@ function QuestCard({
            * Дверь стоит ПРЯМО ЗДЕСЬ, а не в профиле и не в подсказках:
            * просьба, ради которой надо идти искать, — это не просьба.
            *
-           * Адрес берётся из одного места (`COMMUNITY_LINK` → `SCHOOL_CHAT`),
-           * и это конкретный пост с открытыми комментариями, а не канал
-           * целиком. Слова «чат» тут быть не может: чата у школы нет.
+           * ⚠️ ДВЕРЕЙ ДВЕ, И ОНИ ВЕДУТ В РАЗНЫЕ МЕСТА. Решение владельца
+           * 28.07: промежуточные шаги дня идут в ПРИЁМКУ (отдельная группа,
+           * их много и они сырые), а ГОТОВАЯ работа последнего шага —
+           * в комментарии под закреплённым постом, в витрину школы.
+           * Полный разбор, почему их нельзя сводить в одну, — в шапке
+           * `HOMEWORK_GROUP` (`links-config.ts`).
            *
-           * У разминки этой строки НЕТ: её никто не проверяет, и звать
-           * ребёнка куда-то с ней — врать про проверку, которой не будет.
+           * У разминки строки НЕТ ни той, ни другой: её никто не проверяет,
+           * и звать ребёнка куда-то с ней — врать про проверку, которой
+           * не будет.
            */}
           {!isWarmup && (
             <button
               onClick={() => {
                 hapticTap();
-                openOutboundLink(COMMUNITY_LINK);
+                openOutboundLink(
+                  quest.isFinalStep ? COMMUNITY_LINK : HOMEWORK_GROUP
+                );
               }}
               className="mt-1 w-full flex items-center gap-1.5 pt-1 border-t border-slate-200 dark:border-border text-left text-xs font-bold text-primary dark:text-blue-300 active:scale-[0.99] transition-transform"
             >
@@ -271,7 +277,14 @@ function QuestCard({
               {/* Слово «сначала» тут работает не хуже ссылки: оно задаёт
                   порядок. Нажмёт оранжевую кнопку раньше — куратор получит
                   заявку, под которой нечего смотреть. */}
-              <span className="flex-1">Сначала скинь скрин в комментарии</span>
+              {/* Обе строки МЕРЕНЫ: в один ряд помещается 238 точек, длиннее
+                  переносится на вторую строку и растит карточку. «Готовую
+                  работу — в комментарии под постом» не влезала (268). */}
+              <span className="flex-1">
+                {quest.isFinalStep
+                  ? "Готовую — в комментарии под постом"
+                  : "Сначала скинь скрин в приёмку"}
+              </span>
               <ExternalLink className="w-3 h-3 shrink-0 opacity-60" />
             </button>
           )}
