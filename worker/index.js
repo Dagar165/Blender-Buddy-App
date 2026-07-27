@@ -15,6 +15,20 @@
 // Secrets (managed in GitHub Secrets, applied on every deploy):
 //   TELEGRAM_BOT_TOKEN  - curator-notification bot token
 //   CURATOR_CHAT_ID     - curator's Telegram user id
+//   PET_BOT_TOKEN       - OPTIONAL. Token of the bot the child already talks
+//                         to (@jkidspet_bot). Set it and every curator verdict
+//                         is also sent to the child in Telegram. Missing —
+//                         nothing breaks, the child just learns inside the app.
+//                         Details in notifyStudent() below.
+//
+//                         How to add it without touching this repo: Cloudflare
+//                         dashboard -> Workers -> jkids-quest-check -> Settings
+//                         -> Variables -> add a SECRET named PET_BOT_TOKEN.
+//                         Deploys do not wipe secrets, so it survives. Adding
+//                         it to deploy-worker.yml also works, but only once
+//                         the GitHub secret really exists — an empty value
+//                         there can fail the whole worker deploy.
+//                         Check it landed: GET / -> "notifiesStudent": true.
 //
 // KV binding: CLAIMS (namespace jkids-claims). Keys: claim:<id> -> JSON record.
 
@@ -66,16 +80,67 @@ function webhookSecret(env) {
   return sha256Hex(`webhook:${env.TELEGRAM_BOT_TOKEN}`);
 }
 
-async function telegramApi(env, method, payload) {
-  const res = await fetch(
-    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-  );
+async function telegramCall(token, method, payload) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
   return res.json().catch(() => null);
+}
+
+async function telegramApi(env, method, payload) {
+  return telegramCall(env.TELEGRAM_BOT_TOKEN, method, payload);
+}
+
+// ── СООБЩЕНИЕ РЕБЁНКУ ПОСЛЕ РЕШЕНИЯ КУРАТОРА ──────────────────────────
+//
+// Просьба владельца 27.07: «когда я нажимаю кнопку, чтобы бот писал ребёнку
+// по его ID: задание такое-то принято или отклонено. И нового бота делать
+// не надо было бы».
+//
+// Нового бота и правда не надо — но нужен токен ТОГО бота, с которым ребёнок
+// уже переписывается (@jkidspet_bot, из него открывается приложение).
+// Это правило Телеграма, а не наша выдумка: бот может написать первым только
+// тому, кто сам нажал у него «Старт». Бот-оповещалка куратора для ребёнка
+// посторонний — на его сообщение Телеграм ответит отказом.
+//
+// Поэтому токен лежит отдельной переменной PET_BOT_TOKEN и НЕОБЯЗАТЕЛЕН:
+// нет его — всё работает как раньше, ребёнок видит ответ куратора в самом
+// приложении (плашка сверху). Появится — сообщения пойдут сами собой.
+//
+// Ошибки глотаем нарочно: заявка уже подтверждена, награда уже засчитана,
+// и падать из-за недоставленного уведомления нельзя.
+function studentMessage(claim) {
+  const title = claim.questTitle || "Задание";
+
+  if (claim.status === "approved") {
+    return (
+      `✅ «${title}» — принято!\n\n` +
+      `Твоя награда: +${claim.xpReward} XP, +${claim.goldReward} монет.\n` +
+      `Открой приложение — она уже там.`
+    );
+  }
+
+  return (
+    `❌ «${title}» — пока не принято.\n\n` +
+    `Куратор посмотрел и просит доделать. Это нормально, так у всех: ` +
+    `открой задание в приложении и попробуй ещё раз.`
+  );
+}
+
+async function notifyStudent(env, claim) {
+  if (!env.PET_BOT_TOKEN || !claim.telegramUserId) return null;
+
+  try {
+    return await telegramCall(env.PET_BOT_TOKEN, "sendMessage", {
+      chat_id: claim.telegramUserId,
+      text: studentMessage(claim),
+    });
+  } catch (error) {
+    console.log("notifyStudent failed:", error);
+    return null;
+  }
 }
 
 function formatClaim(claim) {
@@ -255,14 +320,25 @@ async function handleWebhook(request, env) {
     expirationTtl: CLAIM_TTL_SECONDS,
   });
 
+  // Ребёнку — сразу, тем же нажатием. Молчит, если PET_BOT_TOKEN не задан.
+  const notified = await notifyStudent(env, claim);
+
   const decisionLine =
     claim.status === "approved" ? "\n\n✅ Подтверждено" : "\n\n❌ Отклонено";
+
+  // Куратору честно видно, ушло сообщение ученику или нет: иначе владелец
+  // будет думать, что ребёнка предупредили, а его никто не предупреждал.
+  const deliveryLine = !env.PET_BOT_TOKEN
+    ? ""
+    : notified?.ok
+      ? "\n📨 Ученику отправлено"
+      : "\n📭 Ученику НЕ доставлено (он не нажимал «Старт» у бота?)";
 
   if (cb.message) {
     await telegramApi(env, "editMessageText", {
       chat_id: cb.message.chat.id,
       message_id: cb.message.message_id,
-      text: (cb.message.text || formatClaim(claim)) + decisionLine,
+      text: (cb.message.text || formatClaim(claim)) + decisionLine + deliveryLine,
     });
   }
 
@@ -295,7 +371,14 @@ export default {
 
     if (request.method === "GET" && (pathname === "/" || pathname === "/health")) {
       return json(
-        { ok: true, service: "jkids-quest-check", time: new Date().toISOString() },
+        {
+          ok: true,
+          service: "jkids-quest-check",
+          time: new Date().toISOString(),
+          // Видно снаружи, включены ли сообщения ученику: проверить это
+          // иначе можно было бы только сдав задание и нажав кнопку.
+          notifiesStudent: Boolean(env.PET_BOT_TOKEN),
+        },
         request,
       );
     }
