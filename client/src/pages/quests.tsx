@@ -31,6 +31,11 @@
  * Опыт и голда приходят потом, когда куратор подтвердил, — это делает стор
  * (`applyClaimResolutions` в `hooks/use-game-state.ts`).
  *
+ * **Единственное исключение — РАЗМИНКА** (`kind === "warmup"`): она мелкая,
+ * необязательная и засчитывается на месте, чтобы не топить куратора очередью
+ * (решение владельца 27.07). Серию дней она нарочно НЕ зажигает. Разбор
+ * целиком — над `completeWarmupQuest` в сторе; расширять исключение нельзя.
+ *
  * И второе: **пока шаг проекта не подтверждён, следующий не открывается** —
  * всегда, все семь дней. Это решение владельца, проверенное на живом боте;
  * его уже пробовали отменить и вернули обратно. Разбор — в разделе
@@ -51,6 +56,7 @@ import {
   Flame,
   Lock,
   Snowflake,
+  Target,
   Zap,
 } from "lucide-react";
 import { pluralizeDaysRu } from "@/lib/utils";
@@ -209,12 +215,21 @@ function QuestCard({
         {quest.description}
       </p>
 
-      {/* Что показать куратору — ребёнок должен знать это заранее */}
+      {/* Что показать куратору — ребёнок должен знать это заранее.
+          У разминки проверки нет, поэтому и подпись другая: там это не
+          «что снять на скриншот», а просто «к чему стремиться». Обещать
+          проверку, которой не будет, нельзя — ребёнок ждал бы ответа. */}
       {quest.result && (
         <div className="flex gap-2 mb-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-muted">
-          <Camera className="w-4 h-4 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
+          {isWarmup ? (
+            <Target className="w-4 h-4 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
+          ) : (
+            <Camera className="w-4 h-4 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
+          )}
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
-            <span className="font-bold">На скриншоте: </span>
+            <span className="font-bold">
+              {isWarmup ? "Должно получиться: " : "На скриншоте: "}
+            </span>
             {quest.result}
           </p>
         </div>
@@ -237,8 +252,16 @@ function QuestCard({
             : "text-white bg-gradient-to-r from-secondary to-orange-400 shadow-md shadow-secondary/30 hover:shadow-lg"
         }`}
       >
-        Выполнил! → на проверку
+        {/* Надпись честно говорит, куда нажатие ведёт: разминка закрывается
+            на месте, всё остальное уходит человеку на проверку. */}
+        {isWarmup ? "Сделал ✓" : "Выполнил! → на проверку"}
       </button>
+
+      {isWarmup && (
+        <p className="mt-2 text-center text-[11px] font-bold text-slate-400 dark:text-slate-500">
+          Засчитается сразу — разминку никто не проверяет
+        </p>
+      )}
     </motion.div>
   );
 }
@@ -383,6 +406,7 @@ export default function QuestsPage() {
     quizAnswered,
     chestDate,
     addPendingClaim,
+    completeWarmupQuest,
     activateDoublePotion,
     autoApplyStreakFreeze,
     answerQuizQuestion,
@@ -521,6 +545,36 @@ export default function QuestsPage() {
 
   const handleComplete = (tab: QuestTab) => async (quest: QuestDefinition) => {
     hapticTap("medium");
+
+    /**
+     * РАЗМИНКА НЕ ИДЁТ К КУРАТОРУ — засчитывается прямо здесь.
+     *
+     * Решение владельца 27.07: обязательное (шаг проекта, задание выходного
+     * дня) проверяет человек, необязательная разминка остаётся на совести
+     * ребёнка. Причина — очередь: куратор пока один, и мелочи утопят в ней
+     * то, ради чего проверка нужна. Границы исключения и то, чего разминка
+     * нарочно НЕ даёт (серию дней и медали за практику), расписаны
+     * над `completeWarmupQuest` в `hooks/use-game-state.ts`.
+     *
+     * Заодно тут не нужен телеграмный пропуск: разминку можно закрыть даже
+     * оттуда, где заявка не отправляется (см. «известные болячки»).
+     */
+    if (quest.kind === "warmup") {
+      const counted = completeWarmupQuest(
+        quest.id,
+        quest.xpReward,
+        quest.goldReward
+      );
+
+      if (!counted) return;
+
+      hapticSuccess();
+      showNotice(
+        `Записал: +${quest.xpReward} XP и +${quest.goldReward} голды. Разминку не проверяют — она на твоей совести`,
+        "success"
+      );
+      return;
+    }
 
     if (!telegramUserId) {
       hapticFail();
@@ -674,12 +728,15 @@ export default function QuestsPage() {
                   }`}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
+              {/* Серию зажигает только то, что подтвердил куратор: разминка
+                  засчитывается сама и на огонёк не влияет. Обещать обратное
+                  нельзя — ребёнок нажал бы разминку и остался без серии. */}
               {streak.current === 0
-                ? "Выполни ежедневное задание сегодня, чтобы зажечь огонёк"
+                ? "Сдай задание на проверку — огонёк зажжётся, когда куратор ответит"
                 : streak.atRisk
                   ? streakFreezes > 0
-                    ? "Сделай задание сегодня — или серию прикроет заморозка ❄️"
-                    : "Выполни ежедневное задание сегодня, иначе серия сгорит!"
+                    ? "Сдай задание на проверку — или серию прикроет заморозка ❄️"
+                    : "Сдай сегодня задание на проверку, иначе серия сгорит!"
                   : savedByFreeze
                     ? "Вчера серию спасла заморозка ❄️ Продолжай сегодня!"
                     : streak.bonusPercent > 0
