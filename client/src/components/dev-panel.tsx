@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { Coins, Sparkles, X } from "lucide-react";
 import { useGameState } from "@/hooks/use-game-state";
@@ -15,6 +16,13 @@ import { hapticSelect, hapticSuccess, hapticTap } from "@/lib/haptics";
  * Панель владельца: посмотреть игру на любом уровне, не проходя её.
  * Кто её видит и как открыть — написано в lib/dev-config.ts.
  * Ученикам не показывается и в обычный игровой цикл не вмешивается.
+ *
+ * ⚠️ ПОРТАЛ И `z-[60]` — не украшение, а починка. Панель рисуется из экрана
+ * профиля, а у того есть своя анимация появления, и она запирает всё внутри
+ * себя: номер слоя у панели соревновался только с содержимым страницы.
+ * Панель прижата к НИЗУ экрана — ровно туда, где стоят нижние вкладки, —
+ * и они ложились поверх её последних строк. Заметно стало, когда панель
+ * подросла на переключатель проектов. Разбор целиком — в шапке `App.tsx`.
  */
 export function DevPanel({ onClose }: { onClose: () => void }) {
   const {
@@ -53,8 +61,8 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
     window.location.reload();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
       <div
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
         onClick={onClose}
@@ -250,6 +258,7 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
           не трогаются.
         </p>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }
