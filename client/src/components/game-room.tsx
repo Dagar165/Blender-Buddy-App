@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import {
   GAME_ROOM_NOTE,
   GAME_ROOM_PLACEHOLDERS,
@@ -45,21 +45,24 @@ export function GameRoom({
   return createPortal(
     <div className="fixed inset-0 z-[60] bg-slate-50 dark:bg-background overflow-y-auto">
       <div className="w-full max-w-[460px] mx-auto px-5 pt-4 pb-16">
+        {/* Выход подписан словом и стоит слева — по той же причине, что
+            и в самой игре: голый крестик справа вверху дети принимают
+            за крестик Телеграма, который закрывает всё приложение.
+            Разбор целиком — в шапке кнопки в `mini-game.tsx`. */}
         <div className="flex items-center gap-3 mb-1">
-          <h2 className="font-display text-xl font-bold text-slate-800 dark:text-slate-100">
-            {GAME_ROOM_TITLE}
-          </h2>
-
           <button
             onClick={() => {
               hapticTap();
               onClose();
             }}
-            aria-label="Закрыть"
-            className="ml-auto p-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-border text-slate-500 dark:text-slate-300 active:scale-95 transition-transform"
+            className="flex items-center gap-1 pl-2 pr-3 py-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-border text-sm font-bold text-slate-600 dark:text-slate-300 active:scale-95 transition-transform"
           >
-            <X className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4" /> Выйти
           </button>
+
+          <h2 className="font-display text-xl font-bold text-slate-800 dark:text-slate-100">
+            {GAME_ROOM_TITLE}
+          </h2>
         </div>
 
         <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug mb-4">

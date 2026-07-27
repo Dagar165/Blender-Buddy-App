@@ -5,8 +5,8 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ChevronLeft,
   RotateCcw,
-  X,
 } from "lucide-react";
 import {
   BOARD_SIZE,
@@ -237,11 +237,17 @@ export function MiniGame({
    * на треть экрана». Влево, вправо и вверх при этом работают.
    *
    * ЛЕЧИТСЯ ЭТО ТЕМ, ЧТО НИЖЕ, И ОНО РАБОТАЕТ. `disableVerticalSwipes`
-   * (штатный метод Телеграма, Bot API 7.7) выключает жест сворачивания
-   * на время игры, а при выходе он возвращается на место: на остальных
-   * экранах свайп вниз — привычный способ закрыть мини-апп, отнимать его
-   * насовсем нельзя. Проверено на айфоне владельца: свайпы во все стороны
-   * работают, приложение не сворачивается.
+   * (штатный метод Телеграма, Bot API 7.7) выключает жест сворачивания.
+   * Проверено на айфоне владельца: свайпы во все стороны работают,
+   * приложение не сворачивается.
+   *
+   * ⚠️ 28.07: ТЕПЕРЬ ЭТО ВКЛЮЧЕНО НА ВСЁ ПРИЛОЖЕНИЕ, один раз при запуске
+   * (см. `App.tsx`). Раньше игра забирала жест себе на время партии
+   * и ОТДАВАЛА ОБРАТНО при выходе — теперь отдавать нельзя, иначе
+   * возврат из игры чинил бы главный экран обратно в сломанный вид:
+   * призрака снова нельзя было бы покрутить. Здесь остался только
+   * `expand`, а сам вызов продублирован на случай, если игру когда-нибудь
+   * откроют раньше, чем отработает запуск.
    *
    * ОСТОРОЖНО, ИСТОРИЯ С ЛОВУШКОЙ. Сразу после выкладки владелец сказал,
    * что ничего не изменилось, — и это было неправдой не по его вине:
@@ -269,22 +275,12 @@ export function MiniGame({
 
     if (!webApp) return;
 
-    const canToggle = typeof webApp.disableVerticalSwipes === "function";
-
     try {
       webApp.expand?.();
-      if (canToggle) webApp.disableVerticalSwipes();
+      webApp.disableVerticalSwipes?.();
     } catch {
       // Старый клиент — играем как есть, приложение от этого не ломается.
     }
-
-    return () => {
-      try {
-        if (canToggle) webApp.enableVerticalSwipes?.();
-      } catch {
-        // Вернуть не вышло — не страшно, при закрытии мини-аппа всё сбросится.
-      }
-    };
   }, []);
 
   /**
@@ -407,7 +403,27 @@ export function MiniGame({
   return createPortal(
     <div className="fixed inset-0 z-[60] flex flex-col bg-slate-50 dark:bg-background">
       <div className="w-full max-w-[420px] mx-auto flex flex-col px-5 pt-4 pb-5">
+        {/**
+         * ВЫХОД ПОДПИСАН СЛОВОМ И СТОИТ СЛЕВА. Тестировщик-подросток 27.07:
+         * «непонятно, куда нажать, чтобы выйти из игры; есть кнопка "закрыть"
+         * от Телеграма, нажимаешь на неё — и закрывается всё приложение».
+         *
+         * Причина путаницы понятна: голый крестик справа вверху стоял ровно
+         * там же, где крестик самого Телеграма, и читался как он же. Слово
+         * «Выйти» и стрелка влево — это уже другая кнопка, а не вторая такая
+         * же. Слева, потому что «назад» ищут слева.
+         */}
         <div className="flex items-center gap-3 mb-3">
+          <button
+            onClick={() => {
+              hapticTap();
+              onClose();
+            }}
+            className="flex items-center gap-1 pl-2 pr-3 py-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-border text-sm font-bold text-slate-600 dark:text-slate-300 active:scale-95 transition-transform"
+          >
+            <ChevronLeft className="w-4 h-4" /> Выйти
+          </button>
+
           <h2 className="font-mono text-2xl font-bold tracking-[0.2em] text-slate-800 dark:text-slate-100">
             2048
           </h2>
@@ -419,17 +435,6 @@ export function MiniGame({
             className="ml-auto p-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-border text-slate-500 dark:text-slate-300 active:scale-95 transition-transform"
           >
             <RotateCcw className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={() => {
-              hapticTap();
-              onClose();
-            }}
-            aria-label="Закрыть"
-            className="p-2 rounded-xl bg-white dark:bg-card border border-slate-200 dark:border-border text-slate-500 dark:text-slate-300 active:scale-95 transition-transform"
-          >
-            <X className="w-5 h-5" />
           </button>
         </div>
 
