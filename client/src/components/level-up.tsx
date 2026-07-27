@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { hapticSuccess } from "@/lib/haptics";
@@ -6,6 +7,9 @@ import { hapticSuccess } from "@/lib/haptics";
 // Обычное повышение уровня. Полноэкранный блокирующий момент нарочно оставлен
 // за эволюцией — она редкая и потому ценная. Здесь короткая заметная плашка:
 // видно, что уровень вырос, но она не перебивает то, чем ребёнок занят.
+//
+// ⚠️ Портал и `z-[80]` — чтобы плашку было видно и поверх открытой игры.
+// Одного номера слоя мало: разбор в шапке `claim-notice.tsx`.
 
 const VISIBLE_MS = 2600;
 
@@ -34,7 +38,7 @@ export function LevelUp({
     return () => clearTimeout(timer);
   }, [level, onDone]);
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {level && (
         <motion.button
@@ -64,6 +68,7 @@ export function LevelUp({
           </span>
         </motion.button>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

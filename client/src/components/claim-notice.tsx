@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Coins, RotateCcw } from "lucide-react";
 import { useGameState } from "@/hooks/use-game-state";
@@ -15,10 +16,23 @@ import { hapticSuccess, hapticWarn } from "@/lib/haptics";
  * Не блокирует экран: это не праздник уровня, а короткая весть. Уходит сама
  * через несколько секунд, но по нажатию исчезает сразу.
  *
- * ⚠️ СЛОЙ `z-[80]` НЕ ПОНИЖАТЬ. Плашка обязана быть выше полноэкранных окон
- * (игра, зал славы, медали — они на `z-[60]`). Пока она стояла на `z-50`,
+ * ⚠️ ПОРТАЛ + `z-[80]`, И ОДНО БЕЗ ДРУГОГО НЕ РАБОТАЕТ. Читать перед правкой.
+ *
+ * Плашка обязана быть выше полноэкранных окон (игра, зал славы, медали —
+ * они на `z-[60]`). Пока она стояла на `z-50` внутри разметки приложения,
  * ребёнок, ушедший играть, видел только конфетти и не понимал, за что оно:
- * сама весть рисовалась ПОД игрой. Таблица слоёв целиком — в шапке `App.tsx`.
+ * сама весть рисовалась ПОД игрой.
+ *
+ * Поднять номер слоя оказалось МАЛО, и это проверено замером на живой
+ * странице, а не предположено. Оболочка приложения в `App.tsx` — это
+ * `position: fixed`, а такой элемент в Chrome заводит СВОЙ отсчёт слоёв.
+ * Всё, что лежит внутри него, соревнуется только между собой и целиком
+ * оказывается под окнами, которые выведены порталом в `document.body`.
+ * Никакое число тут не помогает — надо выйти из-под оболочки.
+ *
+ * Поэтому плашка выводится порталом, как и сами окна. Таблица слоёв
+ * целиком — в шапке `App.tsx`, тот же разбор — в разделе 5а файла
+ * `JKids_Bot_как_работать_25.07.md`.
  */
 const VISIBLE_MS = 5000;
 
@@ -40,7 +54,7 @@ export function ClaimNotice() {
   const approved = notice?.tone === "approved";
   const stage = getPetStage(level);
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {notice && (
         <motion.button
@@ -123,6 +137,7 @@ export function ClaimNotice() {
           </span>
         </motion.button>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

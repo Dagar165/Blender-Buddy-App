@@ -9,8 +9,13 @@
  * Внизу окна — `CommunityHint`, тихое приглашение в чат школы. Оно стоит
  * тут не случайно: медаль — это пик радости, и только на таких пиках
  * приглашение уместно. Правила упоминаний чата — `lib/community-config.ts`.
+ *
+ * ⚠️ Портал и `z-[80]`: медаль теперь дают и во время игры (за доигранную
+ * партию), а игра занимает весь экран. Без портала окно с медалью рисуется
+ * ПОД ней — разбор в шапке `claim-notice.tsx`.
  */
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import type { AchievementDefinition } from "@/lib/achievements-config";
@@ -56,7 +61,7 @@ export function AchievementUnlock({
     return () => clearTimeout(secondBurst);
   }, [achievementId]);
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {achievement && (
         <motion.div
@@ -117,6 +122,7 @@ export function AchievementUnlock({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

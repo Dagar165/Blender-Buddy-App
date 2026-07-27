@@ -7,8 +7,12 @@
  * Показывается РЕДКО и потому во весь экран: это главное событие роста,
  * ради которого ребёнок и делает задания. Очередь показа — чтобы это окно
  * не столкнулось с медалью или повышением уровня — держит `App.tsx`.
+ *
+ * ⚠️ Портал и `z-[80]` — как у остальных праздников: иначе окно рисуется
+ * под открытой игрой или залом славы. Разбор в шапке `claim-notice.tsx`.
  */
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import type { PetStage } from "@/lib/pet-config";
@@ -194,7 +198,7 @@ export function PetEvolution({
   evolution: PetEvolutionEvent | null;
   onClaim: () => void;
 }) {
-  return (
+  return createPortal(
     <AnimatePresence>
       {evolution && (
         <motion.div
@@ -207,6 +211,7 @@ export function PetEvolution({
           <EvolutionScene evolution={evolution} onClaim={onClaim} />
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
