@@ -3,6 +3,12 @@ import { Coins, Sparkles, X } from "lucide-react";
 import { useGameState } from "@/hooks/use-game-state";
 import { PET_STAGES } from "@/lib/pet-config";
 import { LEVEL_THRESHOLDS } from "@/game/level";
+import {
+  PINNED_PROJECT_ID,
+  WEEKLY_PROJECTS,
+  getDevProjectId,
+  setDevProjectId,
+} from "@/lib/projects-config";
 import { hapticSelect, hapticSuccess, hapticTap } from "@/lib/haptics";
 
 /**
@@ -30,6 +36,21 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
   const setGold = (next: number) => {
     hapticTap();
     devSetGold(next);
+  };
+
+  // Читается один раз при открытии панели: страница всё равно перезагрузится
+  // при выборе, так что следить за изменениями тут нечего.
+  const devProjectId = getDevProjectId();
+  const pinnedProject = WEEKLY_PROJECTS.find(
+    (project) => project.id === PINNED_PROJECT_ID
+  );
+
+  const pickProject = (projectId: string | null) => {
+    hapticSelect();
+    setDevProjectId(projectId);
+    // Перезагрузка — самый честный способ: проект недели разбирается
+    // по всем экранам сразу, и обновлять их поодиночке смысла нет.
+    window.location.reload();
   };
 
   return (
@@ -141,6 +162,75 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/**
+         * ПРОЕКТ НЕДЕЛИ.
+         *
+         * ⚠️ ЭТО ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ СВОЕГО ТЕЛЕФОНА, А НЕ ДЛЯ ДЕТЕЙ, и текст
+         * под ним честно об этом говорит. Приложение — статический сайт,
+         * общего для всех решения ему хранить негде; что получают дети,
+         * задаёт `PINNED_PROJECT_ID` в `lib/projects-config.ts`. Обещать
+         * тут «поменял всем» нельзя: владелец нажмёт, увидит меч у себя
+         * и будет думать, что дети видят то же.
+         *
+         * Страница перезагружается нарочно: проект недели считается один раз
+         * при показе экрана, и без перезагрузки переключение выглядело бы
+         * как «кнопка не работает».
+         */}
+        <div className="mb-6">
+          <div className="flex items-baseline mb-1">
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+              Проект недели
+            </span>
+            <span className="ml-auto font-mono text-[11px] font-bold text-slate-400 dark:text-slate-500">
+              {devProjectId ? "смотрю свой" : "как у детей"}
+            </span>
+          </div>
+
+          <p className="mb-3 text-[11px] leading-snug text-slate-400 dark:text-slate-500">
+            У ДЕТЕЙ сейчас:{" "}
+            <b className="text-slate-600 dark:text-slate-300">
+              {pinnedProject ? pinnedProject.title + " (закреплён)" : "по расписанию недель"}
+            </b>
+            . Кнопки ниже меняют проект только на этом телефоне — чтобы
+            посмотреть и поснимать. Чтобы поменять всем, скажи мне: это
+            одна строка в коде.
+          </p>
+
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => pickProject(null)}
+              className={`col-span-2 py-2 rounded-xl border text-sm font-bold transition-colors ${
+                devProjectId
+                  ? "bg-slate-50 dark:bg-muted border-slate-200 dark:border-border text-slate-600 dark:text-slate-300"
+                  : "bg-primary/10 border-primary text-primary"
+              }`}
+            >
+              Как у детей
+            </button>
+
+            {WEEKLY_PROJECTS.map((project) => (
+              <button
+                key={project.id}
+                onClick={() => pickProject(project.id)}
+                className={`py-2 px-1 rounded-xl border text-center transition-colors ${
+                  devProjectId === project.id
+                    ? "bg-primary/10 border-primary text-primary"
+                    : "bg-slate-50 dark:bg-muted border-slate-200 dark:border-border text-slate-600 dark:text-slate-300"
+                }`}
+              >
+                <span className="block text-[11px] font-bold leading-tight truncate">
+                  {project.title}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <p className="mt-2 text-[11px] leading-snug text-slate-400 dark:text-slate-500">
+            Сданные шаги привязаны к своему проекту, поэтому у чужого все
+            пять шагов будут выглядеть несделанными. Так и должно быть.
+          </p>
         </div>
 
         <button
