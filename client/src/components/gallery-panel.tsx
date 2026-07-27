@@ -10,6 +10,7 @@ import {
   getGalleryItems,
 } from "@/lib/gallery-config";
 import { hapticTap } from "@/lib/haptics";
+import { ZoomableImage } from "@/components/zoomable-image";
 
 /**
  * ЗАЛ СЛАВЫ — работы учеников школы.
@@ -149,22 +150,30 @@ export function GalleryPanel({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          {/* `object-contain` — работу показываем целиком, без обрезки:
-              тут она главная, а не плитка в сетке. */}
+          {/* Работу показываем целиком, без обрезки: тут она главная,
+              а не плитка в сетке. Приближается щипком и двойным касанием —
+              устройство и причина в `zoomable-image.tsx`. */}
           <div className="flex-1 min-h-0 flex items-center justify-center px-4">
-            <img
+            <ZoomableImage
               src={galleryImageUrl(openWork.file, false)}
               alt={"Работа ученика " + openWork.nick}
-              className="max-w-full max-h-full object-contain rounded-2xl"
+              resetKey={openWork.file}
             />
           </div>
 
           <div className="px-5 pb-8 pt-3">
             {openWork.title && (
-              <p className="text-sm text-white/80 text-center mb-3">
+              <p className="text-sm text-white/80 text-center mb-1">
                 {openWork.title}
               </p>
             )}
+
+            {/* Про щипок надо СКАЗАТЬ: жест невидим, и сам по себе его
+                пробует не каждый. Одной строкой и тихо — она нужна
+                до первого раза, а дальше не мешает. */}
+            <p className="text-[11px] text-white/40 text-center mb-3">
+              Двумя пальцами или двойным касанием — приблизить
+            </p>
 
             {/* Стрелки прячем, когда работа всего одна: кнопка, которая
                 возвращает на ту же картинку, выглядит поломкой. */}
