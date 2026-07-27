@@ -3,7 +3,6 @@ import { TopBar } from "@/components/top-bar";
 import { motion } from "framer-motion";
 import {
   User,
-  RotateCcw,
   PenSquare,
   Sun,
   Moon,
@@ -24,7 +23,7 @@ import { forgetTour } from "@/components/tour";
 import { forgetWelcome } from "@/components/welcome-screen";
 
 /**
- * ПРОФИЛЬ — имя, тема, подсказки, наши каналы и сброс прогресса.
+ * ПРОФИЛЬ — имя, тема, подсказки и наши каналы.
  *
  * ⚠️ ГЛАВНОЕ ПРО ЭТОТ ЭКРАН: он должен оставаться КОРОТКИМ И СКУЧНЫМ.
  *
@@ -45,7 +44,6 @@ export default function ProfilePage() {
     telegramUserId,
     telegramUsername,
     setUsername,
-    resetGame,
   } = useGameState();
   const theme = useTheme();
   const [, setLocation] = useLocation();
@@ -198,7 +196,7 @@ export default function ProfilePage() {
             экран «очень нагроможденным», и был прав: он смешивал четыре
             разные вещи — кто я, как я расту, куда сходить и настройки.
 
-            Осталось только последнее: имя, тема, подсказки, каналы и сброс.
+            Осталось только последнее: имя, тема, подсказки и каналы.
             Сюда заходят редко и по делу, поэтому экран и должен быть
             коротким и скучным. Не возвращать сюда игровое —
             см. components/growth-section.tsx и components/friends-section.tsx. */}
@@ -242,16 +240,15 @@ export default function ProfilePage() {
           </button>
         )}
 
-        <button
-          onClick={() => {
-            if (window.confirm("Ты уверен, что хочешь сбросить весь свой прогресс?")) {
-              resetGame();
-            }
-          }}
-          className="w-full py-4 flex items-center justify-center gap-2 text-red-500 dark:text-red-400 font-bold bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 rounded-2xl transition-colors"
-        >
-          <RotateCcw className="w-5 h-5" /> Сбросить прогресс
-        </button>
+        {/* «СБРОСИТЬ ПРОГРЕСС» ОТСЮДА УБРАНА 28.07 — решение владельца.
+            Подросток-тестировщик спросил: «зачем мне сбрасывать прогресс,
+            если у меня уже крутой призрак?» В играх сброс что-то даёт
+            взамен, у нас не даёт ничего — то есть это кнопка, которая может
+            только отнять всё нажатием мимо. Ребёнку она не нужна.
+
+            Владельцу нужна — для проверок и съёмок, — поэтому она переехала
+            в панель владельца (components/dev-panel.tsx), куда дети попасть
+            не могут. Сюда НЕ возвращать. */}
       </div>
 
       {showDevPanel && <DevPanel onClose={() => setShowDevPanel(false)} />}

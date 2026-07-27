@@ -1,15 +1,16 @@
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { Coins, Sparkles, X } from "lucide-react";
+import { Coins, RotateCcw, Sparkles, X } from "lucide-react";
 import { useGameState } from "@/hooks/use-game-state";
 import { PET_STAGES } from "@/lib/pet-config";
 import { LEVEL_THRESHOLDS } from "@/game/level";
 import {
-  PINNED_PROJECT_ID,
   WEEKLY_PROJECTS,
+  getChildrenWeekProject,
   getDevProjectId,
   setDevProjectId,
 } from "@/lib/projects-config";
+import { getWeeklyCycleKey } from "@/game/dates";
 import { hapticSelect, hapticSuccess, hapticTap } from "@/lib/haptics";
 
 /**
@@ -32,6 +33,7 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
     devSetLevel,
     devSetGold,
     devReplayEvolution,
+    resetGame,
   } = useGameState();
 
   const maxLevel = LEVEL_THRESHOLDS.length;
@@ -49,9 +51,9 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
   // Читается один раз при открытии панели: страница всё равно перезагрузится
   // при выборе, так что следить за изменениями тут нечего.
   const devProjectId = getDevProjectId();
-  const pinnedProject = WEEKLY_PROJECTS.find(
-    (project) => project.id === PINNED_PROJECT_ID
-  );
+  // Что в эту неделю получают ДЕТИ — считаем мимо подмены, иначе строка
+  // ниже показывала бы владельцу его же выбор и ничего не объясняла.
+  const childrenProject = getChildrenWeekProject(getWeeklyCycleKey());
 
   const pickProject = (projectId: string | null) => {
     hapticSelect();
@@ -178,9 +180,10 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
          * ⚠️ ЭТО ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ СВОЕГО ТЕЛЕФОНА, А НЕ ДЛЯ ДЕТЕЙ, и текст
          * под ним честно об этом говорит. Приложение — статический сайт,
          * общего для всех решения ему хранить негде; что получают дети,
-         * задаёт `PINNED_PROJECT_ID` в `lib/projects-config.ts`. Обещать
-         * тут «поменял всем» нельзя: владелец нажмёт, увидит меч у себя
-         * и будет думать, что дети видят то же.
+         * задаёт очередь недель от `ROTATION_START_MONDAY`
+         * в `lib/projects-config.ts`. Обещать тут «поменял всем» нельзя:
+         * владелец нажмёт, увидит меч у себя и будет думать, что дети
+         * видят то же.
          *
          * Страница перезагружается нарочно: проект недели считается один раз
          * при показе экрана, и без перезагрузки переключение выглядело бы
@@ -197,13 +200,13 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           <p className="mb-3 text-[11px] leading-snug text-slate-400 dark:text-slate-500">
-            У ДЕТЕЙ сейчас:{" "}
+            У ДЕТЕЙ на этой неделе:{" "}
             <b className="text-slate-600 dark:text-slate-300">
-              {pinnedProject ? pinnedProject.title + " (закреплён)" : "по расписанию недель"}
+              {childrenProject.title}
             </b>
-            . Кнопки ниже меняют проект только на этом телефоне — чтобы
-            посмотреть и поснимать. Чтобы поменять всем, скажи мне: это
-            одна строка в коде.
+            . В понедельник список сам едет на следующий. Кнопки ниже меняют
+            проект только на этом телефоне — чтобы посмотреть и поснимать.
+            Чтобы поменять всем, скажи мне: это одна строка в коде.
           </p>
 
           <div className="grid grid-cols-2 gap-1.5">
@@ -257,6 +260,32 @@ export function DevPanel({ onClose }: { onClose: () => void }) {
           перезапуск и видны на других устройствах. Задания, серия и достижения
           не трогаются.
         </p>
+
+        {/**
+         * СБРОС ПРОГРЕССА. Стоял в профиле, у всех детей — убран оттуда 28.07
+         * по решению владельца: ребёнку сброс не даёт взамен ничего, только
+         * отнимает призрака нажатием мимо. Владельцу он нужен для проверок,
+         * поэтому живёт здесь, куда дети попасть не могут.
+         *
+         * Два вопроса подряд, а не один: тут в отличие от профиля рядом стоят
+         * кнопки, на которые жмут часто, и цена промаха — весь прогресс.
+         *
+         * Перезагрузка страницы после сброса нарочно: половина экранов
+         * считает своё состояние один раз при показе, и без неё сброс
+         * выглядел бы наполовину случившимся.
+         */}
+        <button
+          onClick={() => {
+            if (!window.confirm("Сбросить весь прогресс? Уровень, голда, вещи, серия и медали обнулятся.")) return;
+            if (!window.confirm("Точно? Это не отменить.")) return;
+
+            resetGame();
+            window.location.reload();
+          }}
+          className="mt-4 w-full py-3 flex items-center justify-center gap-2 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 font-bold"
+        >
+          <RotateCcw className="w-4 h-4" /> Сбросить прогресс
+        </button>
       </motion.div>
     </div>,
     document.body
