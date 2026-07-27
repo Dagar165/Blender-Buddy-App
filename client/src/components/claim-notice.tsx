@@ -14,6 +14,11 @@ import { hapticSuccess, hapticWarn } from "@/lib/haptics";
  *
  * Не блокирует экран: это не праздник уровня, а короткая весть. Уходит сама
  * через несколько секунд, но по нажатию исчезает сразу.
+ *
+ * ⚠️ СЛОЙ `z-[80]` НЕ ПОНИЖАТЬ. Плашка обязана быть выше полноэкранных окон
+ * (игра, зал славы, медали — они на `z-[60]`). Пока она стояла на `z-50`,
+ * ребёнок, ушедший играть, видел только конфетти и не понимал, за что оно:
+ * сама весть рисовалась ПОД игрой. Таблица слоёв целиком — в шапке `App.tsx`.
  */
 const VISIBLE_MS = 5000;
 
@@ -45,7 +50,7 @@ export function ClaimNotice() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -80, opacity: 0 }}
           transition={{ type: "spring", bounce: 0.35, duration: 0.5 }}
-          className={`fixed top-3 left-3 right-3 z-50 flex items-center gap-3 rounded-2xl border p-3 text-left shadow-xl backdrop-blur ${
+          className={`fixed top-3 left-3 right-3 z-[80] flex items-center gap-3 rounded-2xl border p-3 text-left shadow-xl backdrop-blur ${
             approved
               ? "bg-green-50/95 border-green-200 shadow-green-500/20 dark:bg-green-500/15 dark:border-green-500/40 dark:shadow-black/50"
               : "bg-amber-50/95 border-amber-200 shadow-amber-500/20 dark:bg-amber-500/15 dark:border-amber-500/40 dark:shadow-black/50"
