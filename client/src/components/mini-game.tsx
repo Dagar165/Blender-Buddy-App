@@ -555,7 +555,7 @@ export function MiniGame({
               }}
               className="mt-2.5 w-full rounded-xl border border-violet-300 py-2 text-xs font-bold text-violet-600 active:scale-[0.98] transition-transform dark:border-violet-500/50 dark:text-violet-300"
             >
-              Открыть чат школы →
+              Открыть наш Телеграм →
             </button>
           )}
         </div>

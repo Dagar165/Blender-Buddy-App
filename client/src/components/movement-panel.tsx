@@ -164,7 +164,9 @@ export function MovementPanel({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* ЧАТ ШКОЛЫ */}
+        {/* НАШ ТЕЛЕГРАМ. Отдельного чата у школы нет — разговор живёт
+            в комментариях под постами, поэтому и написано так. Разбор —
+            в шапке `SCHOOL_CHAT` (`lib/links-config.ts`). */}
         <button
           onClick={() => openOutboundLink(COMMUNITY_LINK)}
           className="w-full rounded-3xl bg-white dark:bg-card border border-slate-200 dark:border-border p-5 text-left active:scale-[0.99] transition-transform"
@@ -173,14 +175,14 @@ export function MovementPanel({ onClose }: { onClose: () => void }) {
             Каждый день
           </p>
           <h3 className="font-display text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">
-            Чат школы
+            Наш Телеграм
           </h3>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 leading-snug">
-            Там скидывают работы, спрашивают, когда застряли, и голосуют,
-            что моделить дальше.
+            В комментариях под постами показывают работы, спрашивают, когда
+            застряли, и голосуют, что моделить дальше.
           </p>
           <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-primary dark:text-blue-300">
-            Открыть чат <ExternalLink className="w-3.5 h-3.5" />
+            Открыть <ExternalLink className="w-3.5 h-3.5" />
           </span>
         </button>
       </div>

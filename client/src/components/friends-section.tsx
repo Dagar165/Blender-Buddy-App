@@ -63,7 +63,7 @@ export function FriendsSection() {
             Наши движухи
           </span>
           <span className="block text-xs text-slate-500 dark:text-slate-400 leading-snug">
-            Марафон и чат школы — что это и чем отличается
+            Марафон и наш Телеграм — что это и чем отличается
           </span>
         </span>
         <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />

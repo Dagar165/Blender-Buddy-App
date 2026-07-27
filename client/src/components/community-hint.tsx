@@ -34,7 +34,7 @@ export function CommunityHint({
         {line}
       </span>
       <span className="mt-1.5 flex items-center gap-1 text-xs font-bold text-sky-600 dark:text-sky-300">
-        Открыть чат школы
+        Открыть наш Телеграм
         <ArrowRight className="h-3.5 w-3.5" />
       </span>
     </button>

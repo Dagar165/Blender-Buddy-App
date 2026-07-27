@@ -646,7 +646,7 @@ export default function PetPage() {
                     }}
                     className="mt-2 w-full text-center text-[11px] font-bold text-sky-600 dark:text-sky-300 active:scale-95 transition-transform"
                   >
-                    Открыть чат школы →
+                    Открыть наш Телеграм →
                   </button>
                 )}
 

@@ -100,7 +100,7 @@ export const GALLERY_INTRO =
  * а он задуман как витрина.
  */
 export const GALLERY_HOW_TO_GET_IN =
-  "Хочешь сюда же — скинь свою работу в чат школы.";
+  "Хочешь сюда же — покажи свою работу в комментах под постом.";
 
 /** Плоский список всех работ подряд, в порядке из `GALLERY_AUTHORS`. */
 export type GalleryItem = GalleryWork & { nick: string };
